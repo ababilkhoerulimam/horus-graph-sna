@@ -1,0 +1,207 @@
+"""API HTTP: setiap endpoint diuji pada bundle sintetis, bukan data nyata."""
+
+from __future__ import annotations
+
+from datetime import date
+from pathlib import Path
+
+import pandas as pd
+import pyarrow as pa
+import pytest
+
+from horus_graph.api.app import create_app
+from horus_graph.contract import schema
+from horus_graph.io import write_bundle
+
+pytest.importorskip("fastapi")
+from fastapi.testclient import TestClient  # noqa: E402
+
+
+def _pad(frame: pd.DataFrame, target: pa.Schema) -> pd.DataFrame:
+    padded = frame.copy()
+    for field in target:
+        if field.name not in padded.columns:
+            padded[field.name] = None
+    return padded
+
+
+def _write_bundle(root: Path, bundle_factory) -> Path:
+    """
+    Rantai A-B-C-D di atas 80 artikel.
+
+    Rantai murni membuat pasangan tengah (B-C) berasosiasi *negatif*: B dan C
+    masing-masing muncul di separuh korpus, sementara kebersamaannya hanya
+    seperempat. Menambah artikel latar tanpa entitas menurunkan marginal
+    sehingga asosiasi ketiga pasangan kembali positif — sama seperti korpus
+    nyata yang selalu punya artikel di luar topik.
+    """
+    rows = [(f"art{i:03d}", e, 1) for i in range(0, 10) for e in ("A", "B")]
+    rows += [(f"art{i:03d}", e, 1) for i in range(10, 20) for e in ("B", "C")]
+    rows += [(f"art{i:03d}", e, 1) for i in range(20, 30) for e in ("C", "D")]
+    dates = ["2021-06-01"] * 40 + ["2023-06-01"] * 40
+    bundle = bundle_factory(
+        ["A", "B", "C", "D"],
+        rows,
+        articles=80,
+        ego="A",
+        dates=dates,
+        epochs=[("e1", 2021, 2022), ("e2", 2023, 2024)],
+        topics=["T1"],
+        article_topics=[(f"art{i:03d}", "T1") for i in range(0, 20)],
+    )
+
+    entities = _pad(bundle.entities, schema.ENTITIES)
+    entities["description"] = ["Pusat", None, None, None]
+    entities["ring_level"] = [0, 1, 2, 3]
+    entities["is_anchor"] = [True, False, False, False]
+
+    articles = _pad(bundle.articles, schema.ARTICLES)
+    articles["url"] = [f"https://example.test/{index}" for index in range(len(articles))]
+
+    write_bundle(
+        root,
+        frames={
+            "entities": entities,
+            "articles": articles,
+            "mentions": _pad(bundle.mentions, schema.MENTIONS),
+            "topics": _pad(bundle.topics, schema.TOPICS),
+            "article_topics": _pad(bundle.article_topics, schema.ARTICLE_TOPICS),
+        },
+        domain=bundle.domain,
+        dataset_id="synthetic",
+        date_range=(date(2021, 1, 1), date(2026, 12, 31)),
+        generator="tests/api",
+    )
+    return root
+
+
+@pytest.fixture()
+def client(tmp_path, bundle_factory) -> TestClient:
+    root = _write_bundle(tmp_path / "bundle", bundle_factory)
+    return TestClient(create_app(root))
+
+
+def test_health_menyebut_populasi(client):
+    payload = client.get("/api/health").json()
+
+    assert payload["status"] == "ok"
+    assert payload["nodes"] == 4
+    assert payload["contract_version"] == schema.CONTRACT_VERSION
+
+
+def test_bootstrap_memuat_semua_kunci_yang_dipakai_ui(client):
+    payload = client.get("/api/bootstrap").json()
+
+    assert set(payload) == {
+        "presentation",
+        "dataset",
+        "graph",
+        "epochs",
+        "topics",
+        "entity_index",
+        "coverage",
+        "anomaly",
+        "provenance",
+    }
+    assert len(payload["graph"]["nodes"]) == 4
+    assert len(payload["graph"]["links"]) == 3
+    assert payload["presentation"]["title"] == "synthetic"
+    assert payload["entity_index"][0]["id"]
+
+
+def test_simpul_membawa_presentasi_dari_bundle(client):
+    nodes = {node["id"]: node for node in client.get("/api/bootstrap").json()["graph"]["nodes"]}
+
+    assert nodes["A"]["is_ego"] is True
+    assert nodes["A"]["description"] == "Pusat"
+    assert nodes["A"]["orbit_label"] == "Pusat"
+    assert nodes["B"]["orbit_label"] == "Cincin 1"
+    assert nodes["A"]["is_anchor"] is True
+
+
+def test_edge_membawa_npmi_dan_jaccard(client):
+    links = client.get("/api/bootstrap").json()["graph"]["links"]
+
+    for link in links:
+        assert 0 <= link["jaccard"] <= 1
+        assert link["salton_cosine"] is not None
+        assert link["weight"] > 0
+
+
+def test_overview_dan_compare(client):
+    overview = client.get("/api/graph/overview").json()
+    assert overview["total_nodes"] == 4
+    assert overview["ego_node"] == "A"
+
+    compare = client.get("/api/graph/compare").json()
+    assert compare["available"] is True
+    assert compare["baseline_period"] == "e1"
+    assert compare["target_period"] == "e2"
+
+
+def test_dossier_dan_entitas_tidak_dikenal(client):
+    dossier = client.get("/api/entities/A")
+    assert dossier.status_code == 200
+    assert dossier.json()["id"] == "A"
+
+    missing = client.get("/api/entities/tidak-ada")
+    assert missing.status_code == 404
+
+
+def test_rute_dan_kontrafaktual(client):
+    route = client.get("/api/analysis/path", params={"origin": "A", "target": "D"}).json()
+    assert route["path"] == ["A", "B", "C", "D"]
+
+    removal = client.get("/api/analysis/counterfactual", params={"entity": "B"}).json()
+    assert removal["success"] is True
+    assert removal["post"]["edges"] < removal["baseline"]["edges"]
+
+
+def test_peringkat_dan_briefing(client):
+    brokers = client.get("/api/analysis/brokers").json()
+    assert brokers["ranking"]
+
+    holes = client.get("/api/analysis/holes", params={"mode": "high_autonomy"}).json()
+    assert "ranking" in holes
+
+    briefing = client.get("/api/analysis/briefing").json()
+    assert briefing["macro"]["nodes"] == 4
+
+
+def test_bukti_edge_memakai_artikel_yang_benar(client):
+    payload = client.get(
+        "/api/edges/evidence", params={"source": "A", "target": "B"}
+    ).json()
+
+    assert payload["weight"] > 0
+    assert payload["evidence"]
+    assert payload["evidence"][0]["url"].startswith("https://example.test/")
+
+    missing = client.get("/api/edges/evidence", params={"source": "A", "target": "D"})
+    assert missing.status_code == 404
+
+
+def test_topik_dan_temporal(client):
+    topics = client.get("/api/topics/actor-network").json()
+    assert topics["total_topics"] >= 1
+
+    epochs = client.get("/api/temporal").json()["epochs"]
+    assert len(epochs) == 3  # e1, e2, all_time
+
+
+def test_enhance_mengembalikan_blok_inferensi(client):
+    payload = client.get(
+        "/api/enhance", params={"resamples": 10, "bootstrap_resamples": 10}
+    ).json()
+
+    assert payload["null_model"]["method"] == "degree_preserving_double_edge_swap"
+    assert "topology" in payload
+    assert "bursts" in payload
+
+
+def test_tanpa_bundle_mengembalikan_503(tmp_path):
+    client = TestClient(create_app(tmp_path / "tidak-ada"))
+    response = client.get("/api/bootstrap")
+
+    assert response.status_code == 503
+    assert "Bundle" in response.json()["detail"]

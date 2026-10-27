@@ -39,7 +39,13 @@ ENTITIES_OPTIONAL = pa.schema(
     ]
 )
 
-OPTIONAL_COLUMNS = {"entities": ENTITIES_OPTIONAL}
+# Tautan sumber artikel: dibutuhkan panel bukti agar temuan bisa dibuka,
+# tetapi tidak dipakai perhitungan apa pun.
+ARTICLES_OPTIONAL = pa.schema(
+    [pa.field("url", pa.string(), nullable=True)]
+)
+
+OPTIONAL_COLUMNS = {"entities": ENTITIES_OPTIONAL, "articles": ARTICLES_OPTIONAL}
 
 ARTICLES = pa.schema(
     [

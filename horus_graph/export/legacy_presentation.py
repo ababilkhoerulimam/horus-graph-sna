@@ -31,8 +31,19 @@ _DESCRIPTIONS = re.compile(
 _MILESTONES = re.compile(
     r"const\s+MILESTONES\s*=\s*\{(?P<body>.*?)\n\s*\};", re.DOTALL
 )
+_CLUSTER_LABELS = re.compile(
+    r"const\s+clusterLabels\s*=\s*\{(?P<body>.*?)\n\s*\};", re.DOTALL
+)
+_ORBIT_TIERS = re.compile(
+    r"const\s+ORBIT_TIERS\s*=\s*\[(?P<body>.*?)\n\s*\];", re.DOTALL
+)
+_ORBIT_LABEL = re.compile(r"label\s*:\s*\"((?:[^\"\\]|\\.)*)\"")
 _STRING_ENTRY = re.compile(r'"((?:[^"\\]|\\.)*)"\s*:\s*"((?:[^"\\]|\\.)*)"')
 _MILESTONE_ENTRY = re.compile(r"(\d{4}|null)\s*:\s*\"((?:[^\"\\]|\\.)*)\"")
+
+# Label cincin 0 tidak ada di visualizer lama (di sana cincin 0 adalah simpul
+# pusat, bukan cincin). Nama netral ini menjaga indeks tetap lurus.
+RING_ZERO_LABEL = "Pusat"
 
 
 def extract_from_legacy_repo(repo: Path | str, domain: Any) -> Dict[str, Any]:
@@ -40,19 +51,36 @@ def extract_from_legacy_repo(repo: Path | str, domain: Any) -> Dict[str, Any]:
     index = Path(repo) / "web" / "static" / "index.html"
     descriptions = extract_descriptions(index)
     narratives = extract_milestones(index)
+    cluster_labels = extract_cluster_labels(index)
+    orbit_tiers = extract_orbit_tiers(index)
 
     entity_types = _entity_types(domain)
-    clusters = _clusters(domain)
+    clusters = _clusters(domain, cluster_labels)
 
     payload: Dict[str, Any] = {
         "title": f"Analisis Jaringan: {domain.club_display}",
         "ego": {"id": domain.club_id, "label": domain.club_display},
         "entity_types": entity_types,
         "clusters": clusters,
+        "orbit_tiers": [RING_ZERO_LABEL, *orbit_tiers],
         "epoch_narratives": narratives,
         "entity_descriptions": descriptions,
     }
     return payload
+
+
+def extract_cluster_labels(index: Path) -> Dict[str, str]:
+    raw = _parse_block(index, _CLUSTER_LABELS, "clusterLabels")
+    pairs = _STRING_ENTRY.findall(raw)
+    return {_unescape(key): _unescape(value) for key, value in pairs}
+
+
+def extract_orbit_tiers(index: Path) -> list[str]:
+    raw = _parse_block(index, _ORBIT_TIERS, "ORBIT_TIERS")
+    labels = [_unescape(value) for value in _ORBIT_LABEL.findall(raw)]
+    if not labels:
+        raise ValueError(f"{index}: ORBIT_TIERS tidak memuat satu pun label")
+    return labels
 
 
 def extract_descriptions(index: Path) -> Dict[str, str]:
@@ -106,13 +134,16 @@ def _entity_types(domain: Any) -> list[Dict[str, Any]]:
     ]
 
 
-def _clusters(domain: Any) -> list[Dict[str, Any]]:
+def _clusters(domain: Any, labels: Dict[str, str]) -> list[Dict[str, Any]]:
     seen: Dict[str, Optional[str]] = {}
     for entity in domain.entities:
         cluster = getattr(entity, "cluster", None)
         if cluster and cluster not in seen:
             seen[cluster] = getattr(entity, "color", None)
-    return [{"id": key, "label": key, "color": color} for key, color in seen.items()]
+    return [
+        {"id": key, "label": labels.get(key, key), "color": color}
+        for key, color in seen.items()
+    ]
 
 
 def load_presentation_file(path: Path | str) -> Dict[str, Any]:

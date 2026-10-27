@@ -72,7 +72,14 @@ horus-graph counterfactual path/to/bundle "Nama Entitas"
 horus-graph briefing path/to/bundle
 horus-graph enhance path/to/bundle    # null model, bootstrap, topologi, perputaran, burst
 horus-graph enhance path/to/bundle --json --resamples 200 --bootstrap-resamples 200
+
+horus-graph serve                     # API + visualizer di http://127.0.0.1:8000
+horus-graph serve --bundle path/to/bundle --port 8080
 ```
+
+`serve` memilih bundle lewat urutan: `--bundle` → `HORUS_BUNDLE` → bundle
+terbaru di `data/bundles/`. Tanpa bundle, API tetap hidup dan mengembalikan 503
+dengan pesan yang bisa ditampilkan UI — bukan mati saat start.
 
 ```python
 from horus_graph import load_bundle
@@ -158,6 +165,28 @@ ko-okurensi bukan kausalitas, ambang adalah pilihan analis, lapisan yang belum
 ada dilaporkan `awaiting_input` (bukan nol), edge `rescued` dihitung terpisah,
 presisi tanggal, dan resolusi p-value.
 
+## API
+
+Satu proses = satu bundle. Semua panel membaca `AppState` yang sama, sehingga
+angka tidak mungkin berbeda antar tampilan.
+
+| Endpoint | Isi |
+| --- | --- |
+| `GET /api/bootstrap` | seluruh data boot: presentasi, graf, epos, topik, indeks entitas, cakupan, anomali, provenance |
+| `GET /api/graph/overview` | ringkasan makro |
+| `GET /api/graph/compare?baseline=&target=` | delta degree/betweenness/constraint antar epos |
+| `GET /api/entities/{id}` | dossier satu entitas |
+| `GET /api/analysis/path?origin=&target=` | rute terkuat + alternatif |
+| `GET /api/analysis/counterfactual?entity=` | simulasi penghapusan simpul |
+| `GET /api/analysis/brokers`, `/holes`, `/briefing` | peringkat dan ringkasan |
+| `GET /api/edges/evidence?source=&target=` | artikel yang menyebut kedua entitas |
+| `GET /api/topics/actor-network` | bipartit topik-aktor |
+| `GET /api/temporal`, `/api/enhance`, `/api/provenance` | epos, inferensi, asal angka |
+| `GET /api/health`, `/api/dataset/status` | status proses |
+
+Tidak ada endpoint passthrough artefak JSON: UI membaca `/api/bootstrap` sekali,
+bukan enam berkas terpisah.
+
 ## Prinsip
 
 1. Engine tanpa IO jaringan, tanpa SQLite, tanpa nama domain di dalam kode.
@@ -177,5 +206,5 @@ presisi tanggal, dan resolusi p-value.
 - [x] M5 layer transmission & sentiment (dua arah: kosong → `None`, terisi → dipakai)
 - [x] M6 enhance: null model, bootstrap CI, community stability, k-core, turnover
 - [x] M7 kontrak presentasi v1.1: kolom opsional entitas + `manifest.presentation`
-- [ ] M8 API: `/api/bootstrap` dan endpoint analisis
+- [x] M8 API: `/api/bootstrap` dan seluruh endpoint analisis
 - [ ] M9 visualizer: port HTML, cabut seluruh hardcode domain

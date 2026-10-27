@@ -102,6 +102,15 @@ class Presentation:
             return style.color
         return _cycle(NEUTRAL_COLORS, index)
 
+    def orbit_label(self, level: Optional[int]) -> Optional[str]:
+        """Label cincin; cincin 0 adalah pusat, sisanya bernomor."""
+        if level is None:
+            return None
+        index = int(level)
+        if 0 <= index < len(self.orbit_tiers):
+            return self.orbit_tiers[index]
+        return "Pusat" if index == 0 else f"Cincin {index}"
+
     def as_dict(self) -> Dict[str, Any]:
         return {
             "title": self.title,

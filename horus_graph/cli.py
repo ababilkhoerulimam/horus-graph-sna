@@ -338,6 +338,18 @@ def _print_enhance(block: dict, topology, top: int) -> None:
         print(f"  - {note}")
 
 
+def _cmd_serve(args: argparse.Namespace) -> int:
+    from .api.app import run
+
+    run(
+        bundle=args.bundle,
+        host=args.host,
+        port=args.port,
+        reload=args.reload,
+    )
+    return 0
+
+
 def _cmd_export_legacy(args: argparse.Namespace) -> int:
     from .export.legacy import export_legacy_bundle
 
@@ -413,6 +425,15 @@ def build_parser() -> argparse.ArgumentParser:
     enhance.add_argument("--no-bootstrap", action="store_true", help="Lewati bootstrap")
     enhance.add_argument("--json", action="store_true")
     enhance.set_defaults(func=_cmd_enhance)
+
+    serve = sub.add_parser("serve", help="Jalankan API + visualizer")
+    serve.add_argument(
+        "--bundle", default=None, help="Path bundle (default: HORUS_BUNDLE atau data/bundles/)"
+    )
+    serve.add_argument("--host", default="127.0.0.1")
+    serve.add_argument("--port", type=int, default=8000)
+    serve.add_argument("--reload", action="store_true")
+    serve.set_defaults(func=_cmd_serve)
 
     export = sub.add_parser(
         "export-legacy", help="(migrasi) ekspor korpus horus-agent menjadi bundle"

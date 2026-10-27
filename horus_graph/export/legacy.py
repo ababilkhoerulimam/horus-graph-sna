@@ -158,6 +158,7 @@ def build_frames(
                 "lang": "id",
                 "dedupe_group": None,
                 "word_count": len((article.body or "").split()),
+                "url": url or None,
             }
         )
 

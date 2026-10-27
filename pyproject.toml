@@ -26,9 +26,14 @@ horus-graph = "horus_graph.cli:main"
 [project.optional-dependencies]
 # Hanya untuk alat migrasi `export-legacy` yang membaca config horus-agent (yaml).
 legacy = ["pyyaml>=6.0"]
+api = [
+    "fastapi>=0.115",
+    "uvicorn>=0.32",
+]
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28.1",
     "pytest>=8.0",
     "pyyaml>=6.0",
 ]
@@ -36,3 +41,7 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 norecursedirs = [".git", ".venv"]
+filterwarnings = [
+    # Peringatan dari starlette tentang httpx 1.x, bukan dari kode repo ini.
+    "ignore:Using `httpx` with `starlette.testclient`:Warning",
+]
