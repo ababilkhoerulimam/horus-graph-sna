@@ -19,6 +19,7 @@ from ..core.build import NetworkBundle
 from ..core.stance import stance_of
 from ..enhance.reporting import reporting_block
 from ..presentation import Presentation
+from . import encoding
 from .state import AppState
 
 ROUND = 4
@@ -118,7 +119,32 @@ def node_payloads(state: AppState) -> List[Dict[str, Any]]:
         if sentiment is not None:
             node["sentiment"] = sentiment
         nodes.append(node)
+
+    _attach_size_encoding(nodes)
     return nodes
+
+
+def _attach_size_encoding(nodes: List[Dict[str, Any]]) -> None:
+    """
+    Skala ukuran dihitung sekali untuk seluruh graf.
+
+    Peringkat harus dilihat bersama-sama: satu simpul tidak bisa dinilai
+    "besar" tanpa tahu sebaran simpul lain. Menghitungnya di sini juga membuat
+    aturan ini bisa diuji dengan pytest, bukan dengan membuka browser.
+    """
+    block = encoding.encode(
+        {
+            node["id"]: {
+                "degree": node["degree"],
+                "articles": node["articles"],
+                "betweenness": node["betweenness"],
+                "effective_size": node["effective_size"],
+            }
+            for node in nodes
+        }
+    )
+    for node in nodes:
+        node.update(block.get(node["id"], {}))
 
 
 def _sentiment_block(network: NetworkBundle, entity_id: str) -> Optional[Dict[str, Any]]:

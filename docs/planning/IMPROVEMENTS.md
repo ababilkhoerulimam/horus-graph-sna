@@ -64,7 +64,7 @@ Tujuan: satu dataset baru tidak boleh menghasilkan gambar yang menyesatkan, dan
 tampilan yang sama harus bisa dibuka ulang persis. Semua butir V0 murah; tidak
 ada alasan menundanya.
 
-- [ ] **V0.1 Skala visual dihitung engine** — M
+- [x] **V0.1 Skala visual dihitung engine** — M
   - Berkas: `api/serializers.py:74` (`node_payloads`), `index.html:3766`,
     `:6419`
   - Kerjakan: tambah blok per simpul `size_rank`, `radius_tier`,
@@ -81,8 +81,16 @@ ada alasan menundanya.
     `size_rank` monoton terhadap degree pada graf bintang; bundle 5 simpul
     menghasilkan 5 tier berbeda.
   - Effort alasan: satu fungsi + satu blok payload + satu jalur UI.
+  - Hasil: `horus_graph/api/encoding.py` (98 baris) menghitung
+    `size_rank`, `rank_degree`, `rank_volume`, `rank_betweenness`, `rank_burt`,
+    `radius_tier`, `label_priority` dari peringkat persentil; seri diputus
+    `entity_id`. `node_payloads` memanggilnya sekali per graf lewat
+    `_attach_size_encoding`. Diukur di browser: 77 simpul → **77 radius
+    berbeda**, rentang 6–28 (dulu hanya lima nilai: 28/22/15/9.5/6). Tes:
+    `tests/test_api_encoding.py` (11 kasus, termasuk tier penuh untuk 5/6/17/77/400
+    simpul dan metrik kosong yang ditaruh di belakang).
 
-- [ ] **V0.2 Satu radius untuk semua mode** — S
+- [x] **V0.2 Satu radius untuk semua mode** — S
   - Berkas: `index.html:3766`, `:6419`, `:6440`
   - Kerjakan: hapus `assignNodeProminence`; `computeNodeRadius` membaca
     `radius_tier` dari payload. Pemilih metrik ukuran (`degree`/`betweenness`/
@@ -93,8 +101,14 @@ ada alasan menundanya.
     berkas.
   - Tes: `tests/test_frontend_integrity.py` — `assignNodeProminence` tidak ada;
     `computeNodeRadius` hanya membaca field payload, tidak ada literal pembagi.
+  - Hasil: `assignNodeProminence` dan `getNodeRadius` dihapus (34 baris);
+    `computeNodeRadius` kini `RADIUS_MIN + (RADIUS_MAX - RADIUS_MIN) * rank`,
+    dengan `SIZE_RANK_FIELDS` memetakan lima pilihan metrik ke lima field
+    peringkat. Radius tidak lagi bergantung pada metrik mentah, jadi simpul yang
+    sama tampil sama besar di semua mode. Diukur: `assignNodeProminence` →
+    `undefined` di runtime.
 
-- [ ] **V0.3 Label dari peringkat, bukan dari anchor** — S
+- [x] **V0.3 Label dari peringkat, bukan dari anchor** — S
   - Berkas: `index.html` (tempat label digambar), `serializers.py:102`
     (`is_anchor`)
   - Kerjakan: tampilkan label untuk `label_priority` teratas (batas tetap,
@@ -104,8 +118,14 @@ ada alasan menundanya.
     label tidak pernah bertumpuk satu sama lain pada zoom awal.
   - Tes: penghitung label di DOM lewat harness Chromium headless yang sudah
     dipakai Fase 2.
+  - Hasil: `labelBudget()` = `min(40, max(8, ceil(0.15 × jumlah simpul)))`;
+    `applyLabelBudget()` menyembunyikan label yang bertabrakan, dihitung ulang
+    saat simulasi berhenti dan saat zoom berakhir. Diukur pada bundle 77
+    simpul: 20 label dibuat, **12 tampil, 8 disembunyikan** karena bertumpuk.
+    Label anchor dari data tetap muncul; `is_anchor` tidak lagi menentukan
+    apakah sebuah simpul diberi label.
 
-- [ ] **V0.4 View state di URL** — M
+- [x] **V0.4 View state di URL** — M
   - Berkas: `index.html` (inisialisasi + semua setter mode/filter/zoom),
     `js/copilot_bridge.js` (jangan sentuh token)
   - Kerjakan: serialisasi `mode`, topik, epos, filter tipe, kamera, dan simpul
@@ -118,10 +138,30 @@ ada alasan menundanya.
     ada di `sessionStorage`.
   - Tes: `tests/test_frontend_integrity.py` — parser menolak field asing;
     `grep` memastikan token tidak pernah ditulis ke `location.hash`.
+  - Hasil: `#v=1&m=&t=&c=&k=&w=&n=&y=&s=&z=` diserialisasi otomatis (satu
+    listener `click/change/keyup` + zoom end), dipulihkan setelah tata letak
+    berhenti lewat `flushViewState()`. Tiga kali muat ulang berturut-turut
+    memulihkan mode `topic_actor`, ukuran `degree`, simpul terpilih, dan kamera
+    `k=1.4` — sama persis. Hash rusak diabaikan per-field (whitelist enum),
+    token tidak pernah masuk hash, dan skrip token di kepala halaman sekarang
+    mempertahankan hash saat membersihkan `?token=`.
+  - Sisa yang sengaja tidak dikerjakan: **tombol "salin tautan"** tidak dibuat.
+    Header sudah diukur 0 px luber di Fase 2, dan hash diperbarui otomatis
+    sehingga tautan bisa disalin dari address bar. Bila tombol tetap diinginkan,
+    tempatnya di menu "Data", bukan di toolbar.
+  - Catatan temuan: `applyTimelineFilter` masih menulis `epoch_1..epoch_3`
+    sebagai literal (`index.html:3529-3532`). Tidak merusak bundle lain karena
+    `updatePillsState` mengabaikan kunci tak dikenal, tetapi itu asumsi dataset
+    yang tersisa — kandidat butir berikutnya.
 
 **Selesai V0 bila:** dataset sintetis dengan 6 simpul dan 1.000 simpul
 menghasilkan gambar yang masuk akal tanpa menyunting kode, dan sebuah tampilan
 bisa dibuka ulang dari satu tautan.
+
+Status: **selesai** — keempat butir tertutup, 328 tes lulus, `ruff` dan `mypy`
+bersih. Diukur di Chromium headless: 77 radius berbeda (6–28), 12 dari 20 label
+tampil, dan tautan memulihkan mode + ukuran + seleksi + kamera secara konsisten
+tiga kali berturut-turut.
 
 ---
 

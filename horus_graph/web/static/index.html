@@ -28,7 +28,8 @@
           sessionStorage.setItem(TOKEN_KEY, dariUrl);
           params.delete("token");
           const sisa = params.toString();
-          window.history.replaceState({}, "", window.location.pathname + (sisa ? "?" + sisa : ""));
+          // Hash ikut dipertahankan: ia menyimpan keadaan tampilan, bukan token.
+          window.history.replaceState({}, "", window.location.pathname + (sisa ? "?" + sisa : "") + window.location.hash);
         }
         token = sessionStorage.getItem(TOKEN_KEY) || "";
       } catch (e) {
@@ -3631,6 +3632,11 @@
       .on("zoom", (e) => {
         container.attr("transform", e.transform);
         updateMinimapBox(e.transform);
+      })
+      // Setelah zoom berhenti, ruang antar label berubah: hitung ulang.
+      .on("end", () => {
+        scheduleLabelBudget();
+        syncViewStateToHash();
       });
     svg.call(zoom);
 
@@ -3760,52 +3766,11 @@
         .text(tier.label);
     });
 
-        // Mathematical Node Radius Scaling: 5-Tier Clustered Ego Composite Prominence
-    // Simpul yang selalu diberi label datang dari entities.is_anchor.
+    // Radius tidak lagi dihitung di sini: skala ukuran datang dari payload
+    // (`size_rank`, `rank_*`, `radius_tier`) yang dihitung engine dari
+    // peringkat. Satu fungsi radius untuk semua mode ada di computeNodeRadius.
 
-    function assignNodeProminence(d) {
-      if (d.is_ego) {
-        d.prominence_tier = 0;
-        d.node_radius = 28.0;
-        return 28.0;
-      }
-
-      const m = d.metrics || {};
-      const deg = m.degree || d.degree || 15;
-      const vol = m.corpus_sample_n || d.articles || d.size || 100;
-      const bw = m.betweenness || d.betweenness || 0.001;
-
-      const normDeg = Math.max(0.0, Math.min(1.0, (deg - 11) / (47 - 11)));
-      const logV = Math.log10(Math.max(10, vol));
-      const normVol = Math.max(0.0, Math.min(1.0, (logV - 2.2) / (3.85 - 2.2)));
-      const normBw = Math.max(0.0, Math.min(1.0, bw / 0.04));
-
-      const score = (normDeg * 0.45) + (normVol * 0.35) + (normBw * 0.20);
-
-      if (d.is_anchor || score >= 0.75) {
-        d.prominence_tier = 1;
-        d.node_radius = 22.0;
-      } else if (score >= 0.50) {
-        d.prominence_tier = 2;
-        d.node_radius = 15.0;
-      } else if (score >= 0.25) {
-        d.prominence_tier = 3;
-        d.node_radius = 9.5;
-      } else {
-        d.prominence_tier = 4;
-        d.node_radius = 6.0;
-      }
-      return d.node_radius;
-    }
-
-    function getNodeRadius(d) {
-      if (d.node_radius && d.prominence_tier !== undefined) return d.node_radius;
-      return assignNodeProminence(d);
-    }
-
-    allData.nodes.forEach(n => assignNodeProminence(n));
-
-        // Deskripsi entitas berasal dari bundle (entities.description).
+    // Deskripsi entitas berasal dari bundle (entities.description).
     function entityDescription(d) {
       if (!d) return "";
       return d.description || typeLabel(d.entity_type);
@@ -4164,7 +4129,7 @@
       const nodeColor = d.color || "#8A99AE";
 
       // 0. Solid Background Shield (Masks any edge passing underneath this node)
-      const baseRadius = d.node_radius || (isSun ? 28.0 : (d.prominence_tier === 1 ? 22.0 : 15.0));
+      const baseRadius = computeNodeRadius(d);
       d.node_radius = baseRadius;
 
       el.append("circle")
@@ -4193,7 +4158,7 @@
       }
 
       // 2. Sub-Hub Concentric Outer Accent Ring (Tier 1) - crisp and glowing
-      if (d.prominence_tier === 1 && !isSun) {
+      if (d.radius_tier === 1 && !isSun) {
         el.append("circle")
           .attr("class", "subhub-accent-ring")
           .attr("r", (d.node_radius || 22.0) + 4.5)
@@ -4210,11 +4175,13 @@
         .attr("r", baseRadius)
         .attr("fill", nodeColor)
         .attr("stroke", isSun ? "#38BDF8" : "#FFFFFF")
-        .attr("stroke-width", isSun ? 3.5 : (d.prominence_tier === 1 ? 2.4 : (d.prominence_tier === 2 ? 1.6 : 1.0)));
+        .attr("stroke-width", isSun ? 3.5 : (d.radius_tier === 1 ? 2.4 : (d.radius_tier === 2 ? 1.6 : 1.0)));
 
-      // 4. Protected Static Label Plate & Text: ONLY for Key Focal Anchors (Anti-Collision)
-      const isMutedLabel = (d.prominence_tier >= 3);
-      if (isSun || isAnchor) {
+      // 4. Label tetap: pusat, anchor dari data, dan peringkat teratas.
+      // Sisanya menunggu hover. Batasnya proporsional terhadap jumlah simpul
+      // supaya graf 12 simpul tidak dipenuhi label dan graf 1.000 simpul tidak
+      // kehilangan konteks.
+      if (isSun || isAnchor || d.label_priority <= labelBudget()) {
         const labelLen = displayLabel.length;
         const charWidth = isSun ? 6.8 : 6.0;
         const platePad = isSun ? 16 : 12;
@@ -4251,7 +4218,7 @@
       const pillG = el.append("g").attr("class", "hover-pill");
       const textLen = displayLabel.length;
       const pillW = Math.max(76, textLen * 7.2 + 24);
-      const pillH = isSun ? 28 : (d.prominence_tier === 1 ? 25 : 23);
+      const pillH = isSun ? 28 : (d.radius_tier === 1 ? 25 : 23);
 
       pillG.append("rect")
         .attr("x", -pillW / 2)
@@ -4272,6 +4239,58 @@
         .attr("font-weight", "800")
         .text(displayLabel);
     });
+    }
+
+    // Label yang tampil sekaligus. Proporsional, bukan angka tetap: 12 simpul
+    // tidak perlu 40 label, 1.000 simpul tidak cukup 40 kalau semuanya penting.
+    function labelBudget() {
+      const total = (allData.nodes || []).length;
+      return Math.min(40, Math.max(8, Math.ceil(total * 0.15)));
+    }
+
+    let labelBudgetPending = false;
+
+    function scheduleLabelBudget() {
+      if (labelBudgetPending) return;
+      labelBudgetPending = true;
+      requestAnimationFrame(() => {
+        labelBudgetPending = false;
+        applyLabelBudget();
+      });
+    }
+
+    function applyLabelBudget() {
+      if (!nodeG) return;
+      const candidates = [];
+      nodeG.each(function (d) {
+        const plate = this.querySelector(".label-plate");
+        const textEl = this.querySelector(".static-label");
+        if (!plate || !textEl) return;
+        plate.style.display = "";
+        textEl.style.display = "";
+        candidates.push({ d, plate, textEl });
+      });
+      // Peringkat teratas menang lebih dulu; label yang bertabrakan
+      // disembunyikan. Tata letak tidak bergerak (drag dimatikan), jadi cukup
+      // dihitung ulang setelah simulasi berhenti dan setelah zoom berakhir.
+      candidates.sort((a, b) => (a.d.label_priority || 0) - (b.d.label_priority || 0));
+      const taken = [];
+      candidates.forEach(({ d, plate, textEl }) => {
+        const box = textEl.getBoundingClientRect();
+        const area = {
+          left: box.left - 3,
+          right: box.right + 3,
+          top: box.top - 3,
+          bottom: box.bottom + 3
+        };
+        const clash = taken.some(
+          other => !(area.right < other.left || area.left > other.right || area.bottom < other.top || area.top > other.bottom)
+        );
+        const visible = !clash || d.id === EGO_ID;
+        plate.style.display = visible ? "" : "none";
+        textEl.style.display = visible ? "" : "none";
+        if (visible) taken.push(area);
+      });
     }
 
     // Neighborhood Highlight
@@ -5155,7 +5174,9 @@
         .on("end", () => {
           // Sekali saja, setelah tata letak berhenti bergerak: sebelum ini
           // kotak pembatasnya masih berubah tiap tick.
-          resetGraphView();
+          if (!viewStateFlushed) resetGraphView();
+          applyLabelBudget();
+          flushViewState();
         });
     }
 
@@ -6416,25 +6437,35 @@
       return d.color || "#8A99AE";
     }
 
+    // Satu skala ukuran untuk semua mode. Peringkatnya dihitung engine
+    // (api/encoding.py) dari sebaran dataset itu sendiri, jadi tidak ada lagi
+    // pembagi yang hanya benar untuk satu bundle. Yang dipilih di sini hanya
+    // "peringkat yang mana", bukan "bagaimana menormalkan".
+    const RADIUS_MIN = 6.0;
+    const RADIUS_MAX = 26.0;
+    const SIZE_RANK_FIELDS = {
+      degree: "rank_degree",
+      betweenness: "rank_betweenness",
+      burt: "rank_burt",
+      volume: "rank_volume",
+      uniform: null
+    };
+
+    function sizeRank(d) {
+      const field = SIZE_RANK_FIELDS[currentSizingMetric];
+      if (!field) return null;
+      const value = d[field];
+      // Peringkat yang tidak dikirim diperlakukan sebagai "paling kecil",
+      // bukan rata-rata: mengarang posisi tengah menyembunyikan data hilang.
+      if (typeof value !== "number" || !Number.isFinite(value)) return 0.0;
+      return Math.max(0.0, Math.min(1.0, value));
+    }
+
     function computeNodeRadius(d) {
       if (d.id === EGO_ID) return 28.0;
-      if (currentSizingMetric === "uniform") return 14.0;
-      const m = d.metrics || {};
-      if (currentSizingMetric === "degree") {
-        const deg = m.degree || 5;
-        return Math.max(9, Math.min(26, 9 + (deg / 60) * 17));
-      }
-      if (currentSizingMetric === "betweenness") {
-        const bw = m.betweenness || 0.001;
-        return Math.max(9, Math.min(26, 9 + (bw / 0.08) * 17));
-      }
-      if (currentSizingMetric === "burt") {
-        const es = m.effective_size || d.effective_size || 5;
-        return Math.max(9, Math.min(26, 9 + (es / 35) * 17));
-      }
-      // default: volume
-      const vol = m.corpus_sample_n || d.size || 50;
-      return Math.max(9, Math.min(26, 9 + Math.log10(Math.max(10, vol)) * 4.5));
+      const rank = sizeRank(d);
+      if (rank === null) return 14.0;
+      return RADIUS_MIN + (RADIUS_MAX - RADIUS_MIN) * rank;
     }
 
     function refreshNodeStyles() {
@@ -7215,7 +7246,7 @@
         const isSun = d.id === EGO_ID;
         d3.select(this).select("circle.main-circle")
           .attr("stroke", "#FFFFFF")
-          .attr("stroke-width", isSun ? 3.0 : (d.prominence_tier === 1 ? 2.4 : (d.prominence_tier === 2 ? 1.6 : 1.0)))
+          .attr("stroke-width", isSun ? 3.0 : (d.radius_tier === 1 ? 2.4 : (d.radius_tier === 2 ? 1.6 : 1.0)))
           .attr("stroke-dasharray", "none");
       });
     }
@@ -7670,9 +7701,160 @@
       el.style.color = "var(--accent-blue)";
     }
 
+    // ---------------------------------------------------------------
+    // View state di URL.
+    //
+    // Tujuan: satu temuan bisa diserahkan sebagai tautan, bukan sebagai
+    // instruksi lisan ("buka mode 2, filter Person, zoom ke Bravo"). Field
+    // divalidasi satu per satu; nilai asing diabaikan, bukan dilempar, supaya
+    // tautan lama tidak pernah menghasilkan layar rusak.
+    //
+    // Token tidak pernah masuk sini: ia hidup di sessionStorage dan URL hanya
+    // memuat keadaan tampilan.
+    // ---------------------------------------------------------------
+    const VIEW_HASH_VERSION = "1";
+    const VIEW_CHOICES = {
+      m: ["actor_network", "topic_actor", "narrative_temporal"],
+      c: ["type", "louvain", "sentiment"],
+      k: ["volume", "degree", "betweenness", "burt", "uniform"]
+    };
+    // Nama pendek di URL, nama yang dipakai kode di dalam.
+    const VIEW_FIELDS = { m: "mode", c: "color", k: "sizing" };
+    const VIEW_DEFAULTS = { weight: 10, npmi: 0.20 };
+
+    function readViewState() {
+      const raw = (window.location.hash || "").replace(/^#/, "");
+      if (!raw) return {};
+      let params;
+      try {
+        params = new URLSearchParams(raw);
+      } catch (err) {
+        return {};
+      }
+      if (params.get("v") !== VIEW_HASH_VERSION) return {};
+
+      const state = {};
+      Object.keys(VIEW_CHOICES).forEach(key => {
+        const value = params.get(key);
+        if (VIEW_CHOICES[key].indexOf(value) !== -1) state[VIEW_FIELDS[key]] = value;
+      });
+
+      const number = key => {
+        const value = parseFloat(params.get(key));
+        return Number.isFinite(value) ? value : null;
+      };
+      const year = number("y");
+      if (year !== null) state.year = Math.round(year);
+      const weight = number("w");
+      if (weight !== null) state.minWeight = weight;
+      const npmi = number("n");
+      if (npmi !== null) state.minNpmi = npmi;
+
+      const topic = params.get("t");
+      if (topic) state.topic = topic;
+      const selected = params.get("s");
+      if (selected) state.selected = selected;
+
+      const camera = (params.get("z") || "").split(",").map(parseFloat);
+      if (camera.length === 3 && camera.every(Number.isFinite)) {
+        state.camera = { k: camera[0], x: camera[1], y: camera[2] };
+      }
+      return state;
+    }
+
+    function viewStateHash() {
+      const transform = svg && svg.node() ? d3.zoomTransform(svg.node()) : d3.zoomIdentity;
+      const params = new URLSearchParams();
+      params.set("v", VIEW_HASH_VERSION);
+      params.set("m", currentMode);
+      if (currentTopic && currentTopic !== "ALL") params.set("t", currentTopic);
+      if (currentColorMode !== "type") params.set("c", currentColorMode);
+      if (currentSizingMetric !== "volume") params.set("k", currentSizingMetric);
+      if (currentMinWeight !== VIEW_DEFAULTS.weight) params.set("w", String(currentMinWeight));
+      if (currentMinNpmi !== VIEW_DEFAULTS.npmi) params.set("n", String(currentMinNpmi));
+      // `y` adalah tahun yang sedang dilihat, bukan batas rentang dataset:
+      // currentStartYear diisi otomatis oleh yearBounds() dan akan berbohong
+      // tentang filter yang tidak pernah dipilih pengguna.
+      const years = timelineYears();
+      const yearIndex = timelineSlider ? parseInt(timelineSlider.value, 10) : 0;
+      const selectedYear = years[yearIndex];
+      if (selectedYear !== undefined && selectedYear !== null) {
+        params.set("y", String(selectedYear));
+      }
+      if (lockedNode) params.set("s", lockedNode.id);
+      params.set(
+        "z",
+        [transform.k, transform.x, transform.y].map(v => Math.round(v * 1000) / 1000).join(",")
+      );
+      return "#" + params.toString();
+    }
+
+    let viewStatePending = false;
+    let pendingViewState = readViewState();
+    let viewStateFlushed = false;
+
+    function flushViewState() {
+      if (viewStateFlushed || !pendingViewState) return;
+      viewStateFlushed = true;
+      const state = pendingViewState;
+      pendingViewState = null;
+      applyViewState(state);
+    }
+
+    function syncViewStateToHash() {
+      // Jangan menimpa tautan sebelum keadaan di dalamnya sempat diterapkan.
+      if (!viewStateFlushed && pendingViewState) return;
+      if (viewStatePending) return;
+      viewStatePending = true;
+      requestAnimationFrame(() => {
+        viewStatePending = false;
+        if (!BOOTSTRAP) return;  // sebelum data siap, hash belum bermakna
+        const next = viewStateHash();
+        if (window.location.hash === next) return;
+        history.replaceState(null, "", window.location.pathname + window.location.search + next);
+      });
+    }
+
+    function restoreSelection(nodeId) {
+      const node = (allData.nodes || []).find(item => item.id === nodeId);
+      if (!node) return;
+      lockedNode = node;
+      highlightNodeConnections(node);
+      populateDrawerDetails(node);
+    }
+
+    function applyViewState(state) {
+      if (!state) return;
+      if (state.sizing) currentSizingMetric = state.sizing;
+      if (state.color) currentColorMode = state.color;
+      if (state.minWeight !== undefined) currentMinWeight = state.minWeight;
+      if (state.minNpmi !== undefined) currentMinNpmi = state.minNpmi;
+      if (state.topic) currentTopic = state.topic;
+
+      if (state.mode) switchAppMode(state.mode);
+      refreshNodeStyles();
+      applyCombinedFilters();
+
+      if (state.year !== undefined && typeof updateTimelineView === "function") {
+        updateTimelineView(state.year);
+      }
+      if (state.selected) restoreSelection(state.selected);
+      if (state.camera) {
+        const { k, x, y } = state.camera;
+        svg.call(zoom.transform, d3.zoomIdentity.translate(x, y).scale(k));
+      }
+    }
+
+    // Setiap interaksi mengubah keadaan; menulis hash dari satu tempat lebih
+    // sulit lupa daripada menambahkan pemanggilan di tiap handler.
+    ["click", "change", "keyup"].forEach(evt => {
+      document.addEventListener(evt, () => syncViewStateToHash(), true);
+    });
+
     function normalizeNode(node) {
-      // Bidang yang tidak dikirim API diisi default netral; radius dan
-      // prominence dihitung ulang oleh assignNodeProminence di bawah.
+      // Bidang yang tidak dikirim API diisi default netral. Skala ukuran
+      // (size_rank, rank_*, radius_tier, label_priority) datang dari payload
+      // dan tidak pernah dihitung ulang di sini.
       // API mengirim metrik sebagai kolom datar dan komunitas sebagai
       // `community`, jadi keduanya dipetakan ke bentuk yang dipakai UI.
       const metrics = node.metrics || {
@@ -7704,6 +7886,14 @@
         articles: 0,
         is_anchor: false,
         is_ego: false,
+        // Skala ukuran dari engine; default hanya berlaku untuk payload lama.
+        size_rank: 0,
+        rank_degree: 0,
+        rank_volume: 0,
+        rank_betweenness: 0,
+        rank_burt: 0,
+        radius_tier: 5,
+        label_priority: Number.MAX_SAFE_INTEGER,
         metrics
       }, node);
       normalized.metrics = metrics;
@@ -7745,7 +7935,7 @@
         };
         allData.nodes.forEach(n => {
           n.color = n.color || colorForType(n.entity_type);
-          assignNodeProminence(n);
+          n.node_radius = computeNodeRadius(n);
         });
         initNodeCoordinates();
 
@@ -7769,6 +7959,10 @@
         renderSidebarEntities();
         initForceSimulation();
         hideCanvasLoading();
+        // Tautan diterapkan setelah tata letak berhenti bergerak: mode topik
+        // butuh render bipartit yang belum siap sebelum itu. Timer di bawah
+        // hanya jaring pengaman bila simulasi tidak pernah selesai.
+        setTimeout(flushViewState, 1500);
       } catch (err) {
         console.error("[Visualizer] Gagal memuat artefak graf:", err);
         showBootError(err.message || String(err));
