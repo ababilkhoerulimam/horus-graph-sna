@@ -244,6 +244,100 @@ def _cmd_briefing(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_enhance(args: argparse.Namespace) -> int:
+    from .enhance import (
+        bootstrap_network,
+        degree_preserving_null,
+        detect_bursts,
+        epoch_turnover,
+        reporting_block,
+        topology_profile,
+        turnover_summary,
+    )
+
+    bundle, network, temporal = _analysis_context(args)
+    null = (
+        None
+        if args.no_null
+        else degree_preserving_null(network, resamples=args.resamples, seed=args.seed)
+    )
+    bootstrap = (
+        None
+        if args.no_bootstrap
+        else bootstrap_network(
+            network, resamples=args.bootstrap_resamples, seed=args.seed, ci=args.ci
+        )
+    )
+    topology = topology_profile(network)
+    turnover = epoch_turnover(temporal)
+    bursts = detect_bursts(bundle)
+
+    block = reporting_block(
+        bundle, network, null=null, bootstrap=bootstrap, topology=topology, seed=args.seed
+    )
+    block["turnover"] = {
+        "transitions": list(turnover.to_dict(orient="records")),
+        "summary": turnover_summary(temporal),
+    }
+    block["bursts"] = {
+        "count": 0 if bursts.bursts.empty else len(bursts.bursts),
+        "top": [] if bursts.bursts.empty else bursts.bursts.head(args.top).to_dict(orient="records"),
+        "method": "kleinberg_two_state_viterbi",
+    }
+
+    if args.json:
+        print(json.dumps(block, indent=2, ensure_ascii=False, default=str))
+        return 0
+
+    _print_enhance(block, topology, args.top)
+    return 0
+
+
+def _print_enhance(block: dict, topology, top: int) -> None:
+    if "inference" in block:
+        null = block["inference"]["null_model"]
+        print("Null model (derajat terjaga):")
+        for name, observed in null["observed"].items():
+            print(
+                f"  {name:14} {observed} vs acak {null['null_mean'][name]} "
+                f"(z {null['z'][name]}, p {null['p_value'][name]})"
+            )
+        print(f"  resolusi p 1/{null['resamples'] + 1}")
+        boot = block["inference"].get("bootstrap")
+        if boot:
+            print(f"Bootstrap artikel: ARI {boot['ari']['mean']} "
+                  f"[{boot['ari']['p05']}, {boot['ari']['p95']}], {boot['resamples']} resample")
+
+    print(
+        f"Topologi: k-core maks {topology.max_core} "
+        f"({len(topology.core_nodes)} inti, {len(topology.periphery_nodes)} pinggiran) | "
+        f"asortativitas derajat {topology.degree_assortativity} | tipe {topology.type_assortativity}"
+    )
+
+    turnover = block["turnover"]["summary"]
+    print(
+        f"Perputaran: {turnover['transitions']} transisi, "
+        f"Jaccard tepi rata-rata {turnover['mean_edge_jaccard']}"
+    )
+    for row in block["turnover"]["transitions"]:
+        print(
+            f"  {row['from_epoch']} -> {row['to_epoch']}: "
+            f"+{row['edges_added']} -{row['edges_removed']} edge, "
+            f"Jaccard {row['edge_jaccard']}"
+        )
+
+    print(f"Burst: {block['bursts']['count']} rentang")
+    for row in block["bursts"]["top"]:
+        print(
+            f"  {row['entity_id']} {row['start']}..{row['end']} "
+            f"lift {row['lift']} ({row['articles']} artikel)"
+        )
+
+    print("Batasan:")
+    for note in block["limitations"]:
+        print(f"  - {note}")
+
+
 def _cmd_export_legacy(args: argparse.Namespace) -> int:
     from .export.legacy import export_legacy_bundle
 
@@ -303,6 +397,20 @@ def build_parser() -> argparse.ArgumentParser:
     briefing.add_argument("bundle")
     briefing.add_argument("--json", action="store_true")
     briefing.set_defaults(func=_cmd_briefing)
+
+    enhance = sub.add_parser(
+        "enhance", help="Uji null, bootstrap, topologi, perputaran, burst, dan batasan"
+    )
+    enhance.add_argument("bundle")
+    enhance.add_argument("--resamples", type=int, default=200, help="Resample null model")
+    enhance.add_argument("--bootstrap-resamples", type=int, default=200)
+    enhance.add_argument("--ci", type=float, default=90.0, help="Lebar selang bootstrap (%)")
+    enhance.add_argument("--seed", type=int, default=42)
+    enhance.add_argument("--top", type=int, default=5)
+    enhance.add_argument("--no-null", action="store_true", help="Lewati null model")
+    enhance.add_argument("--no-bootstrap", action="store_true", help="Lewati bootstrap")
+    enhance.add_argument("--json", action="store_true")
+    enhance.set_defaults(func=_cmd_enhance)
 
     export = sub.add_parser(
         "export-legacy", help="(migrasi) ekspor korpus horus-agent menjadi bundle"

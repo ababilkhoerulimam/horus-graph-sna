@@ -44,6 +44,7 @@ class BackboneReport:
     still_isolated: Tuple[str, ...]
     min_support: int
     min_npmi: float
+    rescue_isolated: bool = True
 
     def as_dict(self) -> Dict[str, Any]:
         return {
@@ -54,7 +55,16 @@ class BackboneReport:
             "still_isolated": list(self.still_isolated),
             "min_support": self.min_support,
             "min_npmi": self.min_npmi,
+            "rescue_isolated": self.rescue_isolated,
         }
+
+    def config(self) -> "BackboneConfig":
+        """Konfigurasi yang menghasilkan laporan ini, untuk dijalankan ulang."""
+        return BackboneConfig(
+            min_support=self.min_support,
+            min_npmi=self.min_npmi,
+            rescue_isolated=self.rescue_isolated,
+        )
 
 
 def select_edges(
@@ -104,6 +114,7 @@ def select_edges(
         still_isolated=tuple(cooc.entity_ids[i] for i in np.flatnonzero(~touched)),
         min_support=config.min_support,
         min_npmi=config.min_npmi,
+        rescue_isolated=config.rescue_isolated,
     )
     return selected, rescued, report
 

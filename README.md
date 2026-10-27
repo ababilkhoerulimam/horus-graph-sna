@@ -39,6 +39,8 @@ horus-graph dossier path/to/bundle "Nama Entitas"
 horus-graph path path/to/bundle "Asal" "Tujuan"
 horus-graph counterfactual path/to/bundle "Nama Entitas"
 horus-graph briefing path/to/bundle
+horus-graph enhance path/to/bundle    # null model, bootstrap, topologi, perputaran, burst
+horus-graph enhance path/to/bundle --json --resamples 200 --bootstrap-resamples 200
 ```
 
 ```python
@@ -64,6 +66,17 @@ print(entity_dossier(network, "Nama Entitas", temporal=temporal))
 print(trace_path(network, "Asal", "Tujuan"))
 print(simulate_removal(network, "Nama Entitas"))
 print(executive_briefing(network, temporal, anomaly, bipartite))
+
+from horus_graph.enhance import (
+    bootstrap_network, degree_preserving_null, reporting_block, topology_profile,
+)
+
+null = degree_preserving_null(network, resamples=200)
+boot = bootstrap_network(network, resamples=200)
+print(null.as_dict())                    # z + p empiris vs graf acak derajat sama
+print(boot.betweenness)                  # mean, sd, ci_low, ci_high, stability
+print(reporting_block(bundle, network, null=null, bootstrap=boot,
+                      topology=topology_profile(network)))
 ```
 
 Fungsi analisis mengembalikan dict siap-JSON, bukan model respons. Engine
@@ -91,6 +104,29 @@ yang lebih nyata. Edge hasil penyelamatan ditandai `rescued=True` dan dihitung
 terpisah di `backbone.added_for_support`, jadi pembaca bisa membedakan edge
 yang lolos ambang dari yang hanya menjaga graf tetap terhubung.
 
+## Peningkatan (M6)
+
+Angka jaringan tunggal tidak punya pembanding maupun ketidakpastian. Modul
+`horus_graph.enhance` menutup tiga celah itu tanpa mengubah graf dasar:
+
+| Pertanyaan | Metode | Hasil pada bundle horus-agent |
+| --- | --- | --- |
+| Apakah struktur ini lebih dari acak? | null model derajat-terjaga (`double_edge_swap`) | modularitas 0,3872 vs 0,1761 (z 27,7); transitivitas 0,7352 vs 0,3127 (z 71,3); p 0,0198 |
+| Seberapa yakin angka betweenness? | bootstrap artikel pada matriks incidensi | ARI komunitas 0,9152 [0,7983; 1,0] pada 50 resample |
+| Di mana inti jaringan? | k-core + asortativitas | k-core maks 15, 18 simpul inti, 59 pinggiran |
+| Berapa banyak yang berubah antar epos? | Jaccard tepi berurutan | 2 transisi, Jaccard rata-rata 0,428 |
+| Kapan entitas meledak? | Kleinberg dua keadaan (Viterbi) | 244 rentang, lift tertinggi 10,94 |
+
+Bootstrap mengambil ulang **artikel**, bukan tepi: meresample tepi akan merusak
+struktur derajat dan menghasilkan selang yang terlalu sempit. p-value empiris
+memakai koreksi +1, jadi laporan tidak pernah mengklaim p = 0 — nilai minimum
+yang bisa dilaporkan adalah `1/(resamples+1)`.
+
+`reporting_block()` merangkum semuanya, termasuk batasan yang wajib ikut:
+ko-okurensi bukan kausalitas, ambang adalah pilihan analis, lapisan yang belum
+ada dilaporkan `awaiting_input` (bukan nol), edge `rescued` dihitung terpisah,
+presisi tanggal, dan resolusi p-value.
+
 ## Prinsip
 
 1. Engine tanpa IO jaringan, tanpa SQLite, tanpa nama domain di dalam kode.
@@ -108,4 +144,4 @@ yang lolos ambang dari yang hanya menjaga graf tetap terhubung.
 - [x] M3 temporal, bipartite, anomali (epos 387/436/421/467 edge, 280 edge bipartit, 70 bulan)
 - [x] M4 analysis: dossier, rute, kontrafaktual, peringkat broker, briefing
 - [x] M5 layer transmission & sentiment (dua arah: kosong → `None`, terisi → dipakai)
-- [ ] M6 enhance: null model, bootstrap CI, community stability, k-core, turnover
+- [x] M6 enhance: null model, bootstrap CI, community stability, k-core, turnover
