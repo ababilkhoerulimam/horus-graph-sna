@@ -449,3 +449,31 @@ def test_log_json_membawa_request_id():
     assert payload["request_id"] == "req-abc"
     assert payload["msg"] == "halo"
     assert payload["level"] == "INFO"
+
+
+def test_openapi_memuat_skema_untuk_sepuluh_endpoint(client):
+    """Endpoint yang bentuknya stabil mendokumentasikan bentuknya."""
+    spec = client.get("/openapi.json").json()
+
+    berskema = []
+    for path, methods in spec["paths"].items():
+        for method, operation in methods.items():
+            if not isinstance(operation, dict):
+                continue
+            isi = operation.get("responses", {}).get("200", {}).get("content", {})
+            if "schema" in isi.get("application/json", {}):
+                berskema.append(f"{method.upper()} {path}")
+
+    assert len(berskema) >= 10, berskema
+    assert "GET /api/health" in berskema
+
+
+def test_response_model_tidak_membuang_kunci(client):
+    """`extra="allow"`: model mendokumentasikan kunci, bukan membatasi."""
+    payload = client.get("/api/health").json()
+
+    for kunci in (
+        "status", "dataset", "snapshot_id", "nodes", "edges", "density",
+        "contract_version", "build_seconds", "capabilities",
+    ):
+        assert kunci in payload, kunci

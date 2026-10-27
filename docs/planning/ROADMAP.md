@@ -334,9 +334,16 @@ Tujuan: boleh dipakai lebih dari satu orang dan lebih dari satu mesin.
   - Kerjakan: `Dockerfile` multi-stage, `.github/workflows/ci.yml` (ruff + mypy + pytest), `[tool.ruff]`/`[tool.mypy]` di `pyproject.toml`, `Makefile` dengan `check`.
   - Terima: `docker run` menyajikan UI; CI hijau pada PR kosong.
 
-- [ ] **3.6 Kontrak OpenAPI** — M
+- [x] **3.6 Kontrak OpenAPI** — M
   - Kerjakan: `response_model` untuk endpoint yang bentuknya stabil; dokumentasikan endpoint yang sengaja `Dict`.
   - Terima: `/openapi.json` memuat skema untuk minimal 10 endpoint.
+  - Hasil: `horus_graph/api/schemas.py` dengan `extra="allow"` di semua model —
+    model mendokumentasikan kunci yang dijanjikan tanpa membuang kunci baru dari
+    serializer. 10 endpoint berskema: health, dataset/status, datasets,
+    graph/overview, graph/key-events, entities, analysis/brokers,
+    analysis/holes, edges/evidence, temporal. Endpoint yang bentuknya belum
+    stabil (bootstrap, provenance, briefing, path, counterfactual) sengaja
+    dibiarkan `Dict`: skema yang selalu usang lebih buruk daripada tanpa skema.
 
 - [x] **3.7 Batas & higiene error** — S
   - Berkas: `routes.py:38,69,194,202`

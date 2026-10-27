@@ -19,7 +19,7 @@ from ..copilot.llm import llm_available
 from ..enhance.reporting import reporting_block
 from ..export import formats as export_formats
 from ..presentation import Presentation
-from . import queries, serializers
+from . import queries, schemas, serializers
 from .auth import require_token
 from .datasets import list_snapshots
 from .state import AppState, BundleNotFound, get_state
@@ -51,7 +51,7 @@ def _state(request: Request) -> AppState:
 # --- dasar -----------------------------------------------------------------
 
 
-@router.get("/api/health")
+@router.get("/api/health", response_model=schemas.HealthResponse)
 def health(request: Request) -> Dict[str, Any]:
     state = _state(request)
     summary = state.network.summary
@@ -70,7 +70,7 @@ def health(request: Request) -> Dict[str, Any]:
     }
 
 
-@router.get("/api/datasets")
+@router.get("/api/datasets", response_model=schemas.DatasetListResponse)
 def datasets(request: Request) -> Dict[str, Any]:
     """Snapshot yang tersedia di folder induk bundle aktif. Read-only."""
     state = _state(request)
@@ -80,7 +80,7 @@ def datasets(request: Request) -> Dict[str, Any]:
     }
 
 
-@router.get("/api/dataset/status")
+@router.get("/api/dataset/status", response_model=schemas.DatasetStatusResponse)
 def dataset_status(request: Request) -> Dict[str, Any]:
     state = _state(request)
     return {
@@ -109,7 +109,7 @@ def provenance(request: Request) -> Dict[str, Any]:
 # --- graf ------------------------------------------------------------------
 
 
-@router.get("/api/graph/overview")
+@router.get("/api/graph/overview", response_model=schemas.GraphOverviewResponse)
 def graph_overview(request: Request) -> Dict[str, Any]:
     state = _state(request)
     summary = state.network.summary
@@ -133,7 +133,7 @@ def graph_overview(request: Request) -> Dict[str, Any]:
     }
 
 
-@router.get("/api/graph/key-events")
+@router.get("/api/graph/key-events", response_model=List[schemas.KeyEvent])
 def key_events(request: Request) -> List[Dict[str, Any]]:
     """
     Lonjakan volume bulanan sebagai penanda peristiwa pada timeline.
@@ -187,7 +187,7 @@ def graph_compare(
 # --- entitas ---------------------------------------------------------------
 
 
-@router.get("/api/entities")
+@router.get("/api/entities", response_model=schemas.EntityIndexResponse)
 def entities(request: Request) -> Dict[str, Any]:
     return {"entities": serializers.entity_index(_state(request))}
 
@@ -214,7 +214,7 @@ def analysis_counterfactual(request: Request, entity: str) -> Dict[str, Any]:
     return simulate_removal(_state(request).network, entity)
 
 
-@router.get("/api/analysis/brokers")
+@router.get("/api/analysis/brokers", response_model=schemas.BrokerRankingResponse)
 def analysis_brokers(
     request: Request,
     entity_type: Optional[str] = None,
@@ -224,7 +224,7 @@ def analysis_brokers(
     return {"entity_type": entity_type, "ranking": ranking}
 
 
-@router.get("/api/analysis/holes")
+@router.get("/api/analysis/holes", response_model=schemas.HoleRankingResponse)
 def analysis_holes(
     request: Request,
     mode: str = "high_autonomy",
@@ -247,7 +247,7 @@ def analysis_briefing(request: Request) -> Dict[str, Any]:
 # --- bukti -----------------------------------------------------------------
 
 
-@router.get("/api/edges/evidence")
+@router.get("/api/edges/evidence", response_model=schemas.EdgeEvidenceResponse)
 def edge_evidence(
     request: Request,
     source: str,
@@ -286,7 +286,7 @@ def topic_actor_network(
 # --- temporal --------------------------------------------------------------
 
 
-@router.get("/api/temporal")
+@router.get("/api/temporal", response_model=schemas.TemporalResponse)
 def temporal(request: Request) -> Dict[str, Any]:
     return {"epochs": serializers.epoch_payloads(_state(request))}
 
