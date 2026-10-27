@@ -3083,6 +3083,16 @@
       </div>
       <div id="community-breakdown" style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px;margin-bottom:20px;font-size:11px;"></div>
 
+      <!-- Sensitivitas ambang backbone. Kurva ini menjawab "berapa sisi yang
+           bertahan bila ambang digeser", supaya jumlah sisi pada ambang aktif
+           tidak terbaca sebagai satu-satunya kemungkinan. -->
+      <div style="font-size:12px;font-weight:800;color:#F8FAFC;margin-bottom:8px;text-transform:uppercase;">
+        Sensitivitas Ambang Backbone
+      </div>
+      <div id="sensitivity-body" style="margin-bottom:20px;font-size:11px;color:#94A3B8;">
+        Kurva dimuat saat panel ini dibuka.
+      </div>
+
       <!-- Provenance Box -->
       <div style="font-size:12px;font-weight:800;color:#F8FAFC;margin-bottom:8px;text-transform:uppercase;">
         Data Provenance & Metodologi Ekstraksi
@@ -5271,6 +5281,7 @@
       const modal = document.getElementById("modal-network-overview");
       if (modal) {
         modal.classList.add("open");
+        loadSensitivity();
       }
     });
 
@@ -7526,6 +7537,134 @@
           ? `Lapisan tersedia: ${layerNames.join(", ")}.`
           : "Belum ada lapisan tambahan pada bundle ini."
       );
+    }
+
+    // -------------------------------------------------------------
+    // Sensitivitas ambang backbone
+    // -------------------------------------------------------------
+    // Satu balapan permintaan: panel ini bisa dibuka-tutup cepat, dan jawaban
+    // yang datang terlambat tidak boleh menimpa jawaban yang lebih baru.
+    let sensitivityCache = null;
+    let sensitivityRequest = 0;
+
+    function sensitivityAxis(values) {
+      const lo = Math.min.apply(null, values);
+      const hi = Math.max.apply(null, values);
+      return { lo: lo, hi: hi };
+    }
+
+    // Kurva dua garis. Garis penuh = sisi yang lolos ambang (tidak pernah naik
+    // saat ambang naik). Garis putus-putus = total setelah simpul terisolasi
+    // diselamatkan; garis ini boleh naik, dan justru itu yang perlu terlihat.
+    // Nama sumbu tidak ditulis di dalam grafik: kotak di atasnya sudah
+    // menyebut ambang mana yang digambar, dan label itu dulu bertabrakan
+    // dengan angka ujung kanan.
+    function sensitivityChart(points, xKey, activeValue, xLabel, yLabel) {
+      const W = 320, H = 130, PL = 40, PR = 12, PT = 12, PB = 22;
+      const xs = points.map(p => Number(p[xKey]));
+      const axis = sensitivityAxis(xs);
+      const maxEdges = Math.max(1, Math.max.apply(null, points.map(p => Number(p.edges) || 0)));
+      const spanX = axis.hi - axis.lo;
+      const sx = v => PL + (spanX === 0 ? 0.5 : (v - axis.lo) / spanX) * (W - PL - PR);
+      const sy = v => H - PB - (Number(v) / maxEdges) * (H - PT - PB);
+      const line = key => points.map(p => `${sx(Number(p[xKey])).toFixed(1)},${sy(p[key]).toFixed(1)}`).join(" ");
+
+      // Label "aktif" duduk di kaki garis, bukan di puncaknya: di puncak ia
+      // bertabrakan dengan label nilai maksimum pada sumbu tegak.
+      const markerX = sx(Number(activeValue));
+      const markerAnchor = markerX > W * 0.7 ? "end" : "start";
+      const markerShift = markerAnchor === "end" ? -3 : 3;
+      const marker = points.some(p => Number(p[xKey]) === Number(activeValue))
+        ? `<line x1="${markerX.toFixed(1)}" y1="${PT}" x2="${markerX.toFixed(1)}" y2="${H - PB}"
+                stroke="#F59E0B" stroke-width="1" stroke-dasharray="2,2" />
+           <text x="${(markerX + markerShift).toFixed(1)}" y="${H - PB - 4}" fill="#F59E0B" font-size="9"
+                 text-anchor="${markerAnchor}">aktif</text>`
+        : "";
+
+      return `
+        <svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img"
+             aria-label="${yLabel} terhadap ${xLabel}">
+          <line x1="${PL}" y1="${H - PB}" x2="${W - PR}" y2="${H - PB}" stroke="rgba(255,255,255,0.18)" />
+          <line x1="${PL}" y1="${PT}" x2="${PL}" y2="${H - PB}" stroke="rgba(255,255,255,0.18)" />
+          <text x="${PL - 6}" y="${PT + 8}" fill="#64748B" font-size="9" text-anchor="end">${maxEdges}</text>
+          <text x="${PL - 6}" y="${H - PB}" fill="#64748B" font-size="9" text-anchor="end">0</text>
+          ${marker}
+          <polyline points="${line("edges")}" fill="none" stroke="#38BDF8" stroke-width="1.4" stroke-dasharray="3,3" opacity="0.85" />
+          <polyline points="${line("passed")}" fill="none" stroke="#22D3EE" stroke-width="2" />
+          <text x="${PL}" y="${H - 6}" fill="#64748B" font-size="9">${axis.lo}</text>
+          <text x="${W - PR}" y="${H - 6}" fill="#64748B" font-size="9" text-anchor="end">${axis.hi}</text>
+        </svg>`;
+    }
+
+    function sensitivityCaption(points, xKey, activeValue, xLabel) {
+      const active = points.find(p => Number(p[xKey]) === Number(activeValue));
+      if (!active) return `<div style="color:#F59E0B;">Ambang aktif (${activeValue}) tidak ada pada kurva ini.</div>`;
+      return `<div style="margin-top:2px;color:#CBD5E1;">
+        Pada ${xLabel} <strong>${activeValue}</strong>: <strong>${active.edges}</strong> sisi
+        (${active.passed} lolos, ${active.rescued} diselamatkan), ${active.nodes} simpul tersentuh,
+        ${active.isolated} terisolasi.
+      </div>`;
+    }
+
+    function renderSensitivity(data) {
+      const host = document.getElementById("sensitivity-body");
+      if (!host) return;
+
+      if (!data || data.status !== "ready") {
+        // Gagal memuat bukan "nol sisi": tampilkan tanda kosong, bukan angka.
+        host.textContent = "Kurva sensitivitas tidak tersedia untuk bundle ini (\u2014).";
+        return;
+      }
+
+      const bySupport = data.by_support || [];
+      const byNpmi = data.by_npmi || [];
+      if (!bySupport.length || !byNpmi.length) {
+        host.textContent = "Kurva sensitivitas kosong (\u2014).";
+        return;
+      }
+
+      host.innerHTML = `
+        <div style="margin-bottom:6px;">
+          ${formatCount(data.candidate_pairs)} pasangan kandidat diperiksa. Garis penuh = sisi yang
+          lolos ambang; garis putus-putus = total setelah simpul terisolasi diselamatkan.
+          Ambang disampel per kuartil sebaran nilainya, jadi jarak mendatar tidak linier:
+          titik-titiknya mengikuti di mana data benar-benar berada.
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:10px;">
+          <div class="prov-box">
+            <div style="font-weight:800;color:#38BDF8;margin-bottom:2px;">Ambang min_support</div>
+            ${sensitivityChart(bySupport, "min_support", data.active.min_support, "support", "sisi")}
+            ${sensitivityCaption(bySupport, "min_support", data.active.min_support, "support")}
+          </div>
+          <div class="prov-box">
+            <div style="font-weight:800;color:#38BDF8;margin-bottom:2px;">Ambang min_npmi</div>
+            ${sensitivityChart(byNpmi, "min_npmi", data.active.min_npmi, "npmi", "sisi")}
+            ${sensitivityCaption(byNpmi, "min_npmi", data.active.min_npmi, "NPMI")}
+          </div>
+        </div>`;
+    }
+
+    function loadSensitivity() {
+      const host = document.getElementById("sensitivity-body");
+      if (!host) return;
+      if (sensitivityCache) { renderSensitivity(sensitivityCache); return; }
+      host.textContent = "Memuat kurva sensitivitas...";
+      const ticket = ++sensitivityRequest;
+      fetch("/api/analysis/sensitivity?points=12")
+        .then(res => {
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          return res.json();
+        })
+        .then(data => {
+          if (ticket !== sensitivityRequest) return;  // jawaban basi
+          sensitivityCache = data;
+          renderSensitivity(data);
+        })
+        .catch(err => {
+          if (ticket !== sensitivityRequest) return;
+          console.warn("[Sensitivity] Error:", err);
+          host.textContent = "Kurva sensitivitas gagal dimuat (\u2014).";
+        });
     }
 
     // Satu-satunya penulis kartu KPI. `visibleNodes`/`visibleEdges` diisi saat

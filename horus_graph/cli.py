@@ -58,11 +58,19 @@ def _cmd_build(args: argparse.Namespace) -> int:
     from .core.anomaly import detect_anomalies
     from .core.backbone import BackboneConfig
     from .core.bipartite import build_bipartite
-    from .core.build import build_network
+    from .core.build import backbone_config, build_network
     from .core.temporal import build_temporal
 
     bundle = load_bundle(Path(args.bundle))
-    config = BackboneConfig(min_support=args.min_support, min_npmi=args.min_npmi)
+    # Flag eksplisit menang; tanpa flag, ambang milik bundle dipakai. Tanpa
+    # urutan ini, `manifest.backbone` tidak akan pernah berpengaruh lewat CLI
+    # karena default argparse selalu menimpa nilai dari data.
+    base = backbone_config(bundle)
+    config = BackboneConfig(
+        min_support=args.min_support if args.min_support is not None else base.min_support,
+        min_npmi=args.min_npmi if args.min_npmi is not None else base.min_npmi,
+        rescue_isolated=base.rescue_isolated,
+    )
     network = build_network(bundle, config)
 
     report: dict = {
@@ -73,9 +81,9 @@ def _cmd_build(args: argparse.Namespace) -> int:
     temporal = bipartite = anomaly = None
     if args.all:
         temporal = build_temporal(bundle, BackboneConfig(
-            min_support=args.min_support, min_npmi=args.min_npmi, rescue_isolated=False
+            min_support=config.min_support, min_npmi=config.min_npmi, rescue_isolated=False
         ))
-        bipartite = build_bipartite(bundle, min_support=args.min_support)
+        bipartite = build_bipartite(bundle, min_support=config.min_support)
         anomaly = detect_anomalies(bundle)
         report["temporal"] = [
             {
@@ -384,8 +392,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     build = sub.add_parser("build", help="Bangun jaringan co-occurrence dan hitung metrik")
     build.add_argument("bundle")
-    build.add_argument("--min-support", type=int, default=3)
-    build.add_argument("--min-npmi", type=float, default=0.2)
+    build.add_argument("--min-support", type=int, default=None,
+                       help="Default: ambang milik bundle (manifest.backbone), lalu 3")
+    build.add_argument("--min-npmi", type=float, default=None,
+                       help="Default: ambang milik bundle (manifest.backbone), lalu 0.2")
     build.add_argument("--top", type=int, default=0, help="Tampilkan N simpul betweenness tertinggi")
     build.add_argument("--all", action="store_true", help="Ikut hitung temporal, bipartit, anomali")
     build.add_argument("--json", action="store_true")

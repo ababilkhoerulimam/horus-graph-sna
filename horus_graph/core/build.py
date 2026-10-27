@@ -99,11 +99,31 @@ class NetworkBundle:
         }
 
 
+def backbone_config(bundle: DataBundle) -> BackboneConfig:
+    """
+    Ambang dari bundle, atau default bila bundle tidak menyebutkannya.
+
+    Urutannya sengaja begini: pipeline pemilik data boleh menentukan ambangnya
+    sendiri, dan engine hanya menambal bila tidak ada. Tanpa ini, satu-satunya
+    cara menyesuaikan ambang adalah menyunting kode atau flag server — keduanya
+    tidak ikut tersimpan di snapshot.
+    """
+    settings = getattr(bundle.manifest, "backbone", None)
+    if settings is None:
+        return BackboneConfig()
+    return BackboneConfig(
+        min_support=settings.min_support,
+        min_npmi=settings.min_npmi,
+        rescue_isolated=settings.rescue_isolated,
+    )
+
+
 def build_network(
     bundle: DataBundle,
-    config: BackboneConfig = BackboneConfig(),
+    config: Optional[BackboneConfig] = None,
 ) -> NetworkBundle:
     """Bangun jaringan dari `mentions` dan hitung seluruh metrik simpul."""
+    config = config or backbone_config(bundle)
     cooc = cooccurrence(bundle)
     selected, rescued, report = select_edges(cooc, config)
 

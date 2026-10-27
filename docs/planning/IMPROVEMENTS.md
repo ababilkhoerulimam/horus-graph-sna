@@ -170,7 +170,7 @@ tiga kali berturut-turut.
 Tujuan: setiap angka di layar bisa dipertahankan saat ditanya "dari mana, dan
 seberapa yakin?". V1 bergantung pada V0.4 (tautan) dan V0.1 (peringkat).
 
-- [ ] **V1.1 Ambang jadi data + panel sensitivitas** — L
+- [x] **V1.1 Ambang jadi data + panel sensitivitas** — L
   - Berkas: `contract/models.py` (blok `backbone`), `core/backbone.py:25`,
     `api/state.py:84`, `api/serializers.py:31`, `index.html`
   - Kerjakan: (a) `manifest.backbone` opsional, kontrak 1.2.0, dibaca
@@ -188,6 +188,54 @@ seberapa yakin?". V1 bergantung pada V0.4 (tautan) dan V0.1 (peringkat).
   - Tes: `tests/test_core_backbone.py` — blok manifest dipakai; override
     eksplisit menang. `tests/test_api.py` — kurva monoton, titik ambang aktif
     ada di dalam kurva.
+
+  **Status: selesai sebagian — (a) dan (b) ditutup, (c) ditutup tanpa tombol.**
+
+  - (a) `BackboneSettings` di `contract/models.py`, `manifest.backbone`
+    opsional, kontrak 1.2.0 (aditif; validasi hanya memeriksa versi mayor,
+    jadi bundle 1.1.0 tetap dimuat). `core/build.py::backbone_config()` menjadi
+    satu-satunya pembaca blok itu. CLI `build` ikut diperbaiki: `--min-support`
+    dan `--min-npmi` kini berdefault `None`, sehingga ambang milik bundle
+    dipakai bila flag tidak diberikan. Sebelum ini default argparse (3 / 0.2)
+    selalu menimpa data — blok manifest tidak akan pernah berpengaruh lewat CLI.
+  - (b) `analysis/sensitivity.py` + `GET /api/analysis/sensitivity?points=`.
+    Hanya `select_edges` yang dijalankan; sentralitas dan komunitas tidak
+    dihitung ulang.
+  - (c) Panel ada di modal Network Overview dengan dua kurva dan penanda
+    "aktif". **Tombol "pakai ambang ini" sengaja tidak dibuat** — lihat catatan
+    di bawah.
+
+  **Dua koreksi yang muncul saat mengerjakan, keduanya karena data nyata:**
+
+  1. Batas atas ambang yang tetap (20) membuat kurva support pada bundle golden
+     **seluruhnya datar**: support di sana mencapai 9039, jadi sapuan 1..20
+     tidak pernah menyentuh titik di mana sisi mulai gugur. Panel akan
+     melaporkan "tidak sensitif" padahal hanya tidak terjangkau. Grid sekarang
+     diambil dari kuartil sebaran nilai yang benar-benar ada, ditambah nilai
+     aktif, sehingga batas keruntuhan selalu ikut. Diuji oleh
+     `test_kurva_bundle_nyata_tidak_datar`.
+  2. `edges` (total) **tidak monoton**: makin tinggi ambang, makin banyak simpul
+     kehilangan seluruh sisinya, dan `rescue_isolated` menambahkan kembali sisi
+     terkuat masing-masing. Kurva yang naik-turun terbaca seperti salah hitung.
+     Karena itu `passed` dan `rescued` dipisah, dan panel menggambar dua garis:
+     penuh untuk `passed` (monoton), putus-putus untuk `edges`.
+
+  **Kenapa tombol "pakai ambang ini" tidak dibuat.** Tombol itu menuntut
+  `/api/bootstrap` membangun ulang jaringan per parameter. Itu bertabrakan
+  dengan keputusan arsitektur yang sudah mengikat di dokumen ini: **satu
+  `AppState` per proses**, supaya angka antar panel tidak mungkin berasal dari
+  dua proses build berbeda. Membangun ulang per permintaan juga menyeret
+  `temporal`, `bipartite`, dan `anomaly` yang tidak bergantung pada ambang, lalu
+  membuka pertanyaan koherensi baru: id simpul berubah, tautan `#v=1` menyimpan
+  pilihan yang mungkin sudah tidak ada, dan anotasi per `snapshot_id` menjadi
+  tidak berlaku. Jalur yang didukung untuk mengubah ambang secara permanen
+  sudah ada dan sekarang benar: isi `manifest.backbone`, atau jalankan
+  `horus-graph build <bundle> --min-support N` untuk melihat hasilnya.
+
+  Yang tetap diberikan panel: kurva itu sendiri, penanda posisi ambang aktif,
+  dan kalimat "pada support 3: 475 sisi (467 lolos, 8 diselamatkan)". Pembaca
+  bisa melihat akibat pergeseran ambang tanpa kanvas ikut berubah di bawah
+  tangannya.
 
 - [ ] **V1.2 Inferensi sampai ke layar** — M
   - Berkas: `api/routes.py:106`, `enhance/reporting.py:68`, `index.html`
@@ -308,6 +356,7 @@ tindakan yang mengubah temuan tercatat.
 | Multi-tenancy penuh | Fork = ganti bundle (keputusan Fase 0). Registry read-only cukup |
 | Narasi otomatis sebagai default | Copilot sudah punya jalur deterministik; membiarkan model mengarang kalimat sebagai default membatalkan seluruh kerja integritas |
 | Pustaka chart pihak ketiga (Plotly/ECharts) | Satu-satunya alasan memakainya adalah kecepatan render; V2.1 menyelesaikannya tanpa kehilangan kendali atas encoding |
+| Tombol "pakai ambang ini" (V1.1c) | Menuntut `/api/bootstrap` membangun ulang jaringan per parameter, yang membatalkan keputusan "satu `AppState` per proses" dan membuka ketidakkonsistenan id simpul, tautan `#v=1`, serta anotasi per `snapshot_id`. Jalur permanen sudah ada: `manifest.backbone` atau `build --min-support` |
 
 ---
 

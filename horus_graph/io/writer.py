@@ -66,12 +66,22 @@ def write_bundle(
     generator_version: Optional[str] = None,
     generator_git_sha: Optional[str] = None,
     dictionary_version: Optional[str] = None,
+    backbone: Optional[dict] = None,
     extra: Optional[dict] = None,
 ) -> Manifest:
-    """Tulis bundle lengkap. `frames` boleh hanya berisi tabel yang tersedia."""
+    """Tulis bundle lengkap. `frames` boleh hanya berisi tabel yang tersedia.
+
+    `backbone` menyimpan ambang seleksi edge milik bundle ini
+    (`min_support`, `min_npmi`, `rescue_isolated`). Bila tidak diisi, engine
+    memakai default yang sama seperti sebelumnya.
+    """
     target = Path(root)
     target.mkdir(parents=True, exist_ok=True)
     (target / "layers").mkdir(exist_ok=True)
+
+    manifest_extra = dict(extra or {})
+    if backbone is not None:
+        manifest_extra["backbone"] = backbone
 
     counts: Dict[str, int] = {}
     hashes: Dict[str, str] = {}
@@ -106,7 +116,7 @@ def write_bundle(
         ),
         dictionary_version=dictionary_version,
         layers=layers,
-        **(extra or {}),
+        **manifest_extra,
     )
 
     (target / schema.DOMAIN).write_text(

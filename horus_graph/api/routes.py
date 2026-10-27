@@ -15,6 +15,7 @@ from ..analysis import (
     top_brokers,
     trace_path,
 )
+from ..analysis.sensitivity import sensitivity
 from ..copilot.llm import llm_available
 from ..enhance.reporting import reporting_block
 from ..export import formats as export_formats
@@ -212,6 +213,21 @@ def analysis_path(request: Request, origin: str, target: str) -> Dict[str, Any]:
 @router.get("/api/analysis/counterfactual")
 def analysis_counterfactual(request: Request, entity: str) -> Dict[str, Any]:
     return simulate_removal(_state(request).network, entity)
+
+
+@router.get("/api/analysis/sensitivity")
+def analysis_sensitivity(
+    request: Request,
+    points: int = Query(default=12, ge=4, le=40),
+) -> Dict[str, Any]:
+    """
+    Kurva jumlah sisi terhadap ambang, tanpa menghitung ulang metrik penuh.
+
+    Hanya seleksi backbone yang dijalankan; sentralitas dan komunitas tidak
+    ikut dihitung karena tidak dibutuhkan untuk menjawab "berapa sisi bertahan".
+    """
+    state = _state(request)
+    return sensitivity(state.bundle, points=points, active=state.network.backbone.config())
 
 
 @router.get("/api/analysis/brokers", response_model=schemas.BrokerRankingResponse)

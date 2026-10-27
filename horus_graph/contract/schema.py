@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pyarrow as pa
 
-CONTRACT_VERSION = "1.1.0"
+CONTRACT_VERSION = "1.2.0"
 CONTRACT_MAJOR = 1
 
 ENTITIES = pa.schema(

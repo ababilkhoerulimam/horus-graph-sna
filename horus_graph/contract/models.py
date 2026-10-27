@@ -99,6 +99,23 @@ class Presentation(BaseModel):
     radius_scale: Optional[RadiusScale] = None
 
 
+class BackboneSettings(BaseModel):
+    """
+    Ambang seleksi edge milik bundle ini.
+
+    Disimpan bersama snapshot, bukan di argumen server, supaya angka yang
+    dilaporkan selalu bisa diulang: pembaca tidak perlu tahu flag apa yang
+    dipakai operator saat itu. Tanpa blok ini, engine memakai default yang sama
+    seperti sebelumnya.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    min_support: int = 3
+    min_npmi: float = 0.2
+    rescue_isolated: bool = True
+
+
 class Manifest(BaseModel):
     """metadata yang mengikat seluruh tabel ke satu snapshot."""
 
@@ -115,6 +132,7 @@ class Manifest(BaseModel):
     dictionary_version: Optional[str] = None
     layers: Dict[str, LayerStatus] = Field(default_factory=dict)
     presentation: Optional[Presentation] = None
+    backbone: Optional[BackboneSettings] = None
     # Diisi engine saat bundle dimuat bila pipeline tidak menuliskannya. Nilai
     # yang ditulis pipeline tidak ditimpa, supaya pipeline tetap pemilik data.
     snapshot_id: Optional[str] = None
