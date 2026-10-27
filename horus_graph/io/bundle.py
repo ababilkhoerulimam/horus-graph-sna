@@ -12,6 +12,7 @@ import pyarrow.parquet as pq
 
 from ..contract import schema
 from ..contract.models import Domain, Manifest, Presentation
+from ..contract.snapshot import snapshot_id
 from ..contract.validate import Finding, validate_and_read
 
 
@@ -142,6 +143,12 @@ def load_bundle(path: Path | str, strict: bool = True) -> DataBundle:
         **json.loads((root / schema.MANIFEST).read_text(encoding="utf-8"))
     )
     domain = Domain(**json.loads((root / schema.DOMAIN).read_text(encoding="utf-8")))
+
+    # Snapshot adalah identitas isi, bukan identitas folder. Pipeline boleh
+    # menuliskannya sendiri; kalau tidak, engine yang menghitung — dan hanya
+    # sekali, di sini, supaya semua panel menyebut id yang sama.
+    if not manifest.snapshot_id:
+        manifest = manifest.model_copy(update={"snapshot_id": snapshot_id(manifest)})
 
     return DataBundle(
         root=root,

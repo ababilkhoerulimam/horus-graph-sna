@@ -98,10 +98,15 @@ def run(
     # pertama menunggu puluhan detik sementara browser sudah menampilkan UI.
     started = time.perf_counter()
     try:
-        get_state(resolved)
+        state = get_state(resolved)
     except BundleNotFound as exc:
         logger.warning("Bundle belum siap: %s", exc)
     else:
+        # Riwayat snapshot ditulis di sini, bukan di handler: pembacaan tidak
+        # boleh punya efek samping ke disk.
+        from .datasets import list_snapshots, update_index
+
+        update_index(state.root.parent, list_snapshots(state.root.parent))
         logger.info(
             "Bundle siap dalam %.1fs di %s:%s",
             time.perf_counter() - started,

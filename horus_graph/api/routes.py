@@ -21,6 +21,7 @@ from ..export import formats as export_formats
 from ..presentation import Presentation
 from . import queries, serializers
 from .auth import require_token
+from .datasets import list_snapshots
 from .state import AppState, BundleNotFound, get_state
 
 logger = logging.getLogger(__name__)
@@ -57,6 +58,7 @@ def health(request: Request) -> Dict[str, Any]:
     return {
         "status": "ok",
         "dataset": state.bundle.manifest.dataset_id,
+        "snapshot_id": state.bundle.manifest.snapshot_id,
         "nodes": summary["nodes"],
         "edges": summary["edges"],
         "density": summary["density"],
@@ -65,6 +67,16 @@ def health(request: Request) -> Dict[str, Any]:
         # `copilot` menyala karena drawer selalu punya jalur deterministik.
         # `llm` menandai apakah jawaban bebas juga tersedia.
         "capabilities": {"copilot": True, "llm": llm_available()},
+    }
+
+
+@router.get("/api/datasets")
+def datasets(request: Request) -> Dict[str, Any]:
+    """Snapshot yang tersedia di folder induk bundle aktif. Read-only."""
+    state = _state(request)
+    return {
+        "active": state.bundle.manifest.snapshot_id,
+        "datasets": list_snapshots(state.root.parent),
     }
 
 

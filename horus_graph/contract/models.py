@@ -116,6 +116,9 @@ class Manifest(BaseModel):
     dictionary_version: Optional[str] = None
     layers: Dict[str, LayerStatus] = Field(default_factory=dict)
     presentation: Optional[Presentation] = None
+    # Diisi engine saat bundle dimuat bila pipeline tidak menuliskannya. Nilai
+    # yang ditulis pipeline tidak ditimpa, supaya pipeline tetap pemilik data.
+    snapshot_id: Optional[str] = None
 
 
 class Epoch(BaseModel):

@@ -305,9 +305,18 @@ Tujuan: boleh dipakai lebih dari satu orang dan lebih dari satu mesin.
     deterministik sehingga berkas bisa di-diff. Endpoint mengirim
     `Content-Disposition: attachment`; format asing → 404.
 
-- [ ] **3.3 Snapshot berversi** — M
+- [x] **3.3 Snapshot berversi** — M
   - Kerjakan: `manifest.snapshot_id` = hash isi bundle; riwayat snapshot di `data/bundles/.index.json`; endpoint `/api/datasets` untuk daftar read-only.
   - Terima: dua bundle berbeda tampil sebagai dua snapshot; `/api/health` menyebut `snapshot_id`.
+  - Hasil: `horus_graph/contract/snapshot.py` menghitung sha256 dari `dataset_id`,
+    versi kontrak, rentang tanggal, `counts`, dan `file_sha256` — bukan path atau
+    mtime, jadi bundle yang sama di folder lain menghasilkan id yang sama.
+    `Manifest.snapshot_id` opsional; loader mengisinya hanya bila pipeline tidak
+    menulis (nilai pipeline tidak ditimpa). `api/datasets.py` memindai folder
+    induk untuk `/api/datasets` (read-only, menandai yang aktif) dan menulis
+    `.index.json` saat start — riwayat tetap ada walau foldernya dihapus
+    (`present: false`). Penulisan lewat berkas sementara + `os.replace`.
+    `/api/health` menyertakan `snapshot_id`.
 
 - [x] **3.4 Observability** — S
   - Kerjakan: structured log (JSON) + request id middleware; ganti `print()` di `app.py:65-67`; endpoint `/metrics` (Prometheus text) berisi durasi request dan status.
