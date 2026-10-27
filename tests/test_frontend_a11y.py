@@ -157,3 +157,33 @@ def test_kpi_tidak_ditulis_dua_kali():
     assert "sb-stats-bar" not in markup
     for writer in ("stat-active-nodes", "stat-active-edges"):
         assert markup.count(f'setText("{writer}"') == 1, f"{writer} ditulis lebih dari sekali"
+
+
+def test_kamera_graf_tidak_menempel_di_pojok():
+    """
+    `translate(0, 0)` menaruh pusat graf (0,0) di pojok kiri-atas SVG.
+
+    Itu bentuk yang dipakai tiga kamera berbeda sebelum diperbaiki, dan
+    penyebab graf hanya tampil sebagai satu busur di tepi kanvas.
+    """
+    markup = _index()
+
+    assert "translate(0, 0)" not in markup
+    assert "translate(0,0)" not in markup
+    assert "function getCloseFitTransform(" in markup
+    assert "viewBox" in markup[markup.index("function getCloseFitTransform(") :][:1600]
+    # Fit dipanggil sekali setelah tata letak berhenti, bukan hanya saat mode pindah.
+    assert '.on("end"' in markup
+
+
+def test_satu_kontrol_waktu_di_bilah():
+    """Pil epos dan slider adalah satu kontrol; penanda peristiwa bukan kontrol kedua."""
+    markup = _index()
+    bar = markup[markup.index('class="hud-timeline"') :]
+    bar = bar[: bar.index("timeline-milestone-banner")]
+
+    assert bar.count('type="range"') == 1
+    assert 'id="epoch-pills-wrap"' in bar
+    # Pin peristiwa harus di luar bilah, kalau tidak tahunnya terbaca sebagai
+    # deret kontrol waktu kedua.
+    assert "timeline-key-event-pins" not in bar

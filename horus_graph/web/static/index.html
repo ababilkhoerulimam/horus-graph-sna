@@ -2501,8 +2501,7 @@
       <!-- Bottom-Right Radar Minimap -->
       <div class="hud-minimap">
         <div class="minimap-header">
-          <span>RADAR VIEWPORT</span>
-          <span style="color:var(--accent-blue);">LIVE</span>
+          <span>PETA MINI</span>
         </div>
         <div class="minimap-canvas-wrap">
           <svg id="minimap-svg" viewBox="-950 -900 1900 1800">
@@ -3497,17 +3496,104 @@
     }
 
     const zoom = d3.zoom()
-      .scaleExtent([0.15, 4.5])
+      .scaleExtent([0.15, 8])
       .on("zoom", (e) => {
         container.attr("transform", e.transform);
         updateMinimapBox(e.transform);
       });
     svg.call(zoom);
 
-    function getCloseFitTransform() {
-      // Scale 2.2: kamera didekatkan rapat ke inti wacana agar tidak jauh
-      return d3.zoomIdentity.translate(0, 0).scale(2.2);
+    // Panel yang menutupi kanvas. Diukur, bukan ditebak: sidebar bisa
+    // dilipat dan toolbar bisa bertambah tinggi.
+    const CANVAS_OCCLUDERS = [
+      { selector: "#sidebar-left", side: "left" },
+      { selector: "#top-stats-bar", side: "top" },
+      { selector: ".hud-timeline", side: "bottom" },
+      { selector: ".hud-dock-left", side: "bottom" },
+      { selector: ".hud-minimap", side: "bottom" },
+    ];
+
+    function canvasInsets(rect) {
+      const insets = { left: 0, top: 0, right: 0, bottom: 0 };
+      CANVAS_OCCLUDERS.forEach(({ selector, side }) => {
+        const el = document.querySelector(selector);
+        if (!el) return;
+        const box = el.getBoundingClientRect();
+        if (box.width < 2 || box.height < 2) return;  // tersembunyi
+        if (side === "left") insets.left = Math.max(insets.left, box.right - rect.left);
+        else if (side === "top") insets.top = Math.max(insets.top, box.bottom - rect.top);
+        else if (side === "bottom") insets.bottom = Math.max(insets.bottom, rect.bottom - box.top);
+        else if (side === "right") insets.right = Math.max(insets.right, rect.right - box.right);
+      });
+      return insets;
     }
+
+    // Kamera dihitung dari kotak pembatas simpul, di dalam satuan viewBox.
+    // Tiga kesalahan lama: transform-nya angka tetap yang menaruh pusat graf
+    // di pojok kiri-atas; skalanya diukur dalam piksel
+    // padahal SVG memakai viewBox 4600x3800, sehingga 2,2x di satuan pengguna
+    // hanya tampil 0,4x di layar; dan area yang dipakai adalah seluruh SVG,
+    // termasuk bagian yang tertutup sidebar.
+    function getCloseFitTransform(paddingPx = 48, subset = null) {
+      const node = svg.node();
+      const box = node && node.viewBox && node.viewBox.baseVal;
+      const width = node ? node.clientWidth : 0;
+      const height = node ? node.clientHeight : 0;
+      const points = (subset || allData.nodes || []).filter(
+        n => Number.isFinite(n.x) && Number.isFinite(n.y)
+      );
+      if (!box || !box.width || !points.length || width < 2 || height < 2) {
+        return d3.zoomIdentity;
+      }
+
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      points.forEach(n => {
+        if (n.x < minX) minX = n.x;
+        if (n.x > maxX) maxX = n.x;
+        if (n.y < minY) minY = n.y;
+        if (n.y > maxY) maxY = n.y;
+      });
+
+      // `meet` memakai skala seragam dan memusatkan sisa ruang.
+      const scale = Math.min(width / box.width, height / box.height) || 1;
+      const offsetX = (width - box.width * scale) / 2;
+      const offsetY = (height - box.height * scale) / 2;
+      const insets = canvasInsets(node.getBoundingClientRect());
+      const toUnit = px => px / scale;
+
+      const left = box.x + toUnit(insets.left + paddingPx - offsetX);
+      const right = box.x + toUnit(width - insets.right - paddingPx - offsetX);
+      const top = box.y + toUnit(insets.top + paddingPx - offsetY);
+      const bottom = box.y + toUnit(height - insets.bottom - paddingPx - offsetY);
+      const spanX = Math.max(maxX - minX, 1);
+      const spanY = Math.max(maxY - minY, 1);
+      const raw = Math.min((right - left) / spanX, (bottom - top) / spanY);
+      const fit = Math.max(0.15, Math.min(8, raw));
+      return d3.zoomIdentity
+        .translate(
+          (left + right) / 2 - (fit * (minX + maxX)) / 2,
+          (top + bottom) / 2 - (fit * (minY + maxY)) / 2
+        )
+        .scale(fit);
+    }
+    // Titik (x, y) di tengah area yang tidak tertutup panel, pada skala `k`.
+    // Versi lama memakai translate(-x*k, -y*k), yang menaruh titik itu di pojok
+    // kiri-atas SVG — bukan di tengah layar.
+    function cameraAt(x, y, k) {
+      const node = svg.node();
+      const box = node && node.viewBox && node.viewBox.baseVal;
+      if (!box || !box.width) return d3.zoomIdentity.translate(-x * k, -y * k).scale(k);
+      const width = node.clientWidth;
+      const height = node.clientHeight;
+      const pxPerUnit = Math.min(width / box.width, height / box.height) || 1;
+      const offsetX = (width - box.width * pxPerUnit) / 2;
+      const offsetY = (height - box.height * pxPerUnit) / 2;
+      const insets = canvasInsets(node.getBoundingClientRect());
+      const cx = box.x + ((insets.left + width - insets.right) / 2 - offsetX) / pxPerUnit;
+      const cy = box.y + ((insets.top + height - insets.bottom) / 2 - offsetY) / pxPerUnit;
+      return d3.zoomIdentity.translate(cx - x * k, cy - y * k).scale(k);
+    }
+
     function resetGraphView(selection = svg) {
       return selection.call(zoom.transform, getCloseFitTransform());
     }
@@ -4171,13 +4257,13 @@
       if (nodeTooltipEl) nodeTooltipEl.style.display = "none";
     }
 
-    function zoomToNode(node, duration = 750) {
+    function zoomToNode(node, duration = 750, factor = 2.2) {
       if (!svg || !zoom || !node) return;
-      const targetScale = 2.4;
-      const targetTransform = d3.zoomIdentity
-        .translate(-node.x * targetScale, -node.y * targetScale)
-        .scale(targetScale);
-      svg.transition().duration(duration).call(zoom.transform, targetTransform);
+      // Skala dihitung dari kamera keseluruhan, bukan angka tetap: 2,4 di satuan
+      // viewBox hanya 0,46x di layar, jadi "zoom ke simpul" justru menjauh.
+      const overview = getCloseFitTransform().k;
+      const targetScale = Math.max(0.15, Math.min(8, overview * factor));
+      svg.transition().duration(duration).call(zoom.transform, cameraAt(node.x, node.y, targetScale));
     }
 
     function selectAndInspectNode(d) {
@@ -4885,6 +4971,11 @@
               .attr("cx", d => d.x)
               .attr("cy", d => d.y);
           }
+        })
+        .on("end", () => {
+          // Sekali saja, setelah tata letak berhenti bergerak: sebelum ini
+          // kotak pembatasnya masih berubah tiap tick.
+          resetGraphView();
         });
     }
 
@@ -5221,19 +5312,9 @@
 
       // Bounding box zoom to path
       const pNodes = path.map(id => nodeMap.get(id)).filter(Boolean);
-      const minX = Math.min(...pNodes.map(n => n.x));
-      const maxX = Math.max(...pNodes.map(n => n.x));
-      const minY = Math.min(...pNodes.map(n => n.y));
-      const maxY = Math.max(...pNodes.map(n => n.y));
-      const midX = (minX + maxX) / 2;
-      const midY = (minY + maxY) / 2;
-      const spanX = Math.max(300, maxX - minX + 220);
-      const spanY = Math.max(240, maxY - minY + 220);
-      const targetScale = Math.min(1.4, Math.max(0.45, 900 / Math.max(spanX, spanY)));
-
       svg.transition().duration(550).call(
         zoom.transform,
-        d3.zoomIdentity.translate(-midX * targetScale, -midY * targetScale).scale(targetScale)
+        getCloseFitTransform(64, pNodes)
       );
 
       // Populate Tracer Details Card
@@ -6045,16 +6126,13 @@
       if (isMacro) {
         svg.transition().duration(transitionDuration).ease(d3.easeCubicInOut).call(resetGraphView);
       } else {
+        // Kamera yang sama dengan tombol Fit, hanya dipersempit ke himpunan
+        // aktif. Versi lama menaruh subgraf hasil filter di pojok kiri-atas,
+        // filter menempel di pojok kiri-atas.
         const activeNodesList = allData.nodes.filter(n => currentActiveNodeSet.has(n.id));
-        const maxRelX = Math.max(180, ...activeNodesList.map(n => Math.abs(n.x)));
-        const maxRelY = Math.max(150, ...activeNodesList.map(n => Math.abs(n.y)));
-        const spanX = maxRelX * 2 + 140;
-        const spanY = maxRelY * 2 + 140;
-        const targetScale = Math.min(2.5, Math.max(1.5, 1200 / Math.max(spanX, spanY)));
-
         svg.transition().duration(transitionDuration).ease(d3.easeCubicInOut).call(
           zoom.transform,
-          d3.zoomIdentity.translate(0, 0).scale(targetScale)
+          getCloseFitTransform(48, activeNodesList)
         );
       }
 
@@ -7052,18 +7130,25 @@
           if (!pinContainer) {
             pinContainer = document.createElement("div");
             pinContainer.id = "timeline-key-event-pins";
-            pinContainer.style.cssText = "display:flex; justify-content:space-between; width:100%; max-width:420px; margin-bottom:4px; padding:0 10px;";
+            // Deretan pin dulu disisipkan ke dalam bilah waktu, sehingga tahun
+            // peristiwa terbaca sebagai kontrol waktu kedua. Sekarang ia keluar
+            // dari alur bilah dan duduk di atasnya sebagai penanda peristiwa.
+            pinContainer.style.cssText = "position:absolute; bottom:96px; left:50%; transform:translateX(-50%); display:flex; gap:14px; align-items:flex-end; justify-content:center; z-index:21; pointer-events:none; white-space:nowrap;";
             const slider = document.getElementById("timeline-slider");
             if (slider && slider.parentNode) {
               slider.parentNode.insertBefore(pinContainer, slider);
             }
           }
           pinContainer.innerHTML = "";
+          const pinLabel = document.createElement("div");
+          pinLabel.textContent = "Peristiwa";
+          pinLabel.style.cssText = "font-size:11px; font-weight:700; color:#8A99AE; align-self:center;";
+          pinContainer.appendChild(pinLabel);
           events.forEach(ev => {
             const pin = document.createElement("div");
             pin.className = "timeline-event-pin";
             pin.title = `${ev.date}: ${ev.title}\n${ev.description}`;
-            pin.style.cssText = "cursor:pointer; display:flex; flex-direction:column; align-items:center;";
+            pin.style.cssText = "cursor:pointer; pointer-events:auto; display:flex; flex-direction:column; align-items:center;";
             pin.innerHTML = `
               <div style="font-size:11px; font-weight:800; color:#38BDF8;">${ev.date.slice(0, 4)}</div>
               <div style="width:6px; height:6px; border-radius:50%; background:#38BDF8; margin-top:1px;"></div>
