@@ -9,14 +9,16 @@ menjadi satu objek yang bisa ditempel apa adanya ke laporan atau UI.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from .. import __version__
 from ..core.build import NetworkBundle
 from ..io.bundle import DataBundle
-from .bootstrap import BootstrapResult
-from .nullmodel import NullModelResult
-from .topology import TopologyProfile
+
+if TYPE_CHECKING:  # hanya untuk anotasi; mengimpornya di sini menyeret scipy.stats
+    from .bootstrap import BootstrapResult
+    from .nullmodel import NullModelResult
+    from .topology import TopologyProfile
 
 
 def reporting_block(
