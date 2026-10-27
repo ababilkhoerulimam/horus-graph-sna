@@ -66,18 +66,42 @@ pada bilah komparasi juga tidak lagi ditulis mati sebagai `epoch_1..3`.
 Tujuan: cold start 30 detik → di bawah 2 detik; tidak ada endpoint yang
 menghitung ulang pekerjaan yang sudah ada.
 
+Hasil terukur: cold start 30 detik → ~9 detik (rentang 9-24 detik pada mesin
+ini, lihat catatan di bawah). Target 2 detik **tidak tercapai dan tidak bisa
+dicapai**: impor pandas/pyarrow saja ~4 detik, dan `pyarrow` membayar ~1,5 detik
+sekali saat alokasi pertama, sebelum satu byte data pun dibaca. Yang dihapus
+adalah bagian yang memang bisa dihapus: pekerjaan berulang.
+
 - [x] **1.1 GZip** — XS
   - Berkas: `horus_graph/api/app.py`
   - Kerjakan: `app.add_middleware(GZipMiddleware, minimum_size=1024)`.
   - Terima: `curl -H "Accept-Encoding: gzip" -s -o /dev/null -w "%{size_download}"` untuk `/api/bootstrap` < 30.000 byte.
   - Hasil: 141.770 → 20.996 byte (85% turun). `index.html` 66.799 byte ter-gzip.
 
-- [ ] **1.2 Artefak pra-hitung** — L
-  - Berkas: `horus_graph/cli.py:57-118` (`build --all` sudah menghitung semua, hanya belum menulis), `horus_graph/api/state.py`, modul baru `horus_graph/io/artifacts.py`
-  - Kerjakan: tambah `--out` pada `horus-graph build` yang menulis `artifacts/{nodes,links,epochs/*}.parquet` + `metrics.json` + `anomaly.parquet` + `cooc.npz`. API memuat artefak bila hash cocok, jatuh ke build in-memory bila tidak.
-  - Kunci cache: `manifest.file_sha256` semua tabel + `contract_version` + `__version__` + `BackboneConfig` + `Domain.epochs` + `seed`.
-  - Terima: `time horus-graph serve` < 2 detik pada bundle golden; angka identik dengan sebelumnya (77/475/0,1623/0,3872); golden test tetap lulus.
-  - Catatan: butir terbesar di roadmap. Kalau ditunda, 1.3 dan 1.4 tetap jalan.
+- ~~**1.2 Artefak pra-hitung** — L~~ **dibatalkan setelah diukur**
+  - Berkas: `horus_graph/cli.py:57-118`, `horus_graph/api/state.py`, modul baru `horus_graph/io/artifacts.py`
+  - Rencana: `horus-graph build --out` menulis `artifacts/{nodes,links,epochs/*}.parquet` + `metrics.json` + `anomaly.parquet` + `cooc.npz`; API memuatnya bila kunci hash cocok.
+  - Alasan batal:
+    - Premisnya salah. Startup didominasi impor (pandas/pyarrow ~4 detik) dan
+      inisialisasi `pyarrow` (~1,5 detik pada alokasi pertama, ukuran berkas
+      tidak berpengaruh). Perhitungan yang bisa dipindahkan ke artefak tinggal
+      2,4 detik setelah 1.4 dan perbaikan `subset` di bawah.
+    - Yang ditukar bukan hanya 400 baris serialisasi, tapi juga satu kelas bug:
+      artefak basi menyajikan angka lama tanpa suara. Itu persis kegagalan yang
+      Fase 0 habiskan waktu untuk menghapus, dan tidak ada tombol "muat ulang"
+      yang bisa menyelamatkan analis yang tidak tahu artefaknya basi.
+    - Kunci hash memang mencegahnya — kalau benar. Satu berkas yang lupa ikut
+      di-hash, dan cache menyajikan campuran lama-baru tanpa gejala.
+  - Yang dikerjakan sebagai gantinya (efek sama, tanpa permukaan baru):
+    - `DataBundle.subset` memakai `isin` pada kolom `str` Arrow yang memanggil
+      Python per elemen: `build_temporal` 3,2 s → 1,4 s.
+    - `horus_graph.enhance` mengimpor malas; `scipy.stats` (5 detik impor
+      pertama) keluar dari jalur impor API.
+  - Catatan pengukuran: `serve` pada mesin ini berayun 9-24 detik untuk kode
+    yang sama — impor `.pyd` dan pembacaan berkas di sini lambat dan tidak
+    stabil. Yang bisa dipercaya adalah pengukuran dalam satu proses:
+    tahap bangun 5,5 s → 4,4 s. Angka `serve` jangan dipakai membandingkan
+    commit.
 
 - [x] **1.3 `/api/enhance` keluar dari jalur request** — M
   - Berkas: `horus_graph/api/routes.py:263-286`
@@ -148,8 +172,10 @@ menghitung ulang pekerjaan yang sudah ada.
 **Selesai fase 1 bila:** kedelapan butir hijau dan tidak ada endpoint yang
 menghitung ulang pekerjaan yang sudah ada.
 
-Status: **7 dari 8 selesai** — 235 tes lulus. Sisa 1.2 (artefak pra-hitung),
-butir terbesar dan satu-satunya yang menyentuh cold start.
+Status: **selesai** — 7 butir dikerjakan, 1 dibatalkan dengan alasan terukur di
+atas. 235 tes lulus. Tiga temuan yang mengubah rencana:
+`Number(null)` pada Fase 0, pembacaan ganda parquet yang ternyata hanya 72 ms
+(1.4), dan artefak pra-hitung yang ternyata tidak menyentuh biaya terbesar (1.2).
 
 ---
 

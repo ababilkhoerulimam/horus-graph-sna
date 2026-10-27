@@ -38,7 +38,7 @@ commit tetap jadi kebenaran akhir; dokumen di sini menjelaskan **mengapa** dan
 | Fase | Isi | Butir | Selesai |
 | --- | --- | --- | --- |
 | 0 | Integritas data di UI | 5 | 5 |
-| 1 | Performa & startup | 8 | 7 |
+| 1 | Performa & startup | 8 | 7 + 1 batal |
 | 2 | UX + aksesibilitas | 10 | 0 |
 | 3 | Lapisan enterprise | 8 | 0 |
 | — | Pemangkasan (cut list) | 7 | 0 |
