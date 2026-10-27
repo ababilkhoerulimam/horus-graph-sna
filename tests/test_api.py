@@ -359,3 +359,42 @@ def test_key_events_memakai_lonjakan_bulanan(client):
         assert event["date"].endswith("-01")
         assert event["related_actors"] == []
         assert "z =" in event["description"]
+
+
+def test_batas_limit_ditolak_dengan_422(client):
+    """`limit` tanpa batas adalah undangan untuk meminta seluruh tabel."""
+    for path in (
+        "/api/analysis/brokers?limit=999999",
+        "/api/analysis/holes?limit=999999",
+        "/api/edges/evidence?source=A&target=B&limit=999999",
+        "/api/analysis/brokers?limit=0",
+        "/api/topics/actor-network?min_npmi=5",
+    ):
+        assert client.get(path).status_code == 422, path
+
+    # Batas yang sah tetap diterima.
+    assert client.get("/api/analysis/brokers?limit=100").status_code == 200
+
+
+def test_dataset_status_hanya_menyebut_nama_folder(client):
+    """Respons tidak boleh membocorkan susunan disk server."""
+    root = client.get("/api/dataset/status").json()["root"]
+
+    assert root
+    assert "/" not in root and "\\" not in root
+
+
+def test_galat_muat_bundle_tidak_membocorkan_path(client, monkeypatch, tmp_path):
+    """Pesan 503 untuk klien seragam; detail teknis hanya ke log."""
+    from horus_graph.api import routes
+
+    def gagal(_path):
+        raise ValueError(f"gagal membaca {tmp_path}/bundle/manifest.json")
+
+    monkeypatch.setattr(routes, "get_state", gagal)
+    response = client.get("/api/health")
+
+    assert response.status_code == 503
+    detail = response.json()["detail"]
+    assert str(tmp_path) not in detail
+    assert "manifest.json" not in detail

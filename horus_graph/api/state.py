@@ -104,5 +104,6 @@ def get_state(explicit: Optional[Path | str] = None) -> AppState:
             "Belum ada bundle. Letakkan di data/bundles/ atau set HORUS_BUNDLE."
         )
     if not path.exists():
-        raise BundleNotFound(f"Bundle tidak ditemukan: {path}")
+        # Hanya nama folder: pesan ini ikut terkirim ke klien sebagai 503.
+        raise BundleNotFound(f"Bundle tidak ditemukan: {path.name}")
     return load_state(str(path))

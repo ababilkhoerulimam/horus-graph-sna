@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -20,6 +21,8 @@ from ..presentation import Presentation
 from . import queries, serializers
 from .state import AppState, BundleNotFound, get_state
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
 
@@ -29,8 +32,15 @@ def _state(request: Request) -> AppState:
         return get_state(request.app.state.bundle_path)
     except BundleNotFound as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    except Exception as exc:  # bundle rusak: jangan sembunyikan sebagai 500 kosong
-        raise HTTPException(status_code=503, detail=f"Bundle gagal dimuat: {exc}") from exc
+    except Exception as exc:
+        # Detail teknis (path, traceback) hanya ke log. Klien mendapat pesan
+        # yang sama untuk semua kegagalan muat, supaya isi disk tidak bocor
+        # lewat respons error.
+        logger.exception("Bundle gagal dimuat: %s", request.app.state.bundle_path)
+        raise HTTPException(
+            status_code=503,
+            detail="Bundle gagal dimuat. Periksa log server untuk detailnya.",
+        ) from exc
 
 
 # --- dasar -----------------------------------------------------------------
@@ -61,7 +71,8 @@ def dataset_status(request: Request) -> Dict[str, Any]:
         "dataset": state.bundle.manifest.dataset_id,
         "counts": dict(state.bundle.manifest.counts),
         "layers": dict(state.network.layers),
-        "root": str(state.root),
+        # Nama folder saja: path absolut membocorkan susunan disk ke klien.
+        "root": state.root.name,
         "build_seconds": state.build_seconds,
     }
 
@@ -189,7 +200,9 @@ def analysis_counterfactual(request: Request, entity: str) -> Dict[str, Any]:
 
 @router.get("/api/analysis/brokers")
 def analysis_brokers(
-    request: Request, entity_type: Optional[str] = None, limit: int = 5
+    request: Request,
+    entity_type: Optional[str] = None,
+    limit: int = Query(default=5, ge=1, le=100),
 ) -> Dict[str, Any]:
     ranking = top_brokers(_state(request).network, entity_type=entity_type, limit=limit)
     return {"entity_type": entity_type, "ranking": ranking}
@@ -197,7 +210,9 @@ def analysis_brokers(
 
 @router.get("/api/analysis/holes")
 def analysis_holes(
-    request: Request, mode: str = "high_autonomy", limit: int = 10
+    request: Request,
+    mode: str = "high_autonomy",
+    limit: int = Query(default=10, ge=1, le=100),
 ) -> Dict[str, Any]:
     return structural_holes(_state(request).network, mode=mode, limit=limit)
 
@@ -245,7 +260,9 @@ def edge_evidence(
 
 @router.get("/api/topics/actor-network")
 def topic_actor_network(
-    request: Request, topic: Optional[str] = None, min_npmi: float = 0.0
+    request: Request,
+    topic: Optional[str] = None,
+    min_npmi: float = Query(default=0.0, ge=-1.0, le=1.0),
 ) -> Dict[str, Any]:
     return queries.topic_actor_network(_state(request), topic=topic, min_npmi=min_npmi)
 
