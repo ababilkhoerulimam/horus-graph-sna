@@ -458,3 +458,7 @@ Fase 0 (integritas)  →  Fase 1 (performa)  →  Fase 2 (UX)  →  Fase 3 (ente
 
 Fase 0 wajib selesai sebelum fase lain dimulai. Fase 1.2 (artefak) boleh
 ditunda; 1.1, 1.3–1.8 tidak bergantung padanya.
+
+Fase 0–3 dan cut list sudah tertutup. Pekerjaan berikutnya pindah ke
+[`IMPROVEMENTS.md`](IMPROVEMENTS.md) (Fase V) — jarak antara aplikasi yang benar
+dan alat yang temuannya bisa dikutip.

@@ -9,7 +9,8 @@ commit tetap jadi kebenaran akhir; dokumen di sini menjelaskan **mengapa** dan
 | Berkas | Isi |
 | --- | --- |
 | [`AUDIT.md`](AUDIT.md) | Temuan audit 2026-10-27: bukti, angka terukur, dan alasan tiap keputusan |
-| [`ROADMAP.md`](ROADMAP.md) | Empat fase pekerjaan dengan kotak centang |
+| [`ROADMAP.md`](ROADMAP.md) | Fase 0–3 dengan kotak centang (selesai) |
+| [`IMPROVEMENTS.md`](IMPROVEMENTS.md) | Fase V: visualisasi & SNA sampai kelas enterprise — diagnosis, keputusan arsitektur, 12 butir |
 
 ## Konvensi
 
@@ -42,3 +43,4 @@ commit tetap jadi kebenaran akhir; dokumen di sini menjelaskan **mengapa** dan
 | 2 | UX + aksesibilitas | 10 | 10 |
 | 3 | Lapisan enterprise | 8 | 8 |
 | — | Pemangkasan (cut list) | 7 | 7 |
+| V | Visualisasi & SNA kelas enterprise | 12 | 0 |
