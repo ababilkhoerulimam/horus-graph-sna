@@ -42,6 +42,12 @@ def bootstrap_payload(state: AppState) -> Dict[str, Any]:
             "timezone": state.bundle.manifest.timezone,
             "counts": dict(state.bundle.manifest.counts),
             "layers": dict(network.layers),
+            # Asal data, bukan nama vendor di kode: UI menampilkan apa yang
+            # ditulis manifest, dan menampilkan "—" bila manifest diam.
+            "generator": {
+                "name": state.bundle.manifest.generator.name,
+                "version": state.bundle.manifest.generator.version,
+            },
             "build_seconds": state.build_seconds,
         },
         "graph": {
@@ -73,38 +79,77 @@ def node_payloads(state: AppState) -> List[Dict[str, Any]]:
         cluster = _text(_pick(entry, "cluster"))
         first_year, active_years = years.get(entity_id, (None, []))
 
-        nodes.append(
-            {
-                "id": entity_id,
-                "label": network.label_of(entity_id),
-                "display_label": network.label_of(entity_id),
-                "entity_type": entity_type,
-                "color": _text(_pick(entry, "color"))
-                or presentation.color_for(entity_type, index),
-                "cluster": cluster,
-                "cluster_label": _cluster_label(presentation, cluster),
-                "sector": _text(_pick(entry, "sector")),
-                "description": _text(_pick(entry, "description")),
-                "tier": _int(_pick(entry, "tier")),
-                "ring_level": _int(_pick(entry, "ring_level")),
-                "orbit_label": presentation.orbit_label(_int(_pick(entry, "ring_level"))),
-                "is_anchor": _bool(_pick(entry, "is_anchor")),
-                "is_ego": presentation.ego is not None
-                and presentation.ego.id == entity_id,
-                "articles": int(row["articles"]),
-                "degree": int(row["degree"]),
-                "pagerank": _num(row["pagerank"]),
-                "betweenness": _num(row["betweenness"]),
-                "closeness": _num(row["closeness"]),
-                "burt_constraint": _num(row["burt_constraint"]),
-                "effective_size": _num(row["effective_size"]),
-                "structural_hole_role": row["structural_hole_role"],
-                "community": int(row["louvain_community"]),
-                "first_seen_year": first_year,
-                "active_years": active_years,
-            }
-        )
+        node: Dict[str, Any] = {
+            "id": entity_id,
+            "label": network.label_of(entity_id),
+            "display_label": network.label_of(entity_id),
+            "entity_type": entity_type,
+            "color": _text(_pick(entry, "color"))
+            or presentation.color_for(entity_type, index),
+            "cluster": cluster,
+            "cluster_label": _cluster_label(presentation, cluster),
+            "sector": _text(_pick(entry, "sector")),
+            "description": _text(_pick(entry, "description")),
+            "tier": _int(_pick(entry, "tier")),
+            "ring_level": _int(_pick(entry, "ring_level")),
+            "orbit_label": presentation.orbit_label(_int(_pick(entry, "ring_level"))),
+            "is_anchor": _bool(_pick(entry, "is_anchor")),
+            "is_ego": presentation.ego is not None and presentation.ego.id == entity_id,
+            "articles": int(row["articles"]),
+            "degree": int(row["degree"]),
+            "pagerank": _num(row["pagerank"]),
+            "betweenness": _num(row["betweenness"]),
+            "closeness": _num(row["closeness"]),
+            "burt_constraint": _num(row["burt_constraint"]),
+            "effective_size": _num(row["effective_size"]),
+            "structural_hole_role": row["structural_hole_role"],
+            "community": int(row["louvain_community"]),
+            "first_seen_year": first_year,
+            "active_years": active_years,
+        }
+        # Kunci sentimen hanya muncul bila ada skor yang bisa dipakai.
+        sentiment = _sentiment_block(network, entity_id)
+        if sentiment is not None:
+            node["sentiment"] = sentiment
+        nodes.append(node)
     return nodes
+
+
+def _sentiment_block(network: NetworkBundle, entity_id: str) -> Optional[Dict[str, Any]]:
+    """Blok sentimen satu entitas, atau None bila tidak ada skor yang bisa dipakai.
+
+    Kuncinya sengaja tidak dikirim sama sekali ketika lapisan belum tersedia:
+    UI membaca `dataset.layers.sentiment` untuk memutuskan apakah bar dan stance
+    ditampilkan, dan tidak pernah mengarang angka pengganti.
+
+    Baris sentimen yang sebagian kolomnya kosong juga tidak menghasilkan blok:
+    `pos`/`neu`/`neg` yang bolong tidak boleh menjadi 0, karena 0 adalah hasil
+    ukur (netral) sedangkan bolong berarti tidak diukur.
+    """
+    layer = network.sentiment
+    if layer is None:
+        return None
+    scores = layer.scores.get(entity_id)
+    if scores is None:
+        return None
+
+    pos = _num(scores.get("pos"))
+    neu = _num(scores.get("neu"))
+    neg = _num(scores.get("neg"))
+    if pos is None or neu is None or neg is None:
+        return None
+
+    return {
+        "status": "ready",
+        "pos": pos,
+        "neu": neu,
+        "neg": neg,
+        "stance": round((pos - neg) / 100.0, 4),
+        "confidence": scores.get("confidence"),
+        "method": scores.get("method"),
+        "window_start": scores.get("window_start"),
+        "window_end": scores.get("window_end"),
+    }
 
 
 def link_payloads(network: NetworkBundle) -> List[Dict[str, Any]]:

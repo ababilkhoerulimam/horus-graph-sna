@@ -239,6 +239,9 @@ jawaban deterministik ada di `DEFAULT_WORDING` dan bisa ditimpa per bundle lewat
    engine mengembalikan `None`, bukan angka netral.
 4. Kontrak divalidasi dua arah: data yang hilang ditolak, data yang diklaim
    tanpa isi juga ditolak.
+5. Prinsip yang sama berlaku di layar: yang belum diukur tampil kosong
+   (`—` atau `awaiting_layer`), tidak pernah angka netral. Dijaga
+   `tests/test_frontend_integrity.py`.
 
 ## Status
 
@@ -254,3 +257,9 @@ jawaban deterministik ada di `DEFAULT_WORDING` dan bisa ditimpa per bundle lewat
 - [x] M9 visualizer: port HTML, cabut seluruh hardcode domain
 - [x] M10 copilot opsional: `[llm]` extra, prompt dibangun dari `presentation`
 - [x] M11 horus-agent diarsipkan, menunjuk ke repo ini
+- [x] Fase 0 audit: sentimen jujur, panel bukti tepi hidup, default karangan
+      dihapus, pagar integritas frontend
+
+Rencana kerja dan audit lengkap ada di [`docs/planning/`](docs/planning/README.md):
+[`AUDIT.md`](docs/planning/AUDIT.md) untuk bukti pengukuran,
+[`ROADMAP.md`](docs/planning/ROADMAP.md) untuk empat fase perbaikan.

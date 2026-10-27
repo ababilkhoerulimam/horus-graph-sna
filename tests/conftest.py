@@ -65,6 +65,10 @@ def build_bundle(
             "source_id": list(sources) if sources else ["src"] * articles,
             "published_at": [f"{value}T00:00:00Z" for value in published],
             "url_hash": [f"hash{i:03d}" for i in range(articles)],
+            # Kolom opsional di kontrak, tetapi panel bukti tepi menampilkannya,
+            # jadi fixture membawanya agar jalur itu ikut teruji.
+            "title": [f"Judul artikel {i}" for i in range(articles)],
+            "url": [f"https://example.test/art{i:03d}" for i in range(articles)],
         }
     )
     mention_frame = pd.DataFrame(

@@ -2329,7 +2329,7 @@
           </button>
           <div class="dropdown-menu" id="color-mode-menu">
             <div class="dropdown-item active" data-color-mode="type">Tipe Entitas (Person / Org / Source)</div>
-            <div class="dropdown-item" data-color-mode="louvain">Komunitas Louvain (5 Klaster)</div>
+            <div class="dropdown-item" data-color-mode="louvain">Komunitas Louvain</div>
             <div class="dropdown-item" data-color-mode="sentiment">Sentimen Stance (-1.0 s/d +1.0)</div>
           </div>
         </div>
@@ -2345,21 +2345,16 @@
             <div class="dropdown-item" data-sizing-metric="degree">Degree Centrality</div>
             <div class="dropdown-item" data-sizing-metric="betweenness">Betweenness Centrality</div>
             <div class="dropdown-item" data-sizing-metric="burt">Burt Effective Size (Otonomi)</div>
-            <div class="dropdown-item" data-sizing-metric="uniform">Uniform (Sama Rata 14px)</div>
+            <div class="dropdown-item" data-sizing-metric="uniform">Uniform (Sama Rata)</div>
           </div>
         </div>
 
-        <!-- Temporal Comparison Controls (Mode 03) -->
+        <!-- Temporal Comparison Controls (Mode 03). Opsi epos dibentuk dari
+             bundle; markup tidak menebak jumlah maupun rentangnya. -->
         <div class="temporal-compare-bar" id="temporal-compare-bar" style="display:none; align-items:center; gap:6px;">
-          <select id="sel-compare-baseline" class="sna-select" title="Epos Dasar">
-            <option value="epoch_1" selected>Epos 1 (21-22)</option>
-            <option value="epoch_2">Epos 2 (23-24)</option>
-          </select>
+          <select id="sel-compare-baseline" class="sna-select" title="Epos Dasar"></select>
           <span style="color:#38BDF8; font-weight:800; font-size:11px;">➔</span>
-          <select id="sel-compare-target" class="sna-select" title="Epos Target Komparasi">
-            <option value="epoch_3" selected>Epos 3 (25-26)</option>
-            <option value="epoch_2">Epos 2 (23-24)</option>
-          </select>
+          <select id="sel-compare-target" class="sna-select" title="Epos Target Komparasi"></select>
           <button class="sna-btn secondary" id="btn-run-comparison" style="padding:3px 8px; font-size:10px;">Bandingkan</button>
         </div>
 
@@ -2400,7 +2395,7 @@
       <div class="top-stat-card">
         <div class="top-stat-label">KORPUS BERITA</div>
         <div class="top-stat-val" id="stat-active-corpus">&mdash;</div>
-        <div class="top-stat-sub">Artikel SQLite FTS5</div>
+        <div class="top-stat-sub">Artikel terkait</div>
       </div>
     </div>
 
@@ -2434,7 +2429,7 @@
         </div>
         <div class="sb-filter-row" style="padding-top:4px;border-top:1px dashed rgba(255,255,255,0.08);">
           <span id="sb-corpus-period">Korpus</span>
-          <span style="color:var(--accent-blue);font-weight:700;">NusaBert NER SOTA</span>
+          <span id="sb-generator" style="color:var(--accent-blue);font-weight:700;">&mdash;</span>
         </div>
       </div>
 
@@ -2456,29 +2451,11 @@
       <div class="canvas-legend-body">
         <div class="canvas-legend-section-title">Jenis simpul</div>
         <div class="canvas-legend-grid" id="canvas-legend-types"></div>
-        <div class="canvas-legend-section-title" style="margin-top:10px;">Sentimen Sisi (Signed SNA)</div>
-        <div style="display:flex; flex-direction:column; gap:4px; font-size:9.5px; margin-bottom:8px;">
-          <div style="display:flex; align-items:center; gap:6px;">
-            <span style="width:16px; height:2px; background:#EF4444; border-radius:1px; flex-shrink:0;"></span>
-            <span style="color:#CBD5E1;">Rivalitas & Friksi (-0.45)</span>
-          </div>
-          <div style="display:flex; align-items:center; gap:6px;">
-            <span style="width:16px; height:2px; background:#10B981; border-radius:1px; flex-shrink:0;"></span>
-            <span style="color:#CBD5E1;">Sinergi Skuad Inti (+0.85)</span>
-          </div>
-          <div style="display:flex; align-items:center; gap:6px;">
-            <span style="width:16px; height:2px; background:#38BDF8; border-radius:1px; flex-shrink:0;"></span>
-            <span style="color:#CBD5E1;">Afiliasi Klub (+0.75)</span>
-          </div>
-          <div style="display:flex; align-items:center; gap:6px;">
-            <span style="width:16px; height:2px; background:#A855F7; border-radius:1px; flex-shrink:0;"></span>
-            <span style="color:#CBD5E1;">Kemitraan Kohort (+0.70)</span>
-          </div>
-          <div style="display:flex; align-items:center; gap:6px;">
-            <span style="width:16px; height:2px; background:#94A3B8; border-radius:1px; flex-shrink:0;"></span>
-            <span style="color:#CBD5E1;">Liputan Media (+0.25)</span>
-          </div>
-        </div>
+        <!-- Legenda kategori sisi. Angka valensi tidak ditulis di sini: warna
+             mengikuti kategori, dan valensi hanya ada bila lapisan sentimen
+             mengisi tepi. -->
+        <div class="canvas-legend-section-title" style="margin-top:10px;">Kategori Sisi</div>
+        <div class="canvas-legend-grid" id="canvas-legend-edge-categories"></div>
       </div>
     </section>
 
@@ -2491,7 +2468,7 @@
         </div>
         <button class="pill-info-badge" id="pill-info" title="Buka Ringkasan Struktur Jaringan Makro">
           <span>View Info</span>
-          <span class="tag" id="hud-edge-count">545 Edges</span>
+          <span class="tag" id="hud-edge-count">&mdash;</span>
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </button>
 
@@ -2552,36 +2529,37 @@
       </div>
 
       <!-- Edge Tooltip -->
-            <!-- Rich Interactive Node Hover Card -->
+            <!-- Rich Interactive Node Hover Card. Semua nilai kosong sampai kursor
+           menyentuh simpul: angka bawaan di sini terbaca sebagai hasil ukur. -->
       <div class="node-tooltip" id="node-tooltip">
         <div class="ntt-header">
-          <span class="ntt-name" id="ntt-name">Nama Entitas</span>
-          <span class="ntt-badge" id="ntt-badge">TYPE</span>
+          <span class="ntt-name" id="ntt-name">&mdash;</span>
+          <span class="ntt-badge" id="ntt-badge">&mdash;</span>
         </div>
-        <div class="ntt-desc" id="ntt-desc">Keterangan entitas ini apa dalam analisis</div>
+        <div class="ntt-desc" id="ntt-desc"></div>
 
         <div class="ntt-meta-row">
           <span>Volume Artikel:</span>
-          <span class="ntt-meta-val" id="ntt-volume">13.789 artikel</span>
+          <span class="ntt-meta-val" id="ntt-volume">&mdash;</span>
         </div>
         <div class="ntt-meta-row">
           <span>Peran Taktis:</span>
-          <span class="ntt-meta-val" id="ntt-role" style="color:#A78BFA;">high_brokerage_entity</span>
+          <span class="ntt-meta-val" id="ntt-role" style="color:#A78BFA;">&mdash;</span>
         </div>
         <div class="ntt-meta-row" id="ntt-flow-row">
           <span>Aliran Relasi:</span>
           <span class="ntt-meta-val" id="ntt-flow">
-            <span style="color:#38BDF8;font-weight:700;">↗ Out: 0</span> &nbsp;|&nbsp; <span style="color:#F59E0B;font-weight:700;">↘ In: 0</span>
+            <span style="color:#38BDF8;font-weight:700;">↗ Out: &mdash;</span> &nbsp;|&nbsp; <span style="color:#F59E0B;font-weight:700;">↘ In: &mdash;</span>
           </span>
         </div>
-        <div class="ntt-stance-bar" id="ntt-stance-bar">
-          <div id="ntt-bar-pos" style="background:#16A34A; width:50%;"></div>
-          <div id="ntt-bar-neu" style="background:#475569; width:25%;"></div>
-          <div id="ntt-bar-neg" style="background:#DC2626; width:25%;"></div>
+        <div class="ntt-stance-bar" id="ntt-stance-bar" style="display:none;">
+          <div id="ntt-bar-pos" style="background:#16A34A; width:0%;"></div>
+          <div id="ntt-bar-neu" style="background:#475569; width:0%;"></div>
+          <div id="ntt-bar-neg" style="background:#DC2626; width:0%;"></div>
         </div>
         <div class="ntt-meta-row" style="margin-bottom:0; font-size:9px;">
-          <span id="ntt-stance-text" style="color:#16A34A;">+0.28 Stance</span>
-          <span id="ntt-neg-pct" style="color:#F87171;">Neg 20%</span>
+          <span id="ntt-stance-text" style="color:var(--text-dim);"></span>
+          <span id="ntt-neg-pct" style="color:#F87171;"></span>
         </div>
       </div>
 
@@ -2626,7 +2604,7 @@
         </div>
 
         <div class="trace-result-card" id="trace-result-card">
-          <span class="result-badge" id="trace-hops-badge">3 Langkah Kausal</span>
+          <span class="result-badge" id="trace-hops-badge">&mdash;</span>
           <div class="chain-timeline" id="trace-chain-timeline"></div>
           <div class="trace-metrics-grid" style="grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px;">
             <div class="trace-metric-item">
@@ -2716,25 +2694,27 @@
           Dinamika narasi dihitung dari irisan waktu bundle.
         </div>
 
-        <!-- 4. Sentimen & Isu -->
+        <!-- 4. Sentimen & Isu. Semua nilai kosong sampai simpul dipilih dan
+             lapisan sentimen benar-benar ada di bundle: angka contoh di sini
+             terbaca sebagai hasil analisis padahal belum ada yang dihitung. -->
         <div class="drawer-sec-title">
           <span>Sentimen & Pembingkaian (InSet)</span>
-          <span id="drawer-stance-score" style="color:#16A34A;">+0.28 Stance</span>
+          <span id="drawer-stance-score" style="color:var(--text-muted);">&mdash;</span>
         </div>
         <div class="sentiment-bar-track">
-          <div class="sent-seg-pos" id="sent-bar-pos" style="width: 55%;"></div>
-          <div class="sent-seg-neu" id="sent-bar-neu" style="width: 25%;"></div>
-          <div class="sent-seg-neg" id="sent-bar-neg" style="width: 20%;"></div>
+          <div class="sent-seg-pos" id="sent-bar-pos" style="width: 0%;"></div>
+          <div class="sent-seg-neu" id="sent-bar-neu" style="width: 0%;"></div>
+          <div class="sent-seg-neg" id="sent-bar-neg" style="width: 0%;"></div>
         </div>
         <div class="sent-legend">
-          <span id="sent-lbl-pos" style="color:#16A34A;">Pos 55%</span>
-          <span id="sent-lbl-neu" style="color:#64748B;">Neu 25%</span>
-          <span id="sent-lbl-neg" style="color:#DC2626;">Neg 20%</span>
+          <span id="sent-lbl-pos" style="color:#16A34A;">Pos &mdash;</span>
+          <span id="sent-lbl-neu" style="color:#64748B;">Neu &mdash;</span>
+          <span id="sent-lbl-neg" style="color:#DC2626;">Neg &mdash;</span>
         </div>
 
         <div class="drawer-sec-title">
           <span>Pemicu Sentimen Negatif</span>
-          <span id="drawer-neg-total-badge" style="color:#DC2626; font-size:9.5px; font-weight:800;">Total 20%</span>
+          <span id="drawer-neg-total-badge" style="color:var(--text-muted); font-size:9.5px; font-weight:800;">&mdash;</span>
         </div>
         <div class="neg-drivers-wrap" id="drawer-neg-drivers"></div>
 
@@ -2750,19 +2730,24 @@
           <div style="font-size:9px; color:#F59E0B; margin-top:4px; font-family:monospace; word-break:break-all;" id="drawer-causal-chain">—</div>
         </div>
 
-        <div class="drawer-sec-title">
-          <span>Prioritas & Peran Taktis</span>
-          <span id="drawer-tactical-priority" style="font-size:9.5px; font-weight:800; padding:2px 6px; border-radius:4px; background:#7C3AED22; color:#7C3AED;">CRITICAL</span>
-        </div>
-        <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:6px; padding:7px 9px; margin-bottom:8px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-            <span style="font-weight:700; font-size:10px; color:var(--text-main);" id="drawer-tactical-role">high_brokerage_entity</span>
-            <span style="font-size:9.5px; color:var(--text-muted);" id="drawer-tactical-rank">Rank #1</span>
+        <!-- Blok taktis disembunyikan bila bundle tidak membawa blok `tactical`:
+             tidak ada serializer yang mengirimnya, jadi menampilkannya berarti
+             memajang kartu kosong permanen. -->
+        <div id="drawer-tactical-section" style="display:none;">
+          <div class="drawer-sec-title">
+            <span>Prioritas & Peran Taktis</span>
+            <span id="drawer-tactical-priority" style="font-size:9.5px; font-weight:800; padding:2px 6px; border-radius:4px; background:rgba(148,163,184,0.15); color:var(--text-muted);">&mdash;</span>
           </div>
-          <div style="margin:2px 0 5px;">
-            <span id="drawer-tactical-action-badge" style="font-size:9px; font-weight:800; padding:2px 6px; border-radius:3px; background:rgba(56, 189, 248, 0.15); color:#38BDF8; text-transform:uppercase;">MONITOR PASSIVE</span>
+          <div style="background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:6px; padding:7px 9px; margin-bottom:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+              <span style="font-weight:700; font-size:10px; color:var(--text-main);" id="drawer-tactical-role">&mdash;</span>
+              <span style="font-size:9.5px; color:var(--text-muted);" id="drawer-tactical-rank"></span>
+            </div>
+            <div style="margin:2px 0 5px;">
+              <span id="drawer-tactical-action-badge" style="font-size:9px; font-weight:800; padding:2px 6px; border-radius:3px; background:rgba(148,163,184,0.15); color:var(--text-muted); text-transform:uppercase;">&mdash;</span>
+            </div>
+            <p style="font-size:9.5px; color:var(--text-muted); margin:0; line-height:1.3;" id="drawer-tactical-justification"></p>
           </div>
-          <p style="font-size:9.5px; color:var(--text-muted); margin:0; line-height:1.3;" id="drawer-tactical-justification"></p>
         </div>
 
         <!-- 6. Metrik Jaringan Topologi (Collapsible Details) -->
@@ -2775,48 +2760,48 @@
             <div class="drawer-stats-grid" style="margin-bottom:8px;">
               <div class="stat-card">
                 <span class="stat-label">Tingkatan Orbit</span>
-                <span class="stat-val" id="drawer-comm" style="font-size:10.5px; color:var(--accent-blue);">Orbit Inti (Core Sun)</span>
+                <span class="stat-val" id="drawer-comm" style="font-size:10.5px; color:var(--text-muted);">&mdash;</span>
               </div>
               <div class="stat-card">
                 <span class="stat-label">Volume Sampel</span>
-                <span class="stat-val" id="drawer-volume">13.789</span>
+                <span class="stat-val" id="drawer-volume">&mdash;</span>
               </div>
               <div class="stat-card">
                 <span class="stat-label">Derajat Relasi</span>
-                <span class="stat-val" id="drawer-degree">24 koneksi</span>
+                <span class="stat-val" id="drawer-degree">&mdash;</span>
               </div>
               <div class="stat-card">
                 <span class="stat-label">PageRank & Between</span>
-                <span class="stat-val" id="drawer-betweenness" style="color:var(--accent-blue); font-size:11px;">PR: 0.0864 | BW: 0.0917</span>
+                <span class="stat-val" id="drawer-betweenness" style="color:var(--text-muted); font-size:11px;">&mdash;</span>
               </div>
             </div>
 
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
               <span style="font-size:9.5px; font-weight:700; color:#F8FAFC;">Ronald Burt (1992) Holes</span>
-              <span id="drawer-burt-role-badge" style="font-size:9px; font-weight:800; padding:1px 5px; border-radius:3px; background:rgba(16,185,129,0.2); color:#10B981;">HIGH AUTONOMY</span>
+              <span id="drawer-burt-role-badge" style="font-size:9px; font-weight:800; padding:1px 5px; border-radius:3px; background:rgba(148,163,184,0.15); color:var(--text-muted);">&mdash;</span>
             </div>
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:4px;">
               <div>
                 <div style="font-size:8.5px; color:var(--text-muted); text-transform:uppercase;">Constraint (C_i)</div>
-                <div style="font-size:11.5px; font-weight:800; color:var(--accent-blue);" id="drawer-burt-constraint">0.1245</div>
+                <div style="font-size:11.5px; font-weight:800; color:var(--text-muted);" id="drawer-burt-constraint">&mdash;</div>
               </div>
               <div>
                 <div style="font-size:8.5px; color:var(--text-muted); text-transform:uppercase;">Effective Size (ES_i)</div>
-                <div style="font-size:11.5px; font-weight:800; color:#10B981;" id="drawer-burt-es">68.42</div>
+                <div style="font-size:11.5px; font-weight:800; color:var(--text-muted);" id="drawer-burt-es">&mdash;</div>
               </div>
             </div>
-            <p style="font-size:9px; color:var(--text-muted); margin:0; line-height:1.3;" id="drawer-burt-desc">Tertius Gaudens Broker: Memiliki otonomi tinggi menjembatani klaster terputus tanpa redundansi informasi.</p>
+            <p style="font-size:9px; color:var(--text-muted); margin:0; line-height:1.3;" id="drawer-burt-desc">Pilih simpul untuk melihat otonomi strukturalnya.</p>
           </div>
         </details>
 
         <!-- Rekomendasi Aksi Eksekutif & Risiko PR (Enterprise Action Card) -->
         <div class="drawer-sec-title">
           <span>Rekomendasi Aksi Eksekutif & Risiko PR</span>
-          <span id="drawer-action-badge" style="font-size:9px; font-weight:800; padding:2px 6px; border-radius:4px; background:rgba(56,189,248,0.2); color:#38BDF8;">EXECUTIVE ACTION</span>
+          <span id="drawer-action-badge" style="font-size:9px; font-weight:800; padding:2px 6px; border-radius:4px; background:rgba(148,163,184,0.15); color:var(--text-muted);">&mdash;</span>
         </div>
-        <div id="drawer-action-card" style="background:var(--bg-card); border-left:3px solid #38BDF8; border-radius:4px; padding:8px 10px; margin-bottom:10px;">
-          <div id="drawer-action-title" style="font-size:10.5px; font-weight:800; color:#F8FAFC; margin-bottom:3px;">Otonomi Narasi Stabil</div>
-          <div id="drawer-action-desc" style="font-size:9.5px; color:#94A3B8; line-height:1.4;">Analisis tindakan dan rekomendasi penanganan reputasi/PR eksekutif.</div>
+        <div id="drawer-action-card" style="background:var(--bg-card); border-left:3px solid var(--border-subtle); border-radius:4px; padding:8px 10px; margin-bottom:10px;">
+          <div id="drawer-action-title" style="font-size:10.5px; font-weight:800; color:#F8FAFC; margin-bottom:3px;">&mdash;</div>
+          <div id="drawer-action-desc" style="font-size:9.5px; color:#94A3B8; line-height:1.4;">Rekomendasi muncul setelah simpul dipilih.</div>
         </div>
 
         <!-- 7. Entitas Terhubung Utama -->
@@ -2825,10 +2810,12 @@
         </div>
         <div class="neighbor-chips-wrap" id="drawer-neighbors-wrap"></div>
 
-        <!-- 8. Sampel Liputan Korpus & Histogram Tahunan -->
-        <div class="drawer-sec-title">
-          <span>Tren Volume Artikel Tahunan</span>
-          <span id="drawer-year-span" style="color:var(--accent-blue); font-size:9.5px; font-weight:800;">2021 - 2026</span>
+        <!-- 8. Sampel Liputan Korpus & Histogram Tahunan. Judul berubah menurut
+             data yang tersedia: volume per tahun bila ada, tahun aktif bila
+             hanya itu yang dikirim, tersembunyi bila keduanya tidak ada. -->
+        <div class="drawer-sec-title" id="drawer-year-title-row">
+          <span id="drawer-year-title">Tahun Aktif Entitas</span>
+          <span id="drawer-year-span" style="color:var(--text-muted); font-size:9.5px; font-weight:800;">&mdash;</span>
         </div>
         <div id="drawer-year-histogram" style="margin-bottom:12px;"></div>
 
@@ -2848,10 +2835,10 @@
       <div class="hud-drawer" id="edge-evidence-drawer" style="display:none;">
         <div class="drawer-header">
           <div>
-            <div class="drawer-title" id="edge-evidence-title" style="font-size:13px;">Source ⟷ Target</div>
+            <div class="drawer-title" id="edge-evidence-title" style="font-size:13px;">&mdash;</div>
             <div style="display:flex; gap:6px; align-items:center; margin-top:4px;">
-              <div class="drawer-badge" id="edge-evidence-type" style="background:rgba(56, 189, 248, 0.15); color:#38BDF8;">Relasi Ko-okurensi</div>
-              <div class="drawer-cluster-meta" id="edge-evidence-valence-badge" style="font-size:9.5px; font-weight:700; color:#10B981;">Valensi: +0.25</div>
+              <div class="drawer-badge" id="edge-evidence-type" style="background:rgba(148,163,184,0.15); color:var(--text-muted);">&mdash;</div>
+              <div class="drawer-cluster-meta" id="edge-evidence-valence-badge" style="font-size:9.5px; font-weight:700; color:var(--text-muted);"></div>
             </div>
           </div>
           <button class="drawer-close" id="btn-close-edge-drawer">✕</button>
@@ -2860,38 +2847,38 @@
         <!-- Association Metrics Grid -->
         <div class="drawer-sec-title">
           <span>Signifikansi Asosiasi Statistik</span>
-          <span style="color:#38BDF8; font-size:9px; font-weight:700;">Empirical FTS5</span>
+          <span style="color:var(--text-muted); font-size:9px; font-weight:700;">Dari artefak tepi</span>
         </div>
         <div class="drawer-stats-grid">
           <div class="stat-card">
             <span class="stat-label">NPMI Score</span>
-            <span class="stat-val" id="edge-metric-npmi" style="color:#38BDF8;">+0.342</span>
+            <span class="stat-val" id="edge-metric-npmi">&mdash;</span>
           </div>
           <div class="stat-card">
             <span class="stat-label">Salton Cosine</span>
-            <span class="stat-val" id="edge-metric-salton">0.218</span>
+            <span class="stat-val" id="edge-metric-salton">&mdash;</span>
           </div>
           <div class="stat-card">
             <span class="stat-label">Jaccard Sim</span>
-            <span class="stat-val" id="edge-metric-jaccard">0.145</span>
+            <span class="stat-val" id="edge-metric-jaccard">&mdash;</span>
           </div>
           <div class="stat-card">
             <span class="stat-label">Ko-okurensi</span>
-            <span class="stat-val" id="edge-metric-weight">142 artikel</span>
+            <span class="stat-val" id="edge-metric-weight">&mdash;</span>
           </div>
         </div>
 
         <!-- Evidence Citations -->
         <div class="drawer-sec-title">
           <span>Bukti Kutipan Berita Empiris</span>
-          <span id="edge-evidence-sample-count" style="color:var(--text-muted); font-size:9.5px;">5 Cuplikan</span>
+          <span id="edge-evidence-sample-count" style="color:var(--text-muted); font-size:9.5px;"></span>
         </div>
         <div class="headline-list" id="edge-evidence-snippets-wrap"></div>
 
         <!-- Mandatory Corpus Disclosure -->
         <div class="edge-disclosure-card" style="margin-top:12px; padding:8px 10px; background:rgba(30,41,59,0.4); border:1px solid rgba(148,163,184,0.15); border-radius:6px; font-size:9.5px; color:#94A3B8; line-height:1.4;">
           <div style="font-weight:700; color:#F8FAFC; margin-bottom:2px;">Keterbukaan Data Korpus (Corpus Disclosure)</div>
-          <span id="disclosure-corpus-text">Cakupan korpus dimuat dari data/coverage.json.</span>
+          <span id="disclosure-corpus-text">Cakupan korpus dimuat dari bundle.</span>
         </div>
       </div>
 
@@ -3224,6 +3211,54 @@
       (epochs || []).forEach(ep => { temporalEpochsData[ep.id] = ep; });
       if (!epochs || !epochs.length) temporalEpochsData = null;
       renderEpochPills(epochs || []);
+      renderEpochSelects(epochs || []);
+    }
+
+    // Dua pemilih epos di bilah komparasi ikut bundle. Sebelumnya keduanya
+    // berisi tiga opsi tulisan tangan, sehingga bundle dengan jumlah epos lain
+    // membandingkan irisan waktu yang tidak ada.
+    // Dua epos nyata diperlukan sebelum bilah komparasi boleh tampil. Flag ini
+    // dipakai juga oleh switchAppMode, yang dulu menampilkan bilah tanpa syarat.
+    let COMPARE_AVAILABLE = false;
+
+    function renderEpochSelects(epochs) {
+      const baseSel = document.getElementById("sel-compare-baseline");
+      const tgtSel = document.getElementById("sel-compare-target");
+      if (!baseSel || !tgtSel) return;
+      const usable = epochs.filter(ep => ep && ep.id);
+      const optionFor = ep => {
+        const start = ep.start_year == null ? "" : String(ep.start_year);
+        const end = ep.end_year == null ? "" : String(ep.end_year);
+        const label = ep.label || ep.id;
+        // Sebagian label sudah memuat rentang tahunnya sendiri; menambahkannya
+        // lagi menghasilkan "(2021-2022) (2021–2022)".
+        const hasSpan = start && end && label.includes(start) && label.includes(end);
+        const span = (start && end && !hasSpan) ? ` (${start}\u2013${end})` : "";
+        return { value: ep.id, text: label + span };
+      };
+      [baseSel, tgtSel].forEach(sel => { sel.innerHTML = ""; });
+      // Perbandingan butuh dua irisan waktu nyata. `all_time` adalah agregat,
+      // bukan epos, jadi tidak dihitung: satu epos + all_time tetap berarti
+      // membandingkan sesuatu dengan dirinya sendiri yang diperbesar.
+      const realEpochs = usable.filter(ep => ep.id !== "all_time");
+      COMPARE_AVAILABLE = realEpochs.length >= 2;
+      if (!COMPARE_AVAILABLE) {
+        document.getElementById("temporal-compare-bar").style.display = "none";
+        return;
+      }
+      usable.forEach(ep => {
+        const opt = optionFor(ep);
+        [baseSel, tgtSel].forEach(sel => {
+          const o = document.createElement("option");
+          o.value = opt.value;
+          o.textContent = opt.text;
+          sel.appendChild(o);
+        });
+      });
+      // Dasar = irisan paling awal, target = irisan paling akhir yang bukan
+      // agregat all-time.
+      baseSel.value = realEpochs[0].id;
+      tgtSel.value = realEpochs[realEpochs.length - 1].id;
     }
 
     // Pil epos dibentuk dari data: jumlah, urutan, dan narasinya ikut bundle.
@@ -3692,8 +3727,10 @@
       if (cat === "ego_spoke" || cat === "intra_squad") return true;
 
       const sig = d.significance || {};
-      const npmi = sig.npmi !== undefined ? sig.npmi : (d.npmi !== undefined ? d.npmi : 0.0);
-      if (currentMinNpmi !== null && npmi < currentMinNpmi) {
+      const npmi = sig.npmi !== undefined ? sig.npmi : d.npmi;
+      // NPMI yang tidak dikirim bukan nol. Nilai tak dikenal dibiarkan lolos
+      // ambang, karena menggugurkannya berarti menyatakan ia terukur rendah.
+      if (currentMinNpmi !== null && npmi !== undefined && npmi !== null && npmi < currentMinNpmi) {
         return false;
       }
       return true;
@@ -3774,8 +3811,8 @@
         nodeTooltipEl.innerHTML = `
           <div style="font-weight:800; font-size:11px; color:#F8FAFC; margin-bottom:3px;">${srcLabel} ⟷ ${tgtLabel}</div>
           <div style="font-size:9.5px; color:#38BDF8;">${d.category_label || d.edge_category || 'Relasi Asosiasi'}</div>
-          <div style="font-size:9px; color:#10B981; margin-top:2px;">${d.weight || d.raw_frequency || 1} artikel bersama</div>
-          <div style="font-size:8.5px; color:#F59E0B; margin-top:4px; font-weight:700;">➔ Klik garis untuk buka bukti artikel FTS5</div>
+          <div style="font-size:9px; color:#10B981; margin-top:2px;">${(d.weight === undefined || d.weight === null) ? "—" : d.weight} artikel bersama</div>
+          <div style="font-size:8.5px; color:#F59E0B; margin-top:4px; font-weight:700;">➔ Klik garis untuk membuka bukti artikel</div>
         `;
         nodeTooltipEl.style.left = (event.pageX + 15) + "px";
         nodeTooltipEl.style.top = (event.pageY - 20) + "px";
@@ -4081,11 +4118,19 @@
 
       document.getElementById("ntt-desc").textContent = desc;
       
-      const sampN = m.corpus_sample_n ? m.corpus_sample_n.toLocaleString("id-ID") : (d.size ? d.size.toLocaleString("id-ID") : "N/A");
-      document.getElementById("ntt-volume").textContent = `${sampN} artikel`;
+      // `corpus_sample_n` tidak pernah dikirim serializer; `articles` adalah
+      // jumlah artikel yang benar-benar menyebut entitas ini.
+      const sampN = [m.corpus_sample_n, d.articles, d.size]
+        .find(v => v !== undefined && v !== null);
+      const sampLabel = sampN === undefined ? null : Number(sampN).toLocaleString("id-ID");
+      document.getElementById("ntt-volume").textContent = sampLabel === null ? "\u2014" : `${sampLabel} artikel`;
 
+      // Peran taktis hanya ada bila bundle membawa blok `tactical`; tidak ada
+      // serializer yang mengirimnya hari ini, jadi tanpa blok barisnya kosong.
       const tac = d.tactical || {};
-      document.getElementById("ntt-role").textContent = `${tac.role || "peripheral_entity"} (#${tac.rank || "-"})`;
+      document.getElementById("ntt-role").textContent = tac.role
+        ? `${tac.role}${tac.rank ? ` (#${tac.rank})` : ""}`
+        : "\u2014";
 
       // Causal Flow metrics (Inflow vs Outflow)
       let inCount = 0, outCount = 0;
@@ -4099,23 +4144,21 @@
       }
 
       // Sentiment bar
-      const sPos = m.sentiment_pos;
-      const sNeu = m.sentiment_neu;
-      const sNeg = m.sentiment_neg;
-      if (sPos !== null && sPos !== undefined && sNeg !== null && sNeg !== undefined) {
+      const sent = nodeSentiment(d);
+      if (sent) {
         document.getElementById("ntt-stance-bar").style.display = "flex";
-        document.getElementById("ntt-bar-pos").style.width = sPos + "%";
-        document.getElementById("ntt-bar-neu").style.width = sNeu + "%";
-        document.getElementById("ntt-bar-neg").style.width = sNeg + "%";
-        
-        const stanceVal = ((sPos - sNeg) / 100).toFixed(2);
+        document.getElementById("ntt-bar-pos").style.width = sent.pos + "%";
+        document.getElementById("ntt-bar-neu").style.width = sent.neu + "%";
+        document.getElementById("ntt-bar-neg").style.width = sent.neg + "%";
+
+        const stanceText = (sent.stance >= 0 ? "+" : "") + sent.stance.toFixed(2);
         const stanceEl = document.getElementById("ntt-stance-text");
-        stanceEl.textContent = (stanceVal >= 0 ? "+" : "") + stanceVal + " Stance (Pos " + sPos + "%)";
-        stanceEl.style.color = stanceVal >= 0 ? "#16A34A" : "#DC2626";
-        document.getElementById("ntt-neg-pct").textContent = "Neg " + sNeg + "%";
+        stanceEl.textContent = stanceText + " Stance (Pos " + sent.pos + "%)";
+        stanceEl.style.color = sent.stance >= 0 ? "#16A34A" : "#DC2626";
+        document.getElementById("ntt-neg-pct").textContent = "Neg " + sent.neg + "%";
       } else {
         document.getElementById("ntt-stance-bar").style.display = "none";
-        document.getElementById("ntt-stance-text").textContent = "Sentimen: belum tersedia";
+        document.getElementById("ntt-stance-text").textContent = sentimentUnavailableLabel();
         document.getElementById("ntt-stance-text").style.color = "var(--text-dim)";
         document.getElementById("ntt-neg-pct").textContent = "";
       }
@@ -4162,6 +4205,43 @@
       zoomToNode(d, 700);
     }
 
+    // -------------------------------------------------------------
+    // Sentimen simpul: satu pembaca, satu bentuk.
+    // -------------------------------------------------------------
+    // Serializer hanya mengirim blok `sentiment` bila lapisan sentimen ada di
+    // bundle. Semua konsumen lewat sini supaya tidak ada lagi angka cadangan:
+    // tanpa lapisan, hasilnya null dan panel wajib menampilkan status kosong.
+    function nodeSentiment(node) {
+      const block = node && node.sentiment;
+      if (!block || block.status !== "ready") return null;
+      // Null dan string kosong harus ditolak sebelum Number(): Number(null)
+      // dan Number("") sama-sama 0, dan 0 terbaca sebagai "terukur netral".
+      if (block.pos === null || block.pos === undefined
+          || block.neu === null || block.neu === undefined
+          || block.neg === null || block.neg === undefined) return null;
+      const pos = Number(block.pos);
+      const neu = Number(block.neu);
+      const neg = Number(block.neg);
+      if (!Number.isFinite(pos) || !Number.isFinite(neu) || !Number.isFinite(neg)) return null;
+      const stance = (block.stance === null || block.stance === undefined)
+        ? (pos - neg) / 100
+        : Number(block.stance);
+      if (!Number.isFinite(stance)) return null;
+      return { pos, neu, neg, stance, confidence: block.confidence, method: block.method };
+    }
+
+    // Status lapisan sentimen menurut manifest, bukan menurut ada-tidaknya field.
+    function sentimentLayerStatus() {
+      const layers = (BOOTSTRAP && BOOTSTRAP.dataset && BOOTSTRAP.dataset.layers) || {};
+      return layers.sentiment || "awaiting_input";
+    }
+
+    function sentimentUnavailableLabel() {
+      return sentimentLayerStatus() === "awaiting_input"
+        ? "Lapisan sentimen belum tersedia (awaiting_input)"
+        : "Sentimen tidak tersedia untuk simpul ini";
+    }
+
     function inspectEdgeDetails(d) {
       if (window.copilotUI && typeof window.copilotUI.closeDrawer === "function") {
         window.copilotUI.closeDrawer();
@@ -4187,74 +4267,106 @@
         "contextual_cooccurrence": "Ko-okurensi Kontekstual"
       };
       const typeEl = document.getElementById("edge-evidence-type");
-      if (typeEl) {
-        typeEl.textContent = relLabels[d.relation_type] || d.edge_category || "Relasi Ko-okurensi";
-      }
+      if (typeEl) typeEl.textContent = relLabels[d.relation_type] || d.category_label || d.edge_category || "Relasi";
 
+      const DASH = "\u2014";
+      const fmt = (value, digits) => (value === undefined || value === null || Number.isNaN(Number(value)))
+        ? DASH
+        : Number(value).toFixed(digits);
+
+      // Semua angka diambil dari objek sisi yang sudah ada di kanvas. Route
+      // bukti hanya menambah daftar artikel, jadi tidak ada lagi nilai cadangan
+      // yang tampil sebagai hasil ukur.
       const sig = d.significance || {};
-      const npmiVal = sig.npmi !== undefined ? sig.npmi : (d.npmi !== undefined ? d.npmi : 0.20);
-      const edgeValence = (d.sentiment_valence !== undefined) ? d.sentiment_valence : (sig.sentiment_valence !== undefined ? sig.sentiment_valence : 0.0);
-      const valStr = (edgeValence >= 0 ? "+" : "") + Number(edgeValence).toFixed(2);
+      const npmiVal = d.npmi !== undefined ? d.npmi : sig.npmi;
+      const edgeValence = (d.sentiment_valence !== undefined) ? d.sentiment_valence : sig.sentiment_valence;
 
       const valBadge = document.getElementById("edge-evidence-valence-badge");
       if (valBadge) {
-        valBadge.textContent = `Valensi: ${valStr}`;
-        valBadge.style.color = edgeValence >= 0 ? "#10B981" : "#EF4444";
+        if (edgeValence === undefined || edgeValence === null) {
+          // Valensi hanya bermakna bila lapisan sentimen ada.
+          valBadge.textContent = "";
+        } else {
+          valBadge.textContent = `Valensi: ${(edgeValence >= 0 ? "+" : "") + Number(edgeValence).toFixed(2)}`;
+          valBadge.style.color = edgeValence >= 0 ? "#10B981" : "#EF4444";
+        }
       }
 
       const npmiEl = document.getElementById("edge-metric-npmi");
-      if (npmiEl) npmiEl.textContent = (npmiVal >= 0 ? "+" : "") + Number(npmiVal).toFixed(3);
+      if (npmiEl) npmiEl.textContent = (npmiVal === undefined || npmiVal === null)
+        ? DASH : (npmiVal >= 0 ? "+" : "") + Number(npmiVal).toFixed(3);
       const saltonEl = document.getElementById("edge-metric-salton");
-      if (saltonEl) saltonEl.textContent = sig.salton_cosine !== undefined ? Number(sig.salton_cosine).toFixed(3) : "0.185";
+      if (saltonEl) saltonEl.textContent = fmt(d.salton_cosine, 3);
       const jaccardEl = document.getElementById("edge-metric-jaccard");
-      if (jaccardEl) jaccardEl.textContent = sig.jaccard !== undefined ? Number(sig.jaccard).toFixed(3) : "0.092";
+      if (jaccardEl) jaccardEl.textContent = fmt(d.jaccard, 3);
       const weightEl = document.getElementById("edge-metric-weight");
-      if (weightEl) weightEl.textContent = `${d.weight || d.raw_frequency || 10} artikel`;
+      if (weightEl) weightEl.textContent = (d.weight === undefined || d.weight === null)
+        ? DASH : `${d.weight} artikel`;
 
       const snippetsWrap = document.getElementById("edge-evidence-snippets-wrap");
+      const countEl = document.getElementById("edge-evidence-sample-count");
       if (snippetsWrap) {
-        snippetsWrap.innerHTML = '<div style="font-size:9.5px; color:#64748B; font-style:italic; padding:6px 0;">Memuat bukti kutipan berita empiris FTS5...</div>';
+        snippetsWrap.innerHTML = '<div style="font-size:9.5px; color:#64748B; font-style:italic; padding:6px 0;">Memuat bukti kutipan berita...</div>';
       }
+      if (countEl) countEl.textContent = "";
 
-      fetch(`/api/edge/evidence?source=${encodeURIComponent(sId)}&target=${encodeURIComponent(tId)}`)
-        .then(res => res.ok ? res.json() : null)
+      const fail = (message) => {
+        if (countEl) countEl.textContent = "Gagal";
+        if (snippetsWrap) {
+          snippetsWrap.innerHTML = `<div style="font-size:9.5px; color:#F87171; font-style:italic; padding:6px 0;">${message}</div>`;
+        }
+      };
+
+      fetch(`/api/edges/evidence?source=${encodeURIComponent(sId)}&target=${encodeURIComponent(tId)}`)
+        .then(res => {
+          if (!res.ok) {
+            // 404 di sini berarti sisi tidak ada di jaringan, bukan alasan
+            // untuk menampilkan panel kosong tanpa penjelasan.
+            throw new Error(res.status === 404 ? "Sisi ini tidak ada di jaringan bundle." : "HTTP " + res.status);
+          }
+          return res.json();
+        })
         .then(data => {
-          if (!data || !snippetsWrap) return;
-          if (data.npmi !== undefined && npmiEl) npmiEl.textContent = (data.npmi >= 0 ? "+" : "") + Number(data.npmi).toFixed(3);
-          if (data.salton_cosine !== undefined && saltonEl) saltonEl.textContent = Number(data.salton_cosine).toFixed(3);
-          if (data.jaccard !== undefined && jaccardEl) jaccardEl.textContent = Number(data.jaccard).toFixed(3);
-          if (data.weight !== undefined && weightEl) weightEl.textContent = `${data.weight} artikel`;
-
-          snippetsWrap.innerHTML = "";
-          const snips = data.evidence_snippets || [];
-          const countEl = document.getElementById("edge-evidence-sample-count");
+          if (!snippetsWrap) return;
+          const snips = Array.isArray(data.evidence) ? data.evidence : [];
           if (countEl) countEl.textContent = `${snips.length} Cuplikan`;
 
           if (snips.length === 0) {
-            snippetsWrap.innerHTML = '<div style="font-size:9.5px; color:#64748B; font-style:italic;">Tidak ditemukan kutipan artikel spesifik untuk relasi ini.</div>';
+            snippetsWrap.innerHTML = '<div style="font-size:9.5px; color:#64748B; font-style:italic;">Tidak ada artikel yang menyebut kedua entitas ini.</div>';
             return;
           }
 
+          snippetsWrap.innerHTML = "";
           snips.forEach(sn => {
             const card = document.createElement("div");
             card.className = "headline-item";
             card.style.cssText = "margin-bottom:6px; padding:6px 8px; background:rgba(255,255,255,0.03); border-radius:4px; border-left:2px solid #38BDF8;";
-            card.innerHTML = `
-              <div style="font-weight:700; color:#F8FAFC; font-size:10px; margin-bottom:2px;">${sn.title || 'Kutipan Artikel Berita'}</div>
-              <div style="font-size:9px; color:#94A3B8; line-height:1.35;">"${sn.snippet || ''}"</div>
-              <div style="font-size:8px; color:#64748B; margin-top:3px; display:flex; justify-content:space-between;">
-                <span>${sn.source || 'Media Nasional'}</span>
-                <span>${sn.date || '2021-2026'}</span>
-              </div>
-            `;
+            const title = document.createElement("div");
+            title.style.cssText = "font-weight:700; color:#F8FAFC; font-size:10px; margin-bottom:2px;";
+            title.textContent = sn.title || "(tanpa judul)";
+            const meta = document.createElement("div");
+            meta.style.cssText = "font-size:8px; color:#64748B; margin-top:3px; display:flex; justify-content:space-between; gap:6px;";
+            const site = document.createElement("span");
+            site.textContent = sn.site || DASH;
+            const date = document.createElement("span");
+            date.textContent = (sn.published_at || "").slice(0, 10) || DASH;
+            meta.append(site, date);
+            card.append(title, meta);
+            if (sn.url) {
+              const link = document.createElement("a");
+              link.href = sn.url;
+              link.target = "_blank";
+              link.rel = "noopener noreferrer";
+              link.textContent = "Buka artikel";
+              link.style.cssText = "font-size:8.5px; color:#38BDF8; text-decoration:none;";
+              card.appendChild(link);
+            }
             snippetsWrap.appendChild(card);
           });
         })
         .catch(err => {
           console.warn("[Edge Evidence] Gagal memuat kutipan:", err);
-          if (snippetsWrap) {
-            snippetsWrap.innerHTML = '<div style="font-size:9.5px; color:#64748B; font-style:italic;">Kutipan artikel berita dimuat dari metadata relasi.</div>';
-          }
+          fail(err && err.message ? err.message : "Bukti kutipan tidak dapat dimuat.");
         });
     }
 
@@ -4333,74 +4445,128 @@
         clusterMetaEl.textContent = commLabel ? `• ${cLabel} (${commLabel})` : `• ${cLabel}`;
       }
 
-      document.getElementById("drawer-comm").textContent = d.orbit_label || "Orbit Ekosistem";
-      
+      // Panel metrik hanya menampilkan yang benar-benar dikirim serializer.
+      // Nilai cadangan dihapus: angka contoh terbaca sebagai hasil analisis.
+      const DASH = "\u2014";
+      document.getElementById("drawer-comm").textContent = d.orbit_label || DASH;
+
       const m = d.metrics || {};
-      const sampN = m.corpus_sample_n ? m.corpus_sample_n.toLocaleString("id-ID") : (d.size ? d.size.toLocaleString("id-ID") : "N/A");
-      const conf = m.sentiment_confidence || "Tinggi";
-      document.getElementById("drawer-volume").textContent = `${sampN} artikel (${conf})`;
-
-      const inD = (m.in_degree !== undefined && m.in_degree !== null) ? m.in_degree : Math.floor((m.degree || 1) / 2);
-      const outD = (m.out_degree !== undefined && m.out_degree !== null) ? m.out_degree : Math.ceil((m.degree || 1) / 2);
-      document.getElementById("drawer-degree").textContent = `${m.degree || (inD + outD)} koneksi (Undirected)`;
-
-      const pr = (m.pagerank !== undefined && m.pagerank !== null) ? Number(m.pagerank).toFixed(4) : "0.0150";
-      const bw = (m.betweenness !== undefined && m.betweenness !== null) ? Number(m.betweenness).toFixed(4) : "0.0020";
-      document.getElementById("drawer-betweenness").textContent = `PR: ${pr} | BW: ${bw}`;
-
-      // Yearly Sparkline / Histogram — rentang tahun mengikuti date_range bundle
-      const yearHistWrap = document.getElementById("drawer-year-histogram");
-      if (yearHistWrap) {
-        yearHistWrap.innerHTML = "";
-        const mYears = m.metrics_by_year || {};
-        const yearsList = timelineYears()
-          .filter(y => y !== null)
-          .map(y => String(y));
-        const yearData = yearsList.map(y => ({ year: y, count: mYears[y]?.articles || 0 }));
-        const maxArticles = Math.max(1, ...yearData.map(yd => yd.count));
-
-        const histContainer = document.createElement("div");
-        histContainer.style.cssText = "display:flex; justify-content:space-between; align-items:flex-end; height:52px; padding:6px 8px; background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:6px; gap:4px;";
-
-        yearData.forEach(yd => {
-          const barHeightPct = Math.max(8, Math.round((yd.count / maxArticles) * 100));
-          const colEl = document.createElement("div");
-          colEl.style.cssText = "display:flex; flex-direction:column; align-items:center; flex:1; height:100%; justify-content:flex-end; gap:3px;";
-          colEl.title = `Tahun ${yd.year}: ${yd.count.toLocaleString("id-ID")} artikel`;
-          colEl.innerHTML = `
-            <div style="font-size:8px; font-weight:800; color:${yd.count > 0 ? '#38BDF8' : '#64748B'};">${yd.count > 999 ? (yd.count/1000).toFixed(1)+'k' : yd.count}</div>
-            <div style="width:100%; max-width:18px; height:${barHeightPct}%; background:${yd.count > 0 ? 'linear-gradient(to top, #0284C7, #38BDF8)' : 'rgba(255,255,255,0.06)'}; border-radius:2px 2px 0 0;"></div>
-            <div style="font-size:8.5px; font-weight:700; color:#94A3B8;">${yd.year.slice(2)}</div>
-          `;
-          histContainer.appendChild(colEl);
-        });
-        yearHistWrap.appendChild(histContainer);
+      const sent = nodeSentiment(d);
+      // `corpus_sample_n` tidak pernah dikirim serializer; `articles` adalah
+      // jumlah artikel yang benar-benar menyebut entitas ini.
+      const sampN = [m.corpus_sample_n, d.articles, d.size]
+        .find(v => v !== undefined && v !== null);
+      const sampLabel = sampN === undefined ? null : Number(sampN).toLocaleString("id-ID");
+      // Keyakinan hanya bermakna bila lapisan sentimen ada.
+      const conf = sent && sent.confidence !== null && sent.confidence !== undefined
+        ? Number(sent.confidence).toFixed(2)
+        : "";
+      const volumeEl = document.getElementById("drawer-volume");
+      if (sampLabel === null) {
+        volumeEl.textContent = DASH;
+      } else {
+        volumeEl.textContent = conf ? `${sampLabel} artikel (${conf})` : `${sampLabel} artikel`;
       }
 
-      // Sentiment bar
-      const sPos = m.sentiment_pos !== undefined ? m.sentiment_pos : 14;
-      const sNeu = m.sentiment_neu !== undefined ? m.sentiment_neu : 83;
-      const sNeg = m.sentiment_neg !== undefined ? m.sentiment_neg : 3;
+      const deg = (m.degree !== undefined && m.degree !== null) ? m.degree : null;
+      document.getElementById("drawer-degree").textContent = deg === null ? DASH : `${deg} koneksi (Undirected)`;
 
-      document.getElementById("sent-bar-pos").style.width = sPos + "%";
-      document.getElementById("sent-bar-neu").style.width = sNeu + "%";
-      document.getElementById("sent-bar-neg").style.width = sNeg + "%";
-      document.getElementById("sent-lbl-pos").textContent = "Pos " + sPos + "%";
-      document.getElementById("sent-lbl-neu").textContent = "Neu " + sNeu + "%";
-      document.getElementById("sent-lbl-neg").textContent = "Neg " + sNeg + "%";
-      
-      const stanceVal = ((sPos - sNeg) / 100).toFixed(2);
+      const pr = (m.pagerank !== undefined && m.pagerank !== null) ? Number(m.pagerank).toFixed(4) : null;
+      const bw = (m.betweenness !== undefined && m.betweenness !== null) ? Number(m.betweenness).toFixed(4) : null;
+      document.getElementById("drawer-betweenness").textContent =
+        (pr === null && bw === null) ? DASH : `PR: ${pr === null ? DASH : pr} | BW: ${bw === null ? DASH : bw}`;
+
+      // Histogram tahunan. `metrics_by_year` tidak pernah dikirim serializer,
+      // jadi tanpa cabang kedua setiap tahun akan tampil "0 artikel" — angka
+      // karangan. `active_years` adalah data nyata dari artikel bertanggal.
+      const yearHistWrap = document.getElementById("drawer-year-histogram");
+      const yearTitleRow = document.getElementById("drawer-year-title-row");
+      const yearTitle = document.getElementById("drawer-year-title");
+      if (yearHistWrap) {
+        yearHistWrap.innerHTML = "";
+        const yearsList = timelineYears().filter(y => y !== null).map(y => String(y));
+        const mYears = m.metrics_by_year;
+        const activeYears = new Set((d.active_years || []).map(y => String(y)));
+        // Mode volume hanya bila seluruh tahun punya angka; mode kehadiran
+        // hanya bila ada active_years; selain itu panel disembunyikan.
+        const hasVolume = mYears && yearsList.some(y => mYears[y] && mYears[y].articles !== undefined);
+        const hasPresence = activeYears.size > 0;
+        if (!hasVolume && !hasPresence) {
+          if (yearTitleRow) yearTitleRow.style.display = "none";
+          yearHistWrap.style.display = "none";
+        } else {
+          if (yearTitleRow) yearTitleRow.style.display = "";
+          yearHistWrap.style.display = "";
+          if (yearTitle) yearTitle.textContent = hasVolume ? "Tren Volume Artikel Tahunan" : "Tahun Aktif Entitas";
+          const yearData = yearsList.map(y => ({
+            year: y,
+            count: hasVolume ? (mYears[y]?.articles ?? 0) : null,
+            active: hasVolume ? (mYears[y]?.articles ?? 0) > 0 : activeYears.has(y)
+          }));
+          const maxArticles = Math.max(1, ...yearData.map(yd => yd.count || 0));
+
+          const histContainer = document.createElement("div");
+          histContainer.style.cssText = "display:flex; justify-content:space-between; align-items:flex-end; height:52px; padding:6px 8px; background:var(--bg-card); border:1px solid var(--border-subtle); border-radius:6px; gap:4px;";
+
+          yearData.forEach(yd => {
+            const barHeightPct = hasVolume
+              ? Math.max(8, Math.round(((yd.count || 0) / maxArticles) * 100))
+              : (yd.active ? 100 : 8);
+            const colEl = document.createElement("div");
+            colEl.style.cssText = "display:flex; flex-direction:column; align-items:center; flex:1; height:100%; justify-content:flex-end; gap:3px;";
+            colEl.title = hasVolume
+              ? `Tahun ${yd.year}: ${yd.count.toLocaleString("id-ID")} artikel`
+              : `Tahun ${yd.year}: ${yd.active ? "aktif" : "tidak ada sebutan"}`;
+            const head = hasVolume
+              ? (yd.count > 999 ? (yd.count / 1000).toFixed(1) + "k" : String(yd.count))
+              : (yd.active ? "\u25CF" : "");
+            colEl.innerHTML = `
+              <div style="font-size:8px; font-weight:800; color:${yd.active ? '#38BDF8' : '#64748B'};">${head}</div>
+              <div style="width:100%; max-width:18px; height:${barHeightPct}%; background:${yd.active ? 'linear-gradient(to top, #0284C7, #38BDF8)' : 'rgba(255,255,255,0.06)'}; border-radius:2px 2px 0 0;"></div>
+              <div style="font-size:8.5px; font-weight:700; color:#94A3B8;">${yd.year.slice(2)}</div>
+            `;
+            histContainer.appendChild(colEl);
+          });
+          yearHistWrap.appendChild(histContainer);
+        }
+      }
+
+      // Sentiment bar. Bar dan stance hanya muncul bila lapisan sentimen ada;
+      // sebelumnya blok ini mengarang Pos 14 / Neu 83 / Neg 3.
+      const sentTrack = document.querySelector(".sentiment-bar-track");
+      const sentLegend = document.querySelector(".sent-legend");
       const stanceEl = document.getElementById("drawer-stance-score");
-      stanceEl.textContent = (stanceVal >= 0 ? "+" : "") + stanceVal + " Stance";
-      stanceEl.style.color = stanceVal >= 0 ? "#16A34A" : "#DC2626";
-      document.getElementById("drawer-neg-total-badge").textContent = "Total Negatif: " + sNeg + "%";
+      const negTotalEl = document.getElementById("drawer-neg-total-badge");
 
-      // Negative Drivers (Fixed bug undefined)
+      if (sent) {
+        if (sentTrack) sentTrack.style.display = "";
+        if (sentLegend) sentLegend.style.display = "";
+        document.getElementById("sent-bar-pos").style.width = sent.pos + "%";
+        document.getElementById("sent-bar-neu").style.width = sent.neu + "%";
+        document.getElementById("sent-bar-neg").style.width = sent.neg + "%";
+        document.getElementById("sent-lbl-pos").textContent = "Pos " + sent.pos + "%";
+        document.getElementById("sent-lbl-neu").textContent = "Neu " + sent.neu + "%";
+        document.getElementById("sent-lbl-neg").textContent = "Neg " + sent.neg + "%";
+        const stanceText = (sent.stance >= 0 ? "+" : "") + sent.stance.toFixed(2);
+        stanceEl.textContent = stanceText + " Stance";
+        stanceEl.style.color = sent.stance >= 0 ? "#16A34A" : "#DC2626";
+        if (negTotalEl) negTotalEl.textContent = "Total Negatif: " + sent.neg + "%";
+      } else {
+        if (sentTrack) sentTrack.style.display = "none";
+        if (sentLegend) sentLegend.style.display = "none";
+        stanceEl.textContent = sentimentLayerStatus() === "awaiting_input" ? "awaiting_layer" : DASH;
+        stanceEl.style.color = "var(--text-muted)";
+        if (negTotalEl) negTotalEl.textContent = DASH;
+      }
+
+      // Negative Drivers
       const driversWrap = document.getElementById("drawer-neg-drivers");
       driversWrap.innerHTML = "";
       const drivers = m.negative_drivers || [];
       if (drivers.length === 0) {
-        driversWrap.innerHTML = '<div style="font-size:9.5px; color:var(--text-dim); font-style:italic;">Tidak ada anomali sentimen negatif signifikan.</div>';
+        driversWrap.innerHTML = sent
+          ? '<div style="font-size:9.5px; color:var(--text-dim); font-style:italic;">Tidak ada anomali sentimen negatif signifikan.</div>'
+          : `<div style="font-size:9.5px; color:var(--text-dim); font-style:italic;">${sentimentUnavailableLabel()}.</div>`;
       } else {
         drivers.forEach(dr => {
           const card = document.createElement("div");
@@ -4418,31 +4584,44 @@
         });
       }
 
-      // Tactical Recommendation
+      // Tactical Recommendation. Bila artefak tak memuat blok taktis, panel
+      // menampilkan garis kosong, bukan prioritas/peran rekaan.
       const tact = d.tactical || {};
+      const hasTactical = Object.keys(tact).length > 0;
+      const tactSection = document.getElementById("drawer-tactical-section");
+      if (tactSection) tactSection.style.display = hasTactical ? "" : "none";
       const priorityEl = document.getElementById("drawer-tactical-priority");
-      priorityEl.textContent = tact.priority || "MEDIUM";
-      priorityEl.style.backgroundColor = tact.priority === "CRITICAL" ? "rgba(239, 68, 68, 0.2)" : (tact.priority === "HIGH" ? "rgba(249, 115, 22, 0.2)" : "rgba(14, 165, 233, 0.2)");
-      priorityEl.style.color = tact.priority === "CRITICAL" ? "#EF4444" : (tact.priority === "HIGH" ? "#F97316" : "#38BDF8");
+      const hasPriority = !!tact.priority;
+      priorityEl.textContent = hasPriority ? tact.priority : DASH;
+      priorityEl.style.backgroundColor = !hasPriority ? "rgba(148,163,184,0.15)"
+        : (tact.priority === "CRITICAL" ? "rgba(239, 68, 68, 0.2)" : (tact.priority === "HIGH" ? "rgba(249, 115, 22, 0.2)" : "rgba(14, 165, 233, 0.2)"));
+      priorityEl.style.color = !hasPriority ? "var(--text-muted)"
+        : (tact.priority === "CRITICAL" ? "#EF4444" : (tact.priority === "HIGH" ? "#F97316" : "#38BDF8"));
 
-      document.getElementById("drawer-tactical-role").textContent = tact.role || (d.entity_type === "Person" ? "squad_player" : "ecosystem_node");
-      document.getElementById("drawer-tactical-rank").textContent = `Rank #${tact.rank || 25}`;
-      
+      document.getElementById("drawer-tactical-role").textContent = tact.role || DASH;
+      document.getElementById("drawer-tactical-rank").textContent = tact.rank ? `Rank #${tact.rank}` : "";
+
       const actBadge = document.getElementById("drawer-tactical-action-badge");
       if (actBadge) {
-        actBadge.textContent = (tact.action || "monitor_passive").replace("_", " ");
+        const hasAction = !!tact.action;
+        actBadge.textContent = hasAction ? tact.action.replace(/_/g, " ") : DASH;
+        actBadge.style.background = hasAction ? "rgba(56, 189, 248, 0.15)" : "rgba(148,163,184,0.15)";
+        actBadge.style.color = hasAction ? "#38BDF8" : "var(--text-muted)";
       }
-      document.getElementById("drawer-tactical-justification").textContent = tact.justification
-        || `${d.label || d.id}: tercatat pada ${sampN} ${labelOf("articles", "Artikel")}.`;
+      document.getElementById("drawer-tactical-justification").textContent = tact.justification || "";
 
       // Ronald Burt (1992) Structural Holes Metrics
-      const burtConstraint = (m.burt_constraint !== undefined && m.burt_constraint !== null)
-        ? Number(m.burt_constraint).toFixed(4)
-        : (d.burt_constraint !== undefined ? Number(d.burt_constraint).toFixed(4) : "0.5000");
-      const effectiveSize = (m.effective_size !== undefined && m.effective_size !== null)
-        ? Number(m.effective_size).toFixed(2)
-        : (d.effective_size !== undefined ? Number(d.effective_size).toFixed(2) : "1.00");
-      const cNum = Number(burtConstraint);
+      const burtConstraintRaw = (m.burt_constraint !== undefined && m.burt_constraint !== null)
+        ? m.burt_constraint
+        : (d.burt_constraint !== undefined && d.burt_constraint !== null ? d.burt_constraint : null);
+      const effectiveSizeRaw = (m.effective_size !== undefined && m.effective_size !== null)
+        ? m.effective_size
+        : (d.effective_size !== undefined && d.effective_size !== null ? d.effective_size : null);
+      const burtConstraint = burtConstraintRaw === null ? null : Number(burtConstraintRaw).toFixed(4);
+      const effectiveSize = effectiveSizeRaw === null ? null : Number(effectiveSizeRaw).toFixed(2);
+      // null, bukan NaN: NaN membuat semua perbandingan di bawah bernilai false
+      // dan badge diam-diam mempertahankan teks dari markup.
+      const cNum = burtConstraint === null ? null : Number(burtConstraint);
 
       const burtRoleBadge = document.getElementById("drawer-burt-role-badge");
       const burtConstraintEl = document.getElementById("drawer-burt-constraint");
@@ -4450,7 +4629,12 @@
       const burtDescEl = document.getElementById("drawer-burt-desc");
 
       if (burtRoleBadge) {
-        if (cNum < 0.25) {
+        if (cNum === null) {
+          burtRoleBadge.textContent = DASH;
+          burtRoleBadge.style.background = "rgba(148, 163, 184, 0.15)";
+          burtRoleBadge.style.color = "var(--text-muted)";
+          if (burtDescEl) burtDescEl.textContent = "Artefak tidak memuat metrik structural holes untuk simpul ini.";
+        } else if (cNum < 0.25) {
           burtRoleBadge.textContent = "HIGH AUTONOMY (TERTIUS)";
           burtRoleBadge.style.background = "rgba(16, 185, 129, 0.2)";
           burtRoleBadge.style.color = "#10B981";
@@ -4467,8 +4651,8 @@
           if (burtDescEl) burtDescEl.textContent = "Embedded Clique: Keterikatan tinggi dalam kelompok tertutup dengan saluran komunikasi berulang.";
         }
       }
-      if (burtConstraintEl) burtConstraintEl.textContent = burtConstraint;
-      if (burtEsEl) burtEsEl.textContent = effectiveSize;
+      if (burtConstraintEl) burtConstraintEl.textContent = burtConstraint === null ? DASH : burtConstraint;
+      if (burtEsEl) burtEsEl.textContent = effectiveSize === null ? DASH : effectiveSize;
 
       // Populate Executive PR Risk & Action Card
       const actionCardEl = document.getElementById("drawer-action-card");
@@ -4479,19 +4663,29 @@
       if (actionCardEl && actionTitleEl && actionDescEl && actionBadgeEl) {
         // Aturan tindakan bersifat struktural (media / constraint tinggi /
         // otonom / seimbang); kalimatnya datang dari presentation.action_rules.
+        // Tanpa metrik struktural tidak ada dasar memilih aturan mana pun.
         const rules = (PRESENTATION && PRESENTATION.action_rules) || {};
         const isMedia = (typeLabel(d.entity_type) || "").toLowerCase() === "source";
-        const roleKey = isMedia ? "media" : (cNum > 0.45 ? "dependent" : (cNum < 0.25 ? "broker" : "default"));
-        const rule = rules[roleKey] || {};
-        const tone = {
-          media: "#EA580C", dependent: "#EF4444", broker: "#10B981", default: "#38BDF8"
-        }[roleKey];
-        actionBadgeEl.textContent = rule.badge || roleKey.toUpperCase();
-        actionBadgeEl.style.background = hexToRgba(tone, 0.2);
-        actionBadgeEl.style.color = tone;
-        actionCardEl.style.borderLeftColor = tone;
-        actionTitleEl.textContent = fillTemplate(rule.title, d, sampN) || (d.label || d.id);
-        actionDescEl.textContent = fillTemplate(rule.body, d, sampN) || "";
+        if (cNum === null && !isMedia) {
+          actionBadgeEl.textContent = DASH;
+          actionBadgeEl.style.background = "rgba(148,163,184,0.15)";
+          actionBadgeEl.style.color = "var(--text-muted)";
+          actionCardEl.style.borderLeftColor = "var(--border-subtle)";
+          actionTitleEl.textContent = DASH;
+          actionDescEl.textContent = "Metrik struktural simpul ini tidak tersedia di bundle.";
+        } else {
+          const roleKey = isMedia ? "media" : (cNum > 0.45 ? "dependent" : (cNum < 0.25 ? "broker" : "default"));
+          const rule = rules[roleKey] || {};
+          const tone = {
+            media: "#EA580C", dependent: "#EF4444", broker: "#10B981", default: "#38BDF8"
+          }[roleKey];
+          actionBadgeEl.textContent = rule.badge || roleKey.toUpperCase();
+          actionBadgeEl.style.background = hexToRgba(tone, 0.2);
+          actionBadgeEl.style.color = tone;
+          actionCardEl.style.borderLeftColor = tone;
+          actionTitleEl.textContent = fillTemplate(rule.title, d, sampLabel) || (d.label || d.id);
+          actionDescEl.textContent = fillTemplate(rule.body, d, sampLabel) || "";
+        }
       }
 
       // Causal Driver & 2-Hop Path Annotation
@@ -4833,17 +5027,21 @@
     }
 
     document.getElementById("btn-export-csv").addEventListener("click", () => {
-      const nodeHeaders = ["id", "label", "entity_type", "orbit_ring", "first_seen_year", "hawkes_alpha", "degree", "in_degree", "out_degree", "pagerank", "betweenness", "burt_constraint", "sentiment_verified", "pos_pct", "neu_pct", "neg_pct", "corpus_sample_n"];
+      const nodeHeaders = ["id", "label", "entity_type", "orbit_ring", "first_seen_year", "hawkes_alpha", "degree", "in_degree", "out_degree", "pagerank", "betweenness", "burt_constraint", "sentiment_status", "pos_pct", "neu_pct", "neg_pct", "stance", "articles"];
       const nodeRows = allData.nodes.map(n => {
         const m = n.metrics || {};
+        const sent = nodeSentiment(n);
         return [
           `"${n.id}"`, `"${n.label}"`, `"${n.entity_type}"`, `"${n.orbit_label || ''}"`,
           csvValue(n.first_seen_year), csvValue(n.hawkes_alpha),
           csvValue(m.degree), csvValue(m.in_degree), csvValue(m.out_degree),
           csvValue(m.pagerank), csvValue(m.betweenness), csvValue(m.burt_constraint),
-          m.sentiment_verified === true,
-          csvValue(m.sentiment_pos), csvValue(m.sentiment_neu), csvValue(m.sentiment_neg),
-          csvValue(m.corpus_sample_n)
+          // Status lapisan, bukan boolean: "awaiting_input" dan "ready" adalah
+          // dua hal berbeda, dan sel kosong berarti tidak ada skor simpul ini.
+          sent ? "ready" : sentimentLayerStatus(),
+          csvValue(sent ? sent.pos : null), csvValue(sent ? sent.neu : null), csvValue(sent ? sent.neg : null),
+          csvValue(sent ? sent.stance : null),
+          csvValue(n.articles)
         ].join(",");
       });
       const csvContent = "data:text/csv;charset=utf-8," + [nodeHeaders.join(","), ...nodeRows].join("\n");
@@ -5969,7 +6167,9 @@
         ? palette.community
         : ["#38BDF8", "#10B981", "#F59E0B", "#EF4444", "#A855F7"];
     }
-    const LOUVAIN_COLORS = communityColors();
+    // Palet komunitas baru tersedia setelah applyPresentation, jadi daftar ini
+    // diisi di sana; versi const di posisi ini selalu memakai fallback 5 warna.
+    let LOUVAIN_COLORS = communityColors();
 
     function getNodeColor(d) {
       if (d.is_ego) return ((PRESENTATION.palette || {}).ego) || "#F59E0B";
@@ -5977,16 +6177,22 @@
         return colorForType(d.entity_type) || d.color || "#64748B";
       }
       if (currentColorMode === "louvain") {
-        const cIdx = (d.louvain_community !== undefined ? d.louvain_community : (d.cluster_id || 0)) % 5;
-        return LOUVAIN_COLORS[Math.abs(cIdx)];
+        // Modulo mengikuti panjang palet, bukan angka 5: bundle dengan jumlah
+        // komunitas lain tetap mendapat warna berbeda.
+        const communityId = (d.louvain_community !== undefined && d.louvain_community !== null)
+          ? d.louvain_community
+          : d.cluster_id;
+        // Tanpa id komunitas simpul diwarnai abu netral, bukan masuk komunitas 0.
+        if (communityId === undefined || communityId === null) return "#475569";
+        return LOUVAIN_COLORS[Math.abs(communityId) % LOUVAIN_COLORS.length];
       }
       if (currentColorMode === "sentiment") {
-        const m = d.metrics || {};
-        // Tanpa skor terverifikasi, simpul diwarnai abu netral dan bukan hijau/merah.
-        if (m.sentiment_verified !== true) return "#475569";
-        const stance = ((m.sentiment_pos || 0) - (m.sentiment_neg || 0)) / 100;
-        if (stance > 0.15) return "#10B981";
-        if (stance < -0.15) return "#EF4444";
+        // Tanpa lapisan sentimen semua simpul abu netral; tidak ada stance
+        // yang bisa dipakai untuk mewarnai hijau atau merah.
+        const sent = nodeSentiment(d);
+        if (!sent) return "#475569";
+        if (sent.stance > 0.15) return "#10B981";
+        if (sent.stance < -0.15) return "#EF4444";
         return "#94A3B8";
       }
       return d.color || "#64748B";
@@ -6090,6 +6296,31 @@
         label.appendChild(input);
         label.appendChild(text);
         edgeCatMenu.appendChild(label);
+      });
+
+      renderEdgeCategoryLegend(counts, labels);
+    }
+
+    // Legenda kategori sisi dibentuk dari kategori yang benar-benar ada di
+    // bundle, dengan warna yang dipakai kanvas. Tidak ada valensi rekaan.
+    function renderEdgeCategoryLegend(counts, labels) {
+      const wrap = document.getElementById("canvas-legend-edge-categories");
+      if (!wrap) return;
+      wrap.innerHTML = "";
+      Object.keys(counts).forEach(key => {
+        const row = document.createElement("div");
+        row.className = "canvas-legend-type";
+        const dot = document.createElement("span");
+        dot.className = "canvas-legend-type-dot";
+        dot.style.background = getEdgeColor({ edge_category: key });
+        const label = document.createElement("span");
+        label.className = "canvas-legend-type-label";
+        label.textContent = labels[key] || key.replace(/_/g, " ");
+        const count = document.createElement("span");
+        count.className = "canvas-legend-type-count";
+        count.textContent = counts[key];
+        row.append(dot, label, count);
+        wrap.appendChild(row);
       });
     }
 
@@ -6343,14 +6574,14 @@
         bipartiteLayer.style("display", "block");
         renderBipartiteTopicActor();
       } else if (mode === "narrative_temporal") {
-        if (tempCompareBar) tempCompareBar.style.display = "flex";
+        if (tempCompareBar) tempCompareBar.style.display = COMPARE_AVAILABLE ? "flex" : "none";
         if (npmiSliderGroup) npmiSliderGroup.style.display = "flex";
         if (edgeCatDropdown) edgeCatDropdown.style.display = "block";
         bipartiteLayer.style("display", "none");
         nodeLayer.style("display", "block");
         activeLayer.style("display", "block");
         orbitLayer.style("display", "block");
-        runTemporalComparison();
+        if (COMPARE_AVAILABLE) runTemporalComparison();
       }
     }
 
@@ -6468,6 +6699,8 @@
             })
             .attr("fill", "none")
             .attr("stroke", d => {
+              // Valensi hanya ada bila lapisan sentimen mengisi tepi ini.
+              if (typeof d.sentiment !== "number") return "#38BDF8";
               if (d.sentiment > 0.05) return "#10B981";
               if (d.sentiment < -0.05) return "#EF4444";
               return "#38BDF8";
@@ -6486,7 +6719,9 @@
                 nodeTooltipEl.innerHTML = `
                   <div style="font-weight:800; font-size:11px; color:#F8FAFC; margin-bottom:4px;">${srcLabel} ➔ ${tgtLabel}</div>
                   <div style="font-size:9.5px; color:#38BDF8;">Volume Aliran: ${d.value} artikel</div>
-                  <div style="font-size:9.5px; color:${d.sentiment >= 0 ? '#10B981' : '#EF4444'};">Valensi Sentimen: ${(d.sentiment >= 0 ? '+' : '') + Number(d.sentiment).toFixed(2)}</div>
+                  ${typeof d.sentiment === "number"
+                    ? `<div style="font-size:9.5px; color:${d.sentiment >= 0 ? '#10B981' : '#EF4444'};">Valensi Sentimen: ${(d.sentiment >= 0 ? '+' : '') + Number(d.sentiment).toFixed(2)}</div>`
+                    : ""}
                 `;
                 nodeTooltipEl.style.left = (event.pageX + 15) + "px";
                 nodeTooltipEl.style.top = (event.pageY - 20) + "px";
@@ -6559,14 +6794,16 @@
             });
 
           // Node Sentiment Badge for Actors
-          nodeItems.filter(d => d.category === "actor").append("text")
+          // Badge sentimen hanya untuk aktor yang punya skor; sebelumnya
+          // setiap aktor menampilkan +0.00 yang terbaca sebagai hasil ukur.
+          nodeItems.filter(d => d.category === "actor" && typeof d.sentiment === "number").append("text")
             .attr("x", d => nodeLayoutMap.get(d.id).width / 2 - 10)
             .attr("y", 3.5)
             .attr("text-anchor", "end")
-            .attr("fill", d => (d.sentiment || 0) >= 0 ? "#10B981" : "#EF4444")
+            .attr("fill", d => d.sentiment >= 0 ? "#10B981" : "#EF4444")
             .attr("font-size", "9px")
             .attr("font-weight", "700")
-            .text(d => ((d.sentiment || 0) >= 0 ? "+" : "") + Number(d.sentiment || 0).toFixed(2));
+            .text(d => (d.sentiment >= 0 ? "+" : "") + Number(d.sentiment).toFixed(2));
 
           // Update Macro Stats
           const statNodes = document.getElementById("stat-active-nodes");
@@ -6682,7 +6919,7 @@
           .attr("x", 135).attr("y", 4)
           .attr("text-anchor", "end")
           .attr("fill", "#38BDF8").attr("font-size", "10px").attr("font-weight", "700")
-          .text(d => `${d.article_count || 0} art`);
+          .text(d => (d.article_count === undefined || d.article_count === null) ? "— art" : `${d.article_count} art`);
 
         // Actor Nodes (Right Column)
         const actorG = bipartiteLayer.append("g").attr("class", "bipartite-actors");
@@ -6766,14 +7003,24 @@
       });
     }
 
+    // Angka hasil komparasi boleh nol, tetapi "tidak ada" bukan nol.
+    function countOrDash(value) {
+      return (value === undefined || value === null || Number.isNaN(Number(value))) ? "—" : value;
+    }
+
     function runTemporalComparison() {
       const baseSel = document.getElementById("sel-compare-baseline");
       const tgtSel = document.getElementById("sel-compare-target");
-      const basePeriod = baseSel ? baseSel.value : "epoch_1";
-      const tgtPeriod = tgtSel ? tgtSel.value : "epoch_3";
+      const basePeriod = baseSel ? baseSel.value : "";
+      const tgtPeriod = tgtSel ? tgtSel.value : "";
+      // Tanpa dua irisan waktu nyata tidak ada yang bisa dibandingkan.
+      if (!basePeriod || !tgtPeriod) return;
 
       fetch(`/api/graph/compare?baseline=${encodeURIComponent(basePeriod)}&target=${encodeURIComponent(tgtPeriod)}`)
-        .then(res => res.ok ? res.json() : null)
+        .then(res => {
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          return res.json();
+        })
         .then(data => {
           if (!data) return;
           const gainedSet = new Set(data.nodes_gained || []);
@@ -6801,13 +7048,22 @@
 
           // Update macro stats
           const statNodes = document.getElementById("stat-active-nodes");
-          if (statNodes) statNodes.textContent = `${data.gained_count || 0} Masuk / ${data.lost_count || 0} Keluar`;
+          if (statNodes) statNodes.textContent = `${countOrDash(data.gained_count)} Masuk / ${countOrDash(data.lost_count)} Keluar`;
           const statEdges = document.getElementById("stat-active-edges");
-          if (statEdges) statEdges.textContent = `${data.persisted_count || 0} Pilar Tetap`;
+          if (statEdges) statEdges.textContent = `${countOrDash(data.persisted_count)} Pilar Tetap`;
           const statDens = document.getElementById("stat-active-density");
           if (statDens) statDens.textContent = `Δ Perbandingan: ${basePeriod.toUpperCase()} ➔ ${tgtPeriod.toUpperCase()}`;
         })
-        .catch(err => console.warn("[Temporal Compare] Error:", err));
+        .catch(err => {
+          console.warn("[Temporal Compare] Error:", err);
+          // Kegagalan perbandingan tidak boleh tampil sebagai "0 masuk / 0 keluar".
+          const statNodes = document.getElementById("stat-active-nodes");
+          if (statNodes) statNodes.textContent = "\u2014";
+          const statEdges = document.getElementById("stat-active-edges");
+          if (statEdges) statEdges.textContent = "\u2014";
+          const statDens = document.getElementById("stat-active-density");
+          if (statDens) statDens.textContent = "Perbandingan gagal dimuat";
+        });
     }
 
     const btnRunCompare = document.getElementById("btn-run-comparison");
@@ -7031,10 +7287,13 @@
       setText("sb-node-count", nodes);
       setText("sb-edge-count", edges);
       setText("sb-density", density.toFixed(4));
-      const communities = new Set(allData.nodes.map(n => n.louvain_community)).size;
+      // Simpul tanpa komunitas tidak dihitung sebagai satu komunitas.
+      const communities = new Set(
+        allData.nodes.map(n => n.louvain_community).filter(v => v !== undefined && v !== null)
+      ).size;
       setText("stat-active-communities", communities);
       const counts = (allData.metadata && allData.metadata.counts) || {};
-      setText("stat-active-corpus", counts.articles ? counts.articles.toLocaleString("id-ID") : "n/a");
+      setText("stat-active-corpus", counts.articles ? counts.articles.toLocaleString("id-ID") : "—");
       renderArtifactFacts();
     }
 
@@ -7104,7 +7363,9 @@
         label: (node && (node.label || node.id)) || "",
         type: (node && (typeLabel(node.entity_type) || node.entity_type)) || "",
         cluster: (node && (node.cluster_label || node.cluster)) || "",
-        articles: articleCount == null ? ((node && node.articles) || 0) : articleCount,
+        articles: articleCount == null
+          ? (node && node.articles != null ? Number(node.articles).toLocaleString("id-ID") : "—")
+          : articleCount,
         centre: ego ? (ego.label || ego.id) : ""
       };
       return String(template).replace(/\{(\w+)\}/g, (match, key) =>
@@ -7127,6 +7388,8 @@
       window.PRESENTATION = PRESENTATION;
       window.EGO_ID = EGO_ID;
 
+      LOUVAIN_COLORS = communityColors();
+
       const title = PRESENTATION.title || "Horus Graph";
       const subtitle = PRESENTATION.subtitle || "";
       const titleEl = document.getElementById("app-title");
@@ -7138,6 +7401,33 @@
         overviewSubtitleEl.textContent = subtitle || "Struktur makro jaringan dan integritas korpus.";
       }
       document.title = title;
+    }
+
+    // Asal korpus ditulis manifest, bukan di kode: fork dengan pipeline lain
+    // menampilkan nama pipeline-nya sendiri.
+    function renderGeneratorBadge(dataset) {
+      const el = document.getElementById("sb-generator");
+      if (!el) return;
+      const generator = (dataset && dataset.generator) || {};
+      const name = generator.name || "";
+      const version = generator.version ? " v" + generator.version : "";
+      el.textContent = name ? name + version : "\u2014";
+      el.title = name ? "Pipeline penghasil bundle: " + name + version : "Manifest tidak menyebut pipeline";
+    }
+
+    // Rentang tahun panel kanan diambil dari date_range bundle, bukan ditulis
+    // tetap di markup: bundle lain punya rentang lain.
+    function renderYearSpan() {
+      const el = document.getElementById("drawer-year-span");
+      if (!el) return;
+      const years = timelineYears().filter(y => y !== null);
+      if (!years.length) {
+        el.textContent = "\u2014";
+        el.style.color = "var(--text-muted)";
+        return;
+      }
+      el.textContent = years[0] + " \u2013 " + years[years.length - 1];
+      el.style.color = "var(--accent-blue)";
     }
 
     function normalizeNode(node) {
@@ -7163,7 +7453,9 @@
         active_years: [],
         first_seen_year: null,
         structural_hole_role: "",
-        louvain_community: node.community === undefined ? 0 : node.community,
+        // null, bukan 0: 0 adalah id komunitas yang sah, jadi default 0
+        // menempatkan simpul tanpa komunitas ke dalam komunitas nol.
+        louvain_community: node.community === undefined ? null : node.community,
         burt_constraint: null,
         effective_size: null,
         pagerank: null,
@@ -7203,6 +7495,8 @@
 
         applyPresentation(payload.presentation);
         BOOTSTRAP = payload;
+        renderGeneratorBadge(payload.dataset);
+        renderYearSpan();
 
         allData = {
           nodes: payload.graph.nodes.map(normalizeNode),

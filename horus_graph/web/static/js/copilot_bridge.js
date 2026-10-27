@@ -74,12 +74,22 @@
         // Hanya cetak jika berbeda dari simpul terakhir yang baru saja dicetak
         if (window.copilotUI.lastSelectedNodeId !== d.id) {
           window.copilotUI.lastSelectedNodeId = d.id;
+          const dash = "\u2014";
+          const num = (value, digits) => (value === null || value === undefined || Number.isNaN(Number(value)))
+            ? dash : Number(value).toFixed(digits);
+          // Dossier mengirim sentimen sebagai blok bersarang; tanpa lapisan
+          // sentimen blok itu berstatus awaiting_input dan tidak ditampilkan
+          // sebagai angka.
+          const sent = d.sentiment || {};
+          const sentLine = (sent.status === "ready" && sent.pos !== null && sent.neg !== null)
+            ? `• Sentimen: **${sent.stance > 0 ? "+" : ""}${sent.stance}** (${sent.pos}% Pos, ${sent.neg}% Neg)\n`
+            : `• Sentimen: *${sent.status === "awaiting_input" ? "lapisan belum tersedia" : "tidak ada skor untuk simpul ini"}*\n`;
           const text = `**Simpul Terfokus: ${d.label}** (\`${d.entity_type}\`)\n` +
-            `• Sektor: **${d.cluster}** (${d.community})\n` +
+            `• Komunitas: **${d.community === undefined ? dash : d.community}**\n` +
             `• Derajat Relasi: **${d.degree} koneksi** (Undirected)\n` +
-            `• Burt Constraint (C_i): **${d.burt_constraint !== undefined ? d.burt_constraint.toFixed(4) : '-'}** (${d.structural_hole_role || 'Bridge'})\n` +
-            `• Sentimen: **${d.sentiment_stance > 0 ? '+' : ''}${d.sentiment_stance}** (${d.sentiment_pos}% Pos, ${d.sentiment_neg}% Neg)\n` +
-            `• Rekomendasi: *${d.tactical_action}*`;
+            `• Burt Constraint (C_i): **${num(d.burt_constraint, 4)}** (${d.structural_hole_role || dash})\n` +
+            sentLine +
+            `• Artikel: **${d.articles === undefined ? dash : d.articles}**`;
           window.copilotUI.appendAgentMessage("NODE INTELLIGENCE", text);
         }
       }
