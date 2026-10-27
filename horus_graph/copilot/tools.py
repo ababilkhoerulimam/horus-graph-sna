@@ -458,6 +458,9 @@ def compare_network_periods(state: AppState, args: Dict[str, Any]) -> Dict[str, 
     result = queries.compare_epochs(
         state.temporal.by_id(baseline), state.temporal.by_id(target)
     )
+    # Daftar per simpul dipakai tabel UI, bukan model: 77 baris lengkap menghabiskan
+    # konteks untuk informasi yang sudah terwakili di top_gainers/top_losers.
+    result.pop("nodes", None)
     result["status"] = "ready"
     return result
 

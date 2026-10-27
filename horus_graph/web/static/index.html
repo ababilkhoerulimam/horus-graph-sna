@@ -2466,6 +2466,7 @@
           <span style="color:#38BDF8; font-weight:800; font-size:11px;">➔</span>
           <select id="sel-compare-target" class="sna-select" title="Epos Target Komparasi"></select>
           <button class="sna-btn secondary" id="btn-run-comparison" style="padding:3px 8px; font-size:11px;">Bandingkan</button>
+          <button class="sna-btn secondary" id="btn-show-diff" title="Buka tabel diff epos" style="padding:3px 8px; font-size:11px;">Lihat Diff</button>
         </div>
         <button class="sna-btn" id="btn-reset-view" title="Kembalikan tampilan awal" aria-label="Muat ulang tampilan">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
@@ -3119,6 +3120,21 @@
           <div style="font-weight:800;color:#38BDF8;margin-bottom:4px;">3. Model Sentimen & Kausal</div>
           <div id="prov-model-text">Status sentimen dan difusi dibaca dari metadata artefak.</div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Diff epos. Cincin di kanvas menunjukkan lokasi; tabel ini yang menjawab
+       "siapa naik dan siapa turun" beserta angkanya. -->
+  <div class="analytics-modal" id="modal-epoch-diff">
+    <div class="modal-box" style="max-width:760px;">
+      <button class="modal-close-btn" data-close="modal-epoch-diff" aria-label="Tutup diff epos">&times;</button>
+      <div class="modal-header">
+        <h2>Diff Epos: Siapa Naik, Siapa Turun</h2>
+        <p id="epoch-diff-subtitle">Pilih dua epos lalu tekan Bandingkan.</p>
+      </div>
+      <div id="epoch-diff-body" style="font-size:11px;color:#94A3B8;">
+        Belum ada perbandingan.
       </div>
     </div>
   </div>
@@ -7332,6 +7348,8 @@
           if (statEdges) statEdges.textContent = `${countOrDash(data.persisted_count)} Pilar Tetap`;
           const statDens = document.getElementById("stat-active-density");
           if (statDens) statDens.textContent = `Δ Perbandingan: ${basePeriod.toUpperCase()} ➔ ${tgtPeriod.toUpperCase()}`;
+
+          renderEpochDiff(data);
         })
         .catch(err => {
           console.warn("[Temporal Compare] Error:", err);
@@ -7345,7 +7363,137 @@
         });
     }
 
+    // -------------------------------------------------------------
+    // Diff epos: tabel berperingkat
+    // -------------------------------------------------------------
+    function entityLabel(entityId) {
+      const node = allData.nodes.find(n => n.id === entityId);
+      return (node && (node.display_label || node.label)) || entityId;
+    }
+
+    // Delta kosong berarti "tidak ada dua pengukuran", bukan nol.
+    function deltaText(value, digits) {
+      if (value === null || value === undefined || Number.isNaN(Number(value))) return "\u2014";
+      const number = Number(value);
+      const sign = number > 0 ? "+" : "";
+      return sign + number.toFixed(digits);
+    }
+
+    function deltaColor(value) {
+      if (value === null || value === undefined || Number.isNaN(Number(value))) return "#8A99AE";
+      return Number(value) > 0 ? "#10B981" : (Number(value) < 0 ? "#EF4444" : "#8A99AE");
+    }
+
+    function communityCell(row, mapping) {
+      if (row.baseline_community === null || row.baseline_community === undefined) {
+        return "\u2014";
+      }
+      const target = (row.target_community === null || row.target_community === undefined)
+        ? "\u2014" : row.target_community;
+      // Label komunitas tidak bisa dibandingkan langsung; perpindahan hanya
+      // ditandai bila pemetaan tumpang tindih mengatakannya berpindah. Tanpa
+      // penjelasan, "1 → 1 pindah" terbaca seperti kesalahan.
+      const mark = row.community_shifted ? ' <span style="color:#F59E0B;">pindah</span>' : "";
+      const expected = mapping ? mapping[row.baseline_community] : null;
+      const title = (row.community_shifted && expected !== null && expected !== undefined)
+        ? `Mayoritas anggota komunitas ${row.baseline_community} berakhir di komunitas ${expected}; simpul ini tidak mengikutinya.`
+        : "";
+      return `<span title="${title}">${row.baseline_community} \u2192 ${target}${mark}</span>`;
+    }
+
+    function epochTable(rows, judul, mapping) {
+      if (!rows || rows.length === 0) {
+        return `<div style="margin-bottom:10px;"><strong>${judul}</strong>
+          <div style="color:#8A99AE;">Tidak ada simpul yang bisa dibandingkan.</div></div>`;
+      }
+      const body = rows.map(row => `
+        <tr>
+          <td style="padding:4px 8px 4px 0;color:#CBD5E1;">${entityLabel(row.id)}</td>
+          <td style="padding:4px 8px;color:${deltaColor(row.delta_betweenness)};font-weight:700;">${deltaText(row.delta_betweenness, 4)}</td>
+          <td style="padding:4px 8px;color:#94A3B8;">${countOrDash(row.baseline_degree)} \u2192 ${countOrDash(row.target_degree)}</td>
+          <td style="padding:4px 0;color:#94A3B8;">${communityCell(row, mapping)}</td>
+        </tr>`).join("");
+      return `
+        <div style="margin-bottom:12px;">
+          <div style="font-weight:800;color:#38BDF8;margin-bottom:4px;">${judul}</div>
+          <table style="width:100%;border-collapse:collapse;font-size:11px;">
+            <thead>
+              <tr style="color:#8A99AE;text-align:left;">
+                <th style="padding-bottom:4px;">Entitas</th>
+                <th style="padding-bottom:4px;">ΔBetweenness</th>
+                <th style="padding-bottom:4px;">Degree</th>
+                <th style="padding-bottom:4px;">Komunitas</th>
+              </tr>
+            </thead>
+            <tbody>${body}</tbody>
+          </table>
+        </div>`;
+    }
+
+    function edgeList(rows, judul, arah) {
+      if (!rows || rows.length === 0) {
+        return `<div><strong>${judul}</strong> <span style="color:#8A99AE;">tidak ada</span></div>`;
+      }
+      const items = rows.map(row =>
+        `<div style="color:#CBD5E1;">${entityLabel(row.source)} ${arah} ${entityLabel(row.target)}
+         <span style="color:#8A99AE;">(support ${countOrDash(row.support)}, NPMI ${formatNumber(row.npmi, 3)})</span></div>`
+      ).join("");
+      return `<div style="margin-bottom:8px;"><strong>${judul}</strong>${items}</div>`;
+    }
+
+    function renderEpochDiff(data) {
+      const body = document.getElementById("epoch-diff-body");
+      const subtitle = document.getElementById("epoch-diff-subtitle");
+      const modal = document.getElementById("modal-epoch-diff");
+      if (!body) return;
+
+      if (!data || data.available === false) {
+        body.textContent = (data && data.message) || "Perbandingan tidak tersedia (\u2014).";
+        if (modal) modal.classList.add("open");
+        return;
+      }
+
+      const agreement = data.community_agreement;
+      const communityMapping = {};
+      (data.community_map || []).forEach(item => {
+        communityMapping[item.baseline] = item.target;
+      });
+      const agreementText = (agreement === null || agreement === undefined)
+        ? "Kesepakatan komunitas: tidak ada simpul bertahan (\u2014)."
+        : `Kesepakatan komunitas antar epos (ARI): <strong>${formatNumber(agreement, 4)}</strong>; ` +
+          `${countOrDash(data.community_shifted_count)} simpul berpindah komunitas.`;
+
+      if (subtitle) {
+        subtitle.textContent =
+          `${String(data.baseline_period).toUpperCase()} \u2192 ${String(data.target_period).toUpperCase()}: ` +
+          `${countOrDash(data.gained_count)} masuk, ${countOrDash(data.lost_count)} keluar, ` +
+          `${countOrDash(data.persisted_count)} bertahan.`;
+      }
+
+      body.innerHTML = `
+        <div style="margin-bottom:10px;">${agreementText}</div>
+        ${epochTable(data.top_gainers, "Betweenness naik", communityMapping)}
+        ${epochTable(data.top_losers, "Betweenness turun", communityMapping)}
+        <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:8px;">
+          ${edgeList(data.edges_gained, `Sisi baru (${countOrDash(data.edges_gained_count)})`, "\u2194")}
+          ${edgeList(data.edges_lost, `Sisi hilang (${countOrDash(data.edges_lost_count)})`, "\u2194")}
+        </div>`;
+      body.dataset.filled = "1";
+
+      if (modal) modal.classList.add("open");
+    }
+
     const btnRunCompare = document.getElementById("btn-run-comparison");
+    const btnShowDiff = document.getElementById("btn-show-diff");
+    if (btnShowDiff) {
+      btnShowDiff.addEventListener("click", () => {
+        const modal = document.getElementById("modal-epoch-diff");
+        // Tanpa perbandingan sebelumnya, tombol ini tidak boleh membuka panel
+        // kosong yang terbaca seperti "tidak ada yang berubah".
+        const body = document.getElementById("epoch-diff-body");
+        if (modal && body && body.dataset.filled === "1") modal.classList.add("open");
+      });
+    }
     if (btnRunCompare) {
       btnRunCompare.addEventListener("click", () => runTemporalComparison());
     }

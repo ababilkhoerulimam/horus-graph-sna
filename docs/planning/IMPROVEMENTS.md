@@ -296,7 +296,7 @@ seberapa yakin?". V1 bergantung pada V0.4 (tautan) dan V0.1 (peringkat).
   batas dua sisi 0.010, jadi `p ≤ 0.010` terbaca sebagai batas resolusi, bukan
   sebagai nol.
 
-- [ ] **V1.3 Diff epos yang sungguhan** — M
+- [x] **V1.3 Diff epos yang sungguhan** — M
   - Berkas: `api/queries.py` (`graph_compare`), `api/routes.py:…`
     (`/api/graph/compare`), `index.html:7236`
   - Kerjakan: perluas respons dengan delta per simpul (`degree`, `betweenness`,
@@ -308,6 +308,47 @@ seberapa yakin?". V1 bergantung pada V0.4 (tautan) dan V0.1 (peringkat).
     salah satu epos muncul sebagai `baru`/`hilang`, bukan `Δ 0`.
   - Tes: `tests/test_api.py` — delta konsisten dengan dua potret temporal;
     simpul baru tidak menghasilkan delta numerik.
+
+  **Status: selesai — dengan satu koreksi pada rencana.**
+
+  Rencana menulis "delta `community`". Itu tidak bisa dikerjakan apa adanya:
+  label komunitas Louvain ditulis ulang setiap jalankan, jadi `2 - 1 = 1`
+  hanya berarti algoritma memulai dari titik lain. Yang dikerjakan:
+
+  - Setiap simpul membawa `baseline_community`, `target_community`, dan
+    `community_shifted`. Perpindahan ditentukan lewat pemetaan label baseline
+    ke label target berdasarkan tumpang tindih terbesar, bukan kesamaan angka.
+  - `community_agreement` (ARI antara dua partisi pada simpul yang bertahan)
+    meringkas "apakah struktur komunitas berubah" tanpa bergantung penomoran.
+  - Respons memuat `community_map` sehingga UI bisa menjelaskan kasus yang
+    membingungkan: simpul `1 → 1` tetap bisa berstatus "pindah" bila mayoritas
+    komunitas 1 berakhir di komunitas lain. Tooltip-nya menyebut tujuan
+    mayoritas itu, karena tanpa keterangan baris seperti itu terbaca salah.
+
+  **Sisi, bukan hanya simpul.** `edges_gained`/`edges_lost` berisi pasangan
+  yang lahir dan mati, lengkap dengan `support` dan `npmi` dari epos tempat sisi
+  itu hidup, diurutkan menurut support dan dibatasi 10. Pasangan dianggap sama
+  tanpa memandang arah, karena grafnya tak berarah.
+
+  **UI.** Tombol "Bandingkan" kini juga membuka modal `Diff Epos` berisi dua
+  tabel berperingkat (10 naik, 10 turun) dan daftar sisi baru/hilang. Cincin di
+  kanvas tetap ada — itu penanda lokasi; tabel yang menjawab "siapa naik".
+  Tombol "Lihat Diff" membuka ulang tabel terakhir tanpa memanggil ulang API,
+  dan tidak membuka apa pun bila belum ada perbandingan (panel kosong terbaca
+  seperti "tidak ada yang berubah").
+
+  **Bug yang ditemukan saat mengerjakan.** `core/temporal.py::_node_metrics`
+  ternyata **tidak pernah menghitung komunitas per epos**, dan jalur epos-kosong
+  mendeklarasikan daftar kolom yang berbeda dari jalur normal. Akibatnya
+  permintaan kolom komunitas gagal dengan `KeyError` hanya ketika salah satu
+  epos kebetulan kosong — kegagalan yang bergantung pada data, bukan pada kode.
+  Sekarang ada satu konstanta `NODE_COLUMNS` yang dipakai kedua jalur, dan
+  komunitas dihitung per irisan.
+
+  Angka pada bundle golden (epoch_1 → epoch_3): 11 masuk, 5 keluar, 58 bertahan,
+  ARI komunitas 0.2653 (20 simpul berpindah), 10 sisi baru, 10 sisi hilang.
+  Puncak kenaikan: Reva Adi Utama Δbetweenness +0.0625 (degree 10 → 20).
+  Puncak penurunan: RANS Nusantara FC −0.0913 (degree 23 → 3).
 
 - [ ] **V1.4 Anotasi + laporan mandiri** — L
   - Berkas: baru `horus_graph/annotations.py`, `api/routes.py`, `index.html`

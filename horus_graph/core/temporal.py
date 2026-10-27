@@ -21,6 +21,19 @@ from . import metrics
 from .backbone import BackboneConfig, select_edges
 from .cooccurrence import cooccurrence, edge_years
 
+# Satu daftar kolom untuk kedua jalur: epos berisi simpul dan epos kosong.
+# Sebelum ini keduanya berbeda, sehingga `compare_epochs` yang meminta kolom
+# komunitas gagal hanya ketika salah satu epos kebetulan kosong — kegagalan
+# yang bergantung pada data, bukan pada kode.
+NODE_COLUMNS = (
+    "degree",
+    "betweenness",
+    "burt_constraint",
+    "effective_size",
+    "articles",
+    "louvain_community",
+)
+
 
 @dataclass(frozen=True)
 class EpochWindow:
@@ -167,12 +180,11 @@ def _slice(
 
 def _node_metrics(graph: nx.Graph, cooc) -> pd.DataFrame:
     if graph.number_of_nodes() == 0:
-        return pd.DataFrame(
-            columns=["degree", "betweenness", "burt_constraint", "effective_size", "articles"]
-        )
+        return pd.DataFrame(columns=list(NODE_COLUMNS))
     betweenness = metrics.betweenness(graph)
     constraint = metrics.constraint(graph)
     effective = metrics.effective_size(graph)
+    communities = metrics.louvain(graph)
     articles = {cooc.entity_ids[i]: int(cooc.node_articles[i]) for i in range(len(cooc.entity_ids))}
 
     rows = []
@@ -187,6 +199,7 @@ def _node_metrics(graph: nx.Graph, cooc) -> pd.DataFrame:
                 "burt_constraint": None if burt is None else round(float(burt), 4),
                 "effective_size": None if eff is None else round(float(eff), 2),
                 "articles": articles.get(node, 0),
+                "louvain_community": int(communities.get(node, 1)),
             }
         )
     return pd.DataFrame(rows).set_index("entity_id")
