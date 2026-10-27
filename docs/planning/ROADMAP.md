@@ -184,52 +184,95 @@ atas. 235 tes lulus. Tiga temuan yang mengubah rencana:
 Tujuan: graf terbaca di layar pertama, teks bisa dibaca, dan analis keyboard-only
 bisa bekerja.
 
-- [ ] **2.1 Graf mengisi kanvas** — S
-  - Berkas: `index.html` (`getCloseFitTransform()` sudah ada di `:3490`, dipakai `:3493`)
+Status: **selesai** — 10 butir dikerjakan; 254 tes lulus.
+
+- [x] **2.1 Graf mengisi kanvas** — S
+  - Berkas: `index.html` (`getCloseFitTransform()`, `canvasInsets()`, `cameraAt()`)
   - Kerjakan: panggil fit-transform sekali setelah layout boot selesai, bukan hanya saat mode berpindah. Simpan zoom/pan saat berpindah mode.
   - Terima: pada 1600×950, graf menempati > 60% tinggi kanvas tanpa interaksi.
+  - Hasil: 77% tinggi kanvas pada 1600×950. Dua kesalahan awal ikut diperbaiki: skala
+    dihitung dari piksel padahal `viewBox` memakai satuan pengguna, dan fit tidak
+    memperhitungkan sidebar/KPI/timeline/dock yang menutup kanvas. Sekarang kamera
+    mengukur persegi yang tertutup (`CANVAS_OCCLUDERS`) lalu memusatkan graf di
+    sisa ruang; `zoom.scaleExtent` dinaikkan ke `[0.15, 8]` agar fit tidak mentok.
 
-- [ ] **2.2 Hapus KPI ganda** — S
+- [x] **2.2 Hapus KPI ganda** — S
   - Berkas: `index.html` kartu atas vs sidebar (`SIMPUL/SISI/DENSITY`)
   - Kerjakan: satu sumber. Pertahankan kartu atas; hapus baris statistik di sidebar.
   - Terima: angka 77/475/0,162 muncul sekali di layar.
+  - Hasil: `.sb-stats-bar` dihapus bersama CSS dan penulisnya
+    (`updateActiveGraphStatsUnified`). Penulis tunggal sekarang `updateMacroStats()`;
+    `updateEdgeCountBadge()` hanya meneruskan angka yang terlihat. Nilai yang tidak
+    terukur ditulis `—`, bukan `0`.
 
-- [ ] **2.3 Tipografi & kontras** — S
+- [x] **2.3 Tipografi & kontras** — S
   - Berkas: `index.html:30,85`; `copilot.css:361,509`
   - Kerjakan: `--text-dim` → `#8A99AE` (≈5,4:1); border input → `#475569`; ukuran teks panel minimum 11px, label sekunder 11px.
   - Terima: tidak ada `font-size` < 11px di CSS panel; rasio kontras teks ≥ 4,5:1 (periksa 3 pasangan yang tercatat di AUDIT).
+  - Hasil: 11 ukuran font di `copilot.css` dinaikkan ke 11px; `#64748B` (3,4:1) →
+    `#8A99AE`; border input `rgba(255,255,255,0.18)` (1,77:1) → `#5A6B82` (3,55:1).
+    Dijaga `test_tidak_ada_teks_di_bawah_sebelas_piksel` dan
+    `test_teks_sekunder_lolos_kontras`.
 
-- [ ] **2.4 Satu bahasa** — S
+- [x] **2.4 Satu bahasa** — S
   - Kerjakan: UI Indonesia; istilah SNA tetap Inggris dan bisa dijelaskan lewat `get_glossary`. Ganti "Mode 01: Actor Network", "View Info", "Search Node", "Top 5", "All-Time".
   - Terima: `grep` label UI tidak lagi mencampur dua bahasa selain istilah teknis.
+  - Hasil: label Indonesia di `index.html`, `copilot_ui.js`, `copilot_bridge.js`
+    ("Terhubung"/"Terputus", "Lihat Info", "Cari entitas…", "5 Teratas", pil epos
+    "Semua", "LEGENDA"). Istilah SNA dibiarkan Inggris. Dijaga
+    `test_label_ui_satu_bahasa`, yang memeriksa teks tampilan saja — komentar dan
+    baris `console.*` tidak dihitung label.
 
-- [ ] **2.5 Toolbar jadi tiga grup** — M
+- [x] **2.5 Toolbar jadi tiga grup** — M
   - Kerjakan: kelompokkan 10 kontrol menjadi Tampilan / Filter / Data. Label tidak boleh terlipat lebih dari satu baris.
   - Terima: tinggi toolbar tetap saat viewport 1280px.
+  - Hasil: tiga `.header-group` dengan pemisah `border-left`. Tinggi header 56px
+    pada 1280/1440/1600, `overflow = 0` (tepi kanan kontrol 1260 dari batas 1260).
+    Yang berkorban adalah judul, bukan kontrol: blok judul menyusut dengan elipsis
+    (teks utuh di `title`), sedangkan `.header-controls` `flex: 0 0 auto`. Di bawah
+    1360px subjudul dan teks "Filter" disembunyikan, di bawah 1180px pil mode
+    menjadi nomor saja, di bawah 980px strip kontrol bisa digeser — tidak ada
+    kontrol yang hilang dari DOM.
 
-- [ ] **2.6 Drawer sebagai dialog** — S
-  - Berkas: `index.html:2649`, `copilot_ui.js:97-122`
+- [x] **2.6 Drawer sebagai dialog** — S
+  - Berkas: `index.html`, `copilot_ui.js`
   - Kerjakan: `role="dialog" aria-modal="true" aria-labelledby`, focus trap, `Esc` menutup, fokus kembali ke `#btn-toggle-copilot`.
   - Terima: Tab tidak keluar drawer; `Esc` menutup; fokus kembali ke tombol pembuka.
+  - Hasil: `handleDrawerKeydown` menahan Tab di ujung daftar dan menutup pada
+    `Escape`; `closeCopilotDrawer()` mengembalikan fokus ke tombol pembuka.
+    Dijaga `test_drawer_menahan_fokus_dan_bisa_ditutup_escape`.
 
-- [ ] **2.7 Graf bisa dijangkau keyboard** — M
-  - Berkas: `index.html:3846-3856` (node), `:5708` (`.sb-entity-row`)
+- [x] **2.7 Graf bisa dijangkau keyboard** — M
+  - Berkas: `index.html` (simpul), `.sb-entity-row`
   - Kerjakan: `tabindex="0" role="button" aria-label="{label}, {type}, derajat {degree}"` + Enter/Space memanggil handler yang sama dengan klik; `.sb-entity-row` → `<button type="button">`.
   - Terima: Tab dari toolbar mencapai simpul pertama dan setiap baris daftar; Enter memilih simpul dan mengisi panel kanan.
+  - Hasil: roving tabindex — satu simpul di urutan Tab, panah memindahkan fokus,
+    Enter/Space memilih lewat jalur yang sama dengan klik. `.sb-entity-row` menjadi
+    `<button type="button">` dengan `width:100%`. Cincin fokus 3,5px supaya
+    terlihat di atas lingkaran gelap.
 
-- [ ] **2.8 Chat diumumkan** — XS
-  - Berkas: `index.html:2677`, `:2658`
+- [x] **2.8 Chat diumumkan** — XS
+  - Berkas: `index.html`
   - Kerjakan: `role="log" aria-live="polite" aria-relevant="additions"` pada body chat; `aria-live="polite"` pada status koneksi.
   - Terima: dengan screen reader, jawaban agen terbaca otomatis.
+  - Hasil: badan percakapan `role="log"`, status koneksi `role="status"`.
 
-- [ ] **2.9 Bahasa dokumen & gerak** — XS
-  - Berkas: `index.html:2`, CSS global
+- [x] **2.9 Bahasa dokumen & gerak** — XS
+  - Berkas: `index.html`
   - Kerjakan: `lang="id"`; blok `@media (prefers-reduced-motion: reduce)` mematikan animasi/transisi; `aria-label` untuk tombol glyph (`+`, `−`, `✕`).
   - Terima: `lang="id"`; dengan reduced-motion tidak ada animasi berulang; tidak ada tombol tanpa nama aksesibel.
+  - Hasil: `<html lang="id">`, blok reduced-motion, dan 8 tombol glyph diberi
+    `aria-label`. Dijaga `test_semua_tombol_punya_nama_aksesibel` dan
+    `test_permintaan_mengurangi_gerak_dihormati`.
 
-- [ ] **2.10 Satu kontrol waktu** — S
+- [x] **2.10 Satu kontrol waktu** — S
   - Kerjakan: satukan pill epos + titik tahun + slider menjadi satu kontrol. Hapus minimap atau ganti indikator zoom.
   - Terima: hanya satu kontrol waktu terlihat; memilih epos memperbarui semua panel.
+  - Hasil: bilah waktu tinggal satu `input[type=range]` plus pil epos; penanda
+    peristiwa dipindah ke luar bilah (`bottom:96px`, label "Peristiwa") agar
+    tahunnya tidak terbaca sebagai deret kontrol kedua. Minimap dipertahankan
+    sebagai indikator posisi dan diberi judul "PETA MINI". Dijaga
+    `test_satu_kontrol_waktu_di_bilah`.
 
 ---
 

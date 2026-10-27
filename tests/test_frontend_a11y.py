@@ -221,3 +221,86 @@ def test_simpul_graf_bisa_dijangkau_keyboard():
     assert '.attr("tabindex", (d, index) => (index === 0 ? 0 : -1))' in markup
     assert "function nodeAriaLabel(" in markup
     assert '<button type="button" class="sb-entity-row"' in markup
+
+
+def test_toolbar_header_tiga_grup():
+    """Sepuluh kontrol header dibagi ke tiga grup yang berlabel.
+
+    Header setinggi 56px tidak punya tempat untuk judul grup yang ditulis
+    panjang, jadi pengelompokan dinyatakan lewat pemisah dan atribut `title`.
+    """
+    markup = _index()
+    controls = markup[markup.index('class="header-controls"') :]
+    controls = controls[: controls.index("</header>")]
+
+    grup = re.findall(r'data-group="([^"]+)"', controls)
+    assert grup == ["Tampilan", "Filter", "Data"]
+
+    # Setiap kontrol harus berada di dalam salah satu grup, bukan menempel
+    # langsung di wadah tanpa pemisah.
+    for control in ("dropdown-topic-wrap", "dropdown-color-mode-wrap", "dropdown-node-sizing-wrap",
+                    "npmi-slider-group", "dropdown-edge-categories-wrap", "dropdown-media-lens-wrap",
+                    "btn-header-filter", "btn-reset-view"):
+        assert f'id="{control}"' in controls, control
+
+    # Pemisah antar grup digambar CSS, jadi grup kedua dan ketiga butuh border.
+    assert "border-left: 1px solid var(--border-subtle)" in markup
+
+
+def test_kontrol_header_tidak_boleh_menyusut():
+    """Label kontrol dipotong setengah lebih buruk daripada judul dipotong.
+
+    Judul berasal dari metadata dan panjangnya tidak diketahui saat CSS ditulis,
+    jadi blok judul yang menyusut (dengan elipsis); kontrol tidak.
+    """
+    markup = _index()
+    block = markup[markup.index("/* Kontrol tidak boleh menyusut") :][:900]
+
+    assert "flex: 0 0 auto" in block
+    assert "text-overflow: ellipsis" in markup[
+        markup.index(".header-title-block h1") : markup.index(".header-title-block h1") + 400
+    ]
+    for selector in (".dropdown-btn", ".sna-btn", ".mode-pill-btn"):
+        start = markup.index(selector + " {")
+        rule = markup[start : start + 600]
+        assert "white-space: nowrap" in rule, selector
+
+
+def _tanpa_komentar(markup: str) -> str:
+    """Buang komentar dan baris log; keduanya bukan label yang dibaca pengguna.
+
+    `//` hanya dibuang bila didahului spasi dan bukan bagian dari `://`, supaya
+    URL di dalam skrip tidak ikut terpotong.
+    """
+    markup = re.sub(r"/\*.*?\*/", " ", markup, flags=re.S)
+    markup = re.sub(r"<!--.*?-->", " ", markup, flags=re.S)
+    markup = re.sub(r"(?m)\s//(?!/)[^\n]*", " ", markup)
+    return "\n".join(baris for baris in markup.splitlines() if "console." not in baris)
+
+
+def test_label_ui_satu_bahasa():
+    """Label tampilan berbahasa Indonesia; istilah SNA tetap Inggris.
+
+    Istilah teknis (degree, betweenness, Louvain, NPMI, epos) tidak diterjemahkan
+    karena itulah nama metodenya di literatur. Yang dicek di sini adalah label
+    antarmuka yang dulu tertinggal dalam bahasa Inggris.
+    """
+    markup = _tanpa_komentar(_index())
+    skrip = " ".join(
+        (STATIC / "js" / nama).read_text(encoding="utf-8")
+        for nama in ("copilot_ui.js", "copilot_bridge.js")
+    )
+    terlarang = [
+        "View Info", "Search Node", "Search entity", "Top 5", "All-Time",
+        "Actor Network", "Live Connected", "Disconnected", "Reset View",
+        "Export Image", "Compare", "Loading...",
+    ]
+    for frasa in terlarang:
+        # Batas huruf: `localeCompare` bukan label, `>Compare<` iya.
+        pola = re.compile(rf"(?<![A-Za-z]){re.escape(frasa)}(?![A-Za-z])")
+        assert not pola.search(markup), f"label Inggris tersisa di index.html: {frasa}"
+        assert not pola.search(skrip), f"label Inggris tersisa di skrip copilot: {frasa}"
+
+    # Istilah SNA yang sengaja dipertahankan harus tetap ada.
+    assert "Degree Centrality" in markup
+    assert "Betweenness Centrality" in markup

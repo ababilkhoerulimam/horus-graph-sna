@@ -21,14 +21,14 @@
       ws.onopen = function () {
         console.log("[CopilotBridge] WebSocket connected to", url);
         if (window.copilotUI) {
-          window.copilotUI.setConnectionStatus(true, "Live Connected");
+          window.copilotUI.setConnectionStatus(true, "Terhubung");
         }
       };
 
       ws.onclose = function () {
         console.warn("[CopilotBridge] WebSocket disconnected. Reconnecting in 3s...");
         if (window.copilotUI) {
-          window.copilotUI.setConnectionStatus(false, "Disconnected");
+          window.copilotUI.setConnectionStatus(false, "Terputus");
         }
         reconnectTimer = setTimeout(connect, 3000);
       };

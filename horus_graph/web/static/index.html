@@ -142,26 +142,80 @@
       flex-shrink: 0;
     }
 
+    /* Blok judul adalah satu-satunya bagian header yang boleh menyusut.
+       Judul berasal dari metadata dan panjangnya tidak diketahui saat menulis
+       CSS, jadi dipotong dengan elipsis, bukan dibiarkan mendorong kontrol
+       keluar layar. Teks utuhnya ada di atribut title. */
+    .header-title-block {
+      min-width: 0;
+      flex: 0 1 auto;
+      padding-right: 14px;
+    }
+
     .header-title-block h1 {
       font-size: 14.5px;
       font-weight: 700;
       color: var(--text-main);
       letter-spacing: -0.2px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .header-title-block p {
       font-size: 11px;
       color: var(--text-muted);
       margin-top: 1px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
+    /* Kontrol tidak boleh menyusut: label yang terpotong setengah lebih buruk
+       daripada judul yang dipotong, karena kontrol tetap harus bisa dibaca. */
     .header-controls {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 2px;
+      flex: 0 0 auto;
+    }
+
+    @media (max-width: 1360px) {
+      #app-subtitle { display: none; }
+      #btn-header-filter .btn-label { display: none; }
+      #btn-header-filter { padding: 0 8px; }
+    }
+
+    @media (max-width: 1180px) {
+      .header-title-block { display: none; }
+    }
+
+    /* Jendela sangat sempit: strip kontrol boleh digeser, bukan dipotong
+       tanpa jejak. Tidak ada kontrol yang hilang dari DOM. */
+    @media (max-width: 980px) {
+      .header-controls {
+        flex: 0 1 auto;
+        min-width: 0;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+      .header-controls::-webkit-scrollbar { display: none; }
+    }
+
+    /* Sepuluh kontrol dikelompokkan: Tampilan / Filter / Data. Pemisah tipis
+       lebih jujur daripada label yang tidak muat di tinggi header. */
+    .header-group {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 0 6px;
+      border-left: 1px solid var(--border-subtle);
+      flex: 0 0 auto;
+    }
+
+    .header-group:first-child {
+      border-left: none;
+      padding-left: 0;
     }
 
     .custom-dropdown {
@@ -170,7 +224,9 @@
 
     .dropdown-btn {
       height: 32px;
-      padding: 0 12px;
+      padding: 0 7px;
+      white-space: nowrap;
+      flex: 0 0 auto;
       background: var(--bg-card);
       border: 1px solid var(--border-subtle);
       border-radius: 6px;
@@ -179,7 +235,7 @@
       font-weight: 600;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       cursor: pointer;
       transition: all 0.2s;
     }
@@ -225,7 +281,9 @@
 
     .sna-btn {
       height: 32px;
-      padding: 0 12px;
+      padding: 0 9px;
+      white-space: nowrap;
+      flex: 0 0 auto;
       background: var(--bg-card);
       border: 1px solid var(--border-subtle);
       border-radius: 6px;
@@ -2025,12 +2083,13 @@
     }
     .mode-pill-btn {
       display: inline-flex;
+      white-space: nowrap;
       align-items: center;
       gap: 6px;
       background: transparent;
       border: none;
       border-radius: 16px;
-      padding: 4px 10px;
+      padding: 4px 8px;
       font-size: 11px;
       font-weight: 700;
       color: #94A3B8;
@@ -2054,6 +2113,13 @@
       border-radius: 50%;
       background: #8A99AE;
       transition: background 0.2s ease;
+    }
+    /* Bentuk ringkas dipakai hanya saat header tidak lagi muat; nama lengkap
+       mode tetap ada di tooltip tiap pil. */
+    .mode-pill-num { display: none; }
+    @media (max-width: 1180px) {
+      .mode-pill-label { display: none; }
+      .mode-pill-num { display: inline; }
     }
     .mode-pill-btn.active .mode-pill-dot {
       background: #38BDF8;
@@ -2115,7 +2181,7 @@
       font-size: 11px;
     }
     .mini-slider {
-      width: 65px;
+      width: 56px;
       height: 4px;
       accent-color: #38BDF8;
       cursor: pointer;
@@ -2252,30 +2318,33 @@
     <header class="sna-header">
       <div class="header-title-block">
         <h1 id="app-title">Horus Graph</h1>
-        <p id="app-subtitle">Social network analysis & empirical diffusion monitoring</p>
+        <p id="app-subtitle">Analisis jaringan sosial dan pemantauan difusi empiris</p>
       </div>
 
-      <!-- 3-Mode Architecture Switcher -->
+      <!-- 3-Mode Architecture Switcher. Label dipendekkan ke nomor + nama:
+           segmented control ini sendiri sudah menyatakan "mode", dan nama
+           panjangnya ada di tooltip. -->
       <div class="mode-switcher-wrap" id="mode-switcher-wrap">
         <button class="mode-pill-btn active" id="mode-btn-actor" data-mode="actor_network" title="Mode 01: Topologi Aktor & Relasi Ko-okurensi">
           <span class="mode-pill-dot"></span>
-          Mode 01: Actor Network
+          <span class="mode-pill-num">01</span><span class="mode-pill-label">01 Aktor</span>
         </button>
         <button class="mode-pill-btn" id="mode-btn-topic" data-mode="topic_actor" title="Mode 02: Jaringan Bipartite Topik ➔ Aktor (jumlah dari artefak)">
           <span class="mode-pill-dot"></span>
-          Mode 02: Topic-Actor
+          <span class="mode-pill-num">02</span><span class="mode-pill-label">02 Topik–Aktor</span>
         </button>
         <button class="mode-pill-btn" id="mode-btn-narrative" data-mode="narrative_temporal" title="Mode 03: Intelijen Narasi & Perbandingan Antar-Epos">
           <span class="mode-pill-dot"></span>
-          Mode 03: Narrative
+          <span class="mode-pill-num">03</span><span class="mode-pill-label">03 Narasi</span>
         </button>
       </div>
 
       <div class="header-controls">
+        <div class="header-group" title="Grup: Tampilan" data-group="Tampilan">
         <!-- Topic Filter Dropdown -->
         <div class="custom-dropdown" id="dropdown-topic-wrap">
           <button class="dropdown-btn" id="topic-btn" title="Pilih Topik Wacana Investigasi">
-            <span id="topic-label">Topik: Semua Wacana (Makro)</span>
+            <span id="topic-label">Topik: Semua</span>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
           </button>
           <div class="dropdown-menu" id="topic-menu">
@@ -2287,41 +2356,6 @@
             <div class="dropdown-item" data-val="Liputan Umum Klub">Ekosistem Media & Pemberitaan</div>
           </div>
         </div>
-
-        <!-- NPMI Threshold Slider (Mode 01) -->
-        <div class="control-group npmi-slider-group" id="npmi-slider-group" title="Ambang Batas NPMI (Default 0.20)">
-          <span style="color:#94A3B8; font-weight:700;">NPMI ≥</span>
-          <input type="range" id="slider-npmi" min="0.00" max="0.60" step="0.05" value="0.20" class="mini-slider">
-          <span id="val-npmi" style="color:#38BDF8; font-weight:800; min-width:24px;">0.20</span>
-        </div>
-
-        <!-- Edge Category Filter Dropdown (Mode 01) -->
-        <div class="custom-dropdown" id="dropdown-edge-categories-wrap">
-          <button class="dropdown-btn" id="edge-cat-btn" title="Saring Kategori Sisi Relasi">
-            <span id="edge-cat-label">Sisi (Filter)</span>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-          </button>
-          <div class="dropdown-menu edge-cat-menu" id="edge-cat-menu" style="min-width: 190px; padding: 6px 8px;">
-            <!-- Kategori sisi dibangun dari data saat boot; tidak ada label tetap. -->
-          </div>
-        </div>
-
-        <!-- Media Lens Dropdown (Enterprise Ontology Separation) -->
-        <div class="custom-dropdown" id="dropdown-media-lens-wrap">
-          <button class="dropdown-btn" id="media-lens-btn" title="Lensa Media: Filter Sorotan Portal Berita Tertentu">
-            <span id="media-lens-label">Lensa Media: Semua</span>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-          </button>
-          <div class="dropdown-menu" id="media-lens-menu" style="min-width: 220px; padding: 6px 8px;">
-            <div class="dropdown-item active" data-media-lens="ALL">Semua</div>
-            <!-- Outlet diisi dari simpul bertipe sumber pada data. -->
-            <div class="dropdown-divider" style="height:1px; background:var(--border-subtle); margin:4px 0;"></div>
-            <label style="display:flex; align-items:center; gap:6px; padding:4px 6px; font-size:11px; color:#F59E0B; cursor:pointer;">
-              <input type="checkbox" id="chk-hide-media-nodes"> Sembunyikan simpul sumber
-            </label>
-          </div>
-        </div>
-
         <!-- Node Color Mode Switcher -->
         <div class="custom-dropdown" id="dropdown-color-mode-wrap">
           <button class="dropdown-btn" id="color-mode-btn" title="Mode Pewarnaan Simpul Graf">
@@ -2334,7 +2368,6 @@
             <div class="dropdown-item" data-color-mode="sentiment">Sentimen Stance (-1.0 s/d +1.0)</div>
           </div>
         </div>
-
         <!-- Node Sizing Metric Dropdown -->
         <div class="custom-dropdown" id="dropdown-node-sizing-wrap">
           <button class="dropdown-btn" id="node-sizing-btn" title="Metrik Ukuran Radius Simpul">
@@ -2349,7 +2382,45 @@
             <div class="dropdown-item" data-sizing-metric="uniform">Uniform (Sama Rata)</div>
           </div>
         </div>
-
+        </div>
+        <div class="header-group" title="Grup: Filter" data-group="Filter">
+        <!-- NPMI Threshold Slider (Mode 01) -->
+        <div class="control-group npmi-slider-group" id="npmi-slider-group" title="Ambang Batas NPMI (Default 0.20)">
+          <span style="color:#94A3B8; font-weight:700;">NPMI ≥</span>
+          <input type="range" id="slider-npmi" min="0.00" max="0.60" step="0.05" value="0.20" class="mini-slider">
+          <span id="val-npmi" style="color:#38BDF8; font-weight:800; min-width:24px;">0.20</span>
+        </div>
+        <!-- Edge Category Filter Dropdown (Mode 01) -->
+        <div class="custom-dropdown" id="dropdown-edge-categories-wrap">
+          <button class="dropdown-btn" id="edge-cat-btn" title="Saring Kategori Sisi Relasi">
+            <span id="edge-cat-label">Sisi: Semua</span>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <div class="dropdown-menu edge-cat-menu" id="edge-cat-menu" style="min-width: 190px; padding: 6px 8px;">
+            <!-- Kategori sisi dibangun dari data saat boot; tidak ada label tetap. -->
+          </div>
+        </div>
+        <!-- Media Lens Dropdown (Enterprise Ontology Separation) -->
+        <div class="custom-dropdown" id="dropdown-media-lens-wrap">
+          <button class="dropdown-btn" id="media-lens-btn" title="Lensa Media: Filter Sorotan Portal Berita Tertentu">
+            <span id="media-lens-label">Lensa</span>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <div class="dropdown-menu" id="media-lens-menu" style="min-width: 220px; padding: 6px 8px;">
+            <div class="dropdown-item active" data-media-lens="ALL">Semua</div>
+            <!-- Outlet diisi dari simpul bertipe sumber pada data. -->
+            <div class="dropdown-divider" style="height:1px; background:var(--border-subtle); margin:4px 0;"></div>
+            <label style="display:flex; align-items:center; gap:6px; padding:4px 6px; font-size:11px; color:#F59E0B; cursor:pointer;">
+              <input type="checkbox" id="chk-hide-media-nodes"> Sembunyikan simpul sumber
+            </label>
+          </div>
+        </div>
+        <button class="sna-btn secondary" id="btn-header-filter" title="Buka Filter Entitas & Ambang Batas NPMI" aria-label="Filter entitas">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+          <span class="btn-label">Filter</span>
+        </button>
+        </div>
+        <div class="header-group" title="Grup: Data" data-group="Data">
         <!-- Temporal Comparison Controls (Mode 03). Opsi epos dibentuk dari
              bundle; markup tidak menebak jumlah maupun rentangnya. -->
         <div class="temporal-compare-bar" id="temporal-compare-bar" style="display:none; align-items:center; gap:6px;">
@@ -2358,20 +2429,30 @@
           <select id="sel-compare-target" class="sna-select" title="Epos Target Komparasi"></select>
           <button class="sna-btn secondary" id="btn-run-comparison" style="padding:3px 8px; font-size:11px;">Bandingkan</button>
         </div>
-
-        <button class="sna-btn secondary" id="btn-header-filter" title="Buka Filter Entitas & Ambang Batas NPMI">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
-          Filter
-        </button>
-
-        <div class="sna-badge" id="lbl-layout-mode" style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(148, 163, 184, 0.2); color: #94A3B8; font-size: 11px; padding: 4px 8px; border-radius: 4px;">
-          Topologi SNA (Force-Directed)
-        </div>
-
-        <button class="sna-btn" id="btn-reset-view" title="Kembalikan Tampilan Awal">
+        <button class="sna-btn" id="btn-reset-view" title="Kembalikan tampilan awal" aria-label="Muat ulang tampilan">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
-          Refresh Graph
         </button>
+        </div>
+      
+        
+
+        
+
+        
+
+        
+
+        
+
+        
+
+        
+
+        
+
+        
+
+        
 
       </div>
     </header>
@@ -2426,7 +2507,7 @@
       <div class="sb-controls">
         <div class="sb-search-wrap">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-          <input type="text" id="sb-search-input" placeholder="Search Node..." autocomplete="off">
+          <input type="text" id="sb-search-input" placeholder="Cari entitas..." autocomplete="off">
         </div>
         <div class="sb-filter-row" style="padding-top:4px;border-top:1px dashed rgba(255,255,255,0.08);">
           <span id="sb-corpus-period">Korpus</span>
@@ -2443,7 +2524,7 @@
 
     <section class="canvas-legend expanded" id="canvas-legend" aria-label="Legend graph">
           <button class="canvas-legend-title" id="canvas-legend-toggle" type="button" aria-expanded="true">
-        <span>LEGEND GRAPH</span><span class="canvas-legend-toggle-mark">+</span>
+        <span>LEGENDA</span><span class="canvas-legend-toggle-mark">+</span>
       </button>
       <div class="canvas-legend-body">
         <div class="canvas-legend-section-title">Jenis simpul</div>
@@ -2464,7 +2545,7 @@
           <div id="search-suggestions"></div>
         </div>
         <button class="pill-info-badge" id="pill-info" title="Buka Ringkasan Struktur Jaringan Makro">
-          <span>View Info</span>
+          <span>Lihat Info</span>
           <span class="tag" id="hud-edge-count">&mdash;</span>
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </button>
@@ -2629,7 +2710,7 @@
             </div>
             <div class="copilot-status-badge">
               <span class="copilot-status-dot" id="copilot-status-dot"></span>
-              <span id="copilot-status-text" role="status" aria-live="polite">Disconnected</span>
+              <span id="copilot-status-text" role="status" aria-live="polite">Terputus</span>
             </div>
           </div>
           <div class="copilot-header-actions">
@@ -3271,7 +3352,7 @@
         const start = ep.start_year == null ? "" : String(ep.start_year).slice(-2);
         const end = ep.end_year == null ? "" : String(ep.end_year).slice(-2);
         const isAll = ep.id === "all_time";
-        btn.textContent = isAll ? "All-Time" : (start && end ? `${start}-${end}` : (ep.label || ep.id));
+        btn.textContent = isAll ? "Semua" : (start && end ? `${start}-${end}` : (ep.label || ep.id));
         btn.title = ep.label || ep.id;
         wrap.appendChild(btn);
       });
@@ -5089,7 +5170,7 @@
       const scopeCountEl = document.getElementById("hud-scope-count");
       const driverBadgeEl = document.getElementById("hud-topic-driver-badge");
       const driverNameEl = document.getElementById("hud-topic-driver-name");
-      const layoutBadgeEl = document.getElementById("lbl-layout-mode");
+
 
       if (scopeNameEl) {
         scopeNameEl.textContent = (currentTopic === "ALL") ? "Semua Wacana Jaringan" : currentTopic;
@@ -5109,13 +5190,6 @@
           driverNameEl.textContent = `${emergent.driverId} (Skor: ${emergent.score.toFixed(1)})`;
         } else {
           driverBadgeEl.style.display = "none";
-        }
-      }
-      if (layoutBadgeEl) {
-        if (currentTopic === "ALL") {
-          layoutBadgeEl.textContent = "Topologi SNA (Ego-Makro)";
-        } else if (emergent && emergent.driverId) {
-          layoutBadgeEl.textContent = `Centris: ${emergent.driverId}`;
         }
       }
     }
@@ -6039,7 +6113,7 @@
       const toolbarHtml = `<div class="sb-limit-toolbar">
         <span class="sb-limit-title">TAMPILAN ENTITAS</span>
         <div class="sb-limit-pills">
-          <button class="limit-pill ${entityDisplayLimit === 5 ? 'active' : ''}" data-limit="5" type="button">Top 5</button>
+          <button class="limit-pill ${entityDisplayLimit === 5 ? 'active' : ''}" data-limit="5" type="button">5 Teratas</button>
           <button class="limit-pill ${entityDisplayLimit === null ? 'active' : ''}" data-limit="all" type="button">Semua (${totalNonEgo})</button>
         </div>
       </div>`;
@@ -7524,8 +7598,8 @@
       const titleEl = document.getElementById("app-title");
       const subtitleEl = document.getElementById("app-subtitle");
       const overviewSubtitleEl = document.getElementById("modal-overview-subtitle");
-      if (titleEl) titleEl.textContent = title;
-      if (subtitleEl) subtitleEl.textContent = subtitle;
+      if (titleEl) { titleEl.textContent = title; titleEl.title = title; }
+      if (subtitleEl) { subtitleEl.textContent = subtitle; subtitleEl.title = subtitle; }
       if (overviewSubtitleEl) {
         overviewSubtitleEl.textContent = subtitle || "Struktur makro jaringan dan integritas korpus.";
       }

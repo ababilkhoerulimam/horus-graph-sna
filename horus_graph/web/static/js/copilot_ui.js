@@ -179,7 +179,7 @@
       statusDotEl.classList.toggle("connected", connected);
     }
     if (statusTextEl) {
-      statusTextEl.textContent = text || (connected ? "Live Connected" : "Disconnected");
+      statusTextEl.textContent = text || (connected ? "Terhubung" : "Terputus");
     }
   }
 
