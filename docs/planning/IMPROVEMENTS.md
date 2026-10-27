@@ -350,7 +350,7 @@ seberapa yakin?". V1 bergantung pada V0.4 (tautan) dan V0.1 (peringkat).
   Puncak kenaikan: Reva Adi Utama Δbetweenness +0.0625 (degree 10 → 20).
   Puncak penurunan: RANS Nusantara FC −0.0913 (degree 23 → 3).
 
-- [ ] **V1.4 Anotasi + laporan mandiri** — L
+- [x] **V1.4 Anotasi + laporan mandiri** — L
   - Berkas: baru `horus_graph/annotations.py`, `api/routes.py`, `index.html`
   - Kerjakan: catatan per simpul/sisi disimpan per `snapshot_id` di luar folder
     bundle (`data/annotations/<snapshot_id>.json`, tulis atomik). Ekspor
@@ -363,9 +363,62 @@ seberapa yakin?". V1 bergantung pada V0.4 (tautan) dan V0.1 (peringkat).
   - Tes: `tests/test_annotations.py` — tulis/baca/hapus; idempoten. Ekspor
     diuji dengan membaca HTML hasil dan mencari `snapshot_id` + `limitations`.
 
+  **Status: selesai.**
+
+  **Anotasi** (`horus_graph/annotations.py`). Disimpan di
+  `data/annotations/<snapshot_id>.json` — di luar folder bundle, jadi
+  menambah atau menghapus catatan tidak pernah menyentuh berkas bundle. Id
+  catatan diturunkan dari isinya (`sha256(target_type, target_id, text)`),
+  sehingga menyimpan catatan yang sama dua kali tidak menambah baris. Tulis
+  atomik (`*.json.tmp` lalu `os.replace`). Folder dapat dipindah lewat
+  `HORUS_ANNOTATIONS_DIR`. Endpoint: `GET/POST /api/annotations`,
+  `DELETE /api/annotations/{id}`.
+
+  **Laporan** (`horus_graph/export/report.py`, `POST /api/report`). Satu berkas
+  HTML tanpa aset eksternal: CSS di dalam, gambar sebagai SVG sebaris. Isinya
+  provenance (snapshot_id, kontrak, rentang tanggal, populasi, ambang, seed),
+  tabel **angka kunci**, tabel **metode perhitungan**, blok uji statistik bila
+  artefak inferensi ada, gambar, catatan analis, dan seluruh `limitations`.
+
+  Tiga keputusan yang perlu dicatat:
+
+  1. **SVG dikirim klien.** Hanya browser yang punya hasil render aktual
+     (posisi, zoom, label yang lolos penyaringan). Karena itu SVG diperlakukan
+     sebagai masukan tidak tepercaya: `<script>`, `on*=`, `javascript:`,
+     `foreignObject`, `iframe`, `object`, `embed`, `link`, `meta`, dan `base`
+     dibuang sebelum ditempel. Laporan memang untuk dibagikan.
+  2. **Provenance disusun server, bukan klien.** Template ada di Python dan
+     memakai `reporting_block` yang sama dengan `/api/provenance`, jadi laporan
+     tidak bisa memuat ambang atau batasan yang berbeda dari yang ditampilkan
+     UI.
+  3. **Angka kunci dipisahkan dari nama metode.** Saat pertama diperiksa
+     secara visual, bagian berjudul "Metrik" ternyata berisi
+     `freeman_betweenness_unweighted_normalized` dan kawan-kawan — itu nama
+     metode, bukan nilai. Sekarang ada dua bagian: "Angka kunci" (77 simpul,
+     475 sisi, Q 0.3872, …) dan "Metode perhitungan" beserta keterangan bahwa
+     isinya nama metode.
+
+  `reporting_block` juga sekarang membawa `contract.snapshot_id`, karena
+  laporan yang dikutip di luar harus bisa dicocokkan dengan bundle asalnya
+  meski foldernya sudah berpindah.
+
+  UI: bagian "Catatan Analis" di drawer simpul (daftar + textarea + simpan +
+  hapus per baris; isi catatan ditulis lewat `textContent`, bukan
+  `innerHTML`), dan tombol laporan di rail kiri. Selama daftar belum dimuat,
+  panel menulis "Memuat catatan..." — bukan "belum ada catatan", yang akan
+  menjadi klaim.
+
 **Selesai V1 bila:** satu temuan bisa diserahkan sebagai tautan + laporan HTML
 yang memuat ambang, ketidakpastian, dan batasannya — tanpa menjelaskan apa pun
 secara lisan.
+
+**Fase V1 selesai.** Keempat butir tertutup, 429 tes lulus, `ruff` dan `mypy`
+bersih (70 berkas). Pada bundle golden, satu laporan HTML sekarang memuat:
+snapshot_id `5e0643344153eeb6`, ambang 3 / 0.2 dengan 8 sisi diselamatkan,
+seed 42, angka kunci (77 simpul, 475 sisi, Q 0.3872, transitivity 0.7352),
+p-value modularitas dengan resolusinya, ARI komunitas 0.9156 (p05–p95
+0.8044–1.0000), dan seluruh batasan — dalam satu berkas yang terbuka tanpa
+server.
 
 ---
 

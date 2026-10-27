@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from .. import __version__
+from ..contract.snapshot import snapshot_id
 from ..core.build import NetworkBundle
 from ..io.bundle import DataBundle
 
@@ -39,6 +40,9 @@ def reporting_block(
         "contract": {
             "version": bundle.manifest.contract_version,
             "dataset_id": bundle.manifest.dataset_id,
+            # Id isi, bukan nama folder: laporan yang dikutip di luar harus bisa
+            # dicocokkan dengan bundle asalnya meski foldernya sudah berpindah.
+            "snapshot_id": snapshot_id(bundle.manifest),
             "snapshot_at": bundle.manifest.snapshot_at.isoformat(),
             "date_range": [
                 str(bundle.manifest.date_range.start),

@@ -6,7 +6,9 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from pydantic import BaseModel
 
+from .. import annotations as annotation_store
 from ..analysis import (
     entity_dossier,
     executive_briefing,
@@ -22,6 +24,7 @@ from ..contract.snapshot import snapshot_id
 from ..copilot.llm import llm_available
 from ..enhance.reporting import reporting_block
 from ..export import formats as export_formats
+from ..export import report
 from ..presentation import Presentation
 from . import queries, schemas, serializers
 from .auth import require_token
@@ -397,5 +400,90 @@ def export_network(request: Request, fmt: str) -> Response:
     return Response(
         content=body,
         media_type=export_formats.CONTENT_TYPES[fmt],
+        headers={"Content-Disposition": f'attachment; filename="{name}"'},
+    )
+
+
+# --- anotasi ---------------------------------------------------------------
+
+
+class AnnotationRequest(BaseModel):
+    target_type: str = "node"
+    target_id: str = ""
+    text: str = ""
+
+
+class ReportRequest(BaseModel):
+    # SVG kanvas dikirim klien karena hanya browser yang punya hasil render
+    # aktual (posisi, zoom, label yang lolos penyaringan).
+    svg: Optional[str] = None
+    title: Optional[str] = None
+
+
+def _snapshot_key(state: AppState) -> str:
+    """Id isi bundle; kunci untuk anotasi dan cache inferensi."""
+    return state.bundle.manifest.snapshot_id or snapshot_id(state.bundle.manifest)
+
+
+@router.get("/api/annotations")
+def list_annotations(request: Request) -> Dict[str, Any]:
+    state = _state(request)
+    key = _snapshot_key(state)
+    items = annotation_store.load(key)
+    return {
+        "snapshot_id": key,
+        "annotations": [item.as_dict() for item in items],
+        "summary": annotation_store.summarise(items),
+    }
+
+
+@router.post("/api/annotations")
+def create_annotation(request: Request, payload: AnnotationRequest) -> Dict[str, Any]:
+    state = _state(request)
+    key = _snapshot_key(state)
+    try:
+        record = annotation_store.add(key, payload.target_type, payload.target_id, payload.text)
+    except annotation_store.AnnotationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"status": "saved", "snapshot_id": key, "annotation": record.as_dict()}
+
+
+@router.delete("/api/annotations/{annotation_id}")
+def delete_annotation(request: Request, annotation_id: str) -> Dict[str, Any]:
+    state = _state(request)
+    key = _snapshot_key(state)
+    if not annotation_store.remove(key, annotation_id):
+        raise HTTPException(status_code=404, detail="Catatan tidak ditemukan.")
+    return {"status": "deleted", "snapshot_id": key, "annotation_id": annotation_id}
+
+
+@router.post("/api/report")
+def export_report(request: Request, payload: Optional[ReportRequest] = None) -> Response:
+    """
+    Laporan HTML mandiri: provenance + angka + gambar + catatan.
+
+    Blok provenance diambil dari jalur yang sama dengan `/api/provenance`,
+    sehingga laporan tidak bisa memuat ambang atau batasan yang berbeda dari
+    yang ditampilkan UI.
+    """
+    state = _state(request)
+    key = _snapshot_key(state)
+    block = reporting_block(state.bundle, state.network, seed=serializers.PROVENANCE_SEED)
+
+    stored = inference_artifact.read_artifact(state.root)
+    if stored is not None and isinstance(stored.get("inference"), dict):
+        block["inference"] = stored["inference"]
+
+    body = report.render_report(
+        provenance=block,
+        annotations=annotation_store.load(key),
+        svg=(payload.svg if payload else None),
+        summary=dict(state.network.summary),
+        title=(payload.title if payload and payload.title else None) or f"Laporan {state.presentation.title}",
+    )
+    name = f"{state.bundle.manifest.dataset_id}-{key}.html"
+    return Response(
+        content=body,
+        media_type="text/html; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{name}"'},
     )
