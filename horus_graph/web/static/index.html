@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -2214,6 +2214,17 @@
       font-weight: 600;
       cursor: pointer;
     }
+
+    /* Denyut aura, garis putus-putus, dan spinner berulang tanpa henti. Untuk
+       pembaca yang meminta gerak dikurangi, semuanya berhenti di frame pertama. */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
   </style>
   <link rel="stylesheet" href="vendor/katex.min.css">
   <link rel="stylesheet" href="css/copilot.css">
@@ -2488,8 +2499,8 @@
         <button class="dock-btn" id="btn-fit" title="Fit to Screen (Reset Kamera)">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="3"></circle></svg>
         </button>
-        <button class="dock-btn" id="btn-in" title="Perbesar (Zoom In)">+</button>
-        <button class="dock-btn" id="btn-out" title="Perkecil (Zoom Out)">-</button>
+        <button class="dock-btn" id="btn-in" title="Perbesar (Zoom In)" aria-label="Perbesar tampilan">+</button>
+        <button class="dock-btn" id="btn-out" title="Perkecil (Zoom Out)" aria-label="Perkecil tampilan">-</button>
 
       </div>
 
@@ -2574,7 +2585,7 @@
       <div class="tracer-drawer" id="tracer-drawer">
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div class="tracer-title">Causal Path Tracer</div>
-          <button class="drawer-close" id="tracer-close">✕</button>
+          <button class="drawer-close" id="tracer-close" aria-label="Tutup jejak rute">✕</button>
         </div>
         <div class="tracer-sub">Lacak Rantai Ko-okurensi dan Transmisi Kawat</div>
 
@@ -2633,13 +2644,13 @@
             </div>
             <div class="copilot-status-badge">
               <span class="copilot-status-dot" id="copilot-status-dot"></span>
-              <span id="copilot-status-text">Disconnected</span>
+              <span id="copilot-status-text" role="status" aria-live="polite">Disconnected</span>
             </div>
           </div>
           <div class="copilot-header-actions">
             <button class="copilot-action-btn" id="btn-new-session" title="Mulai Sesi Percakapan Baru">＋ Baru</button>
             <button class="copilot-action-btn" id="btn-session-history" title="Daftar Riwayat Sesi">Sesi</button>
-            <button class="copilot-close" id="copilot-close" title="Tutup">✕</button>
+            <button class="copilot-close" id="copilot-close" title="Tutup" aria-label="Tutup panel copilot">✕</button>
           </div>
         </div>
 
@@ -2647,12 +2658,12 @@
         <div class="copilot-sessions-panel" id="copilot-sessions-panel" style="display:none;">
           <div class="sessions-panel-header">
             <span>Riwayat Sesi Percakapan</span>
-            <button class="sessions-panel-close" id="btn-close-sessions">✕</button>
+            <button class="sessions-panel-close" id="btn-close-sessions" aria-label="Tutup riwayat sesi">✕</button>
           </div>
           <div class="sessions-list" id="copilot-sessions-list"></div>
         </div>
 
-        <div class="copilot-chat-body" id="copilot-chat-body"></div>
+        <div class="copilot-chat-body" id="copilot-chat-body" role="log" aria-live="polite" aria-relevant="additions" aria-label="Percakapan dengan copilot"></div>
 
         <div class="copilot-chips-bar" id="copilot-chips-bar"></div>
 
@@ -2673,7 +2684,7 @@
               <div class="drawer-cluster-meta" id="drawer-cluster-meta" style="font-size:9.5px; font-weight:700; color:#94A3B8;"></div>
             </div>
           </div>
-          <button class="drawer-close" id="drawer-close">✕</button>
+          <button class="drawer-close" id="drawer-close" aria-label="Tutup panel entitas">✕</button>
         </div>
 
         <!-- 2. Ringkasan Peran (Role Summary) -->
@@ -2841,7 +2852,7 @@
               <div class="drawer-cluster-meta" id="edge-evidence-valence-badge" style="font-size:9.5px; font-weight:700; color:var(--text-muted);"></div>
             </div>
           </div>
-          <button class="drawer-close" id="btn-close-edge-drawer">✕</button>
+          <button class="drawer-close" id="btn-close-edge-drawer" aria-label="Tutup panel sisi">✕</button>
         </div>
 
         <!-- Association Metrics Grid -->
@@ -2922,7 +2933,7 @@
   <!-- Modal 1: Network Overview Modal -->
   <div class="analytics-modal" id="modal-network-overview">
     <div class="modal-box">
-      <button class="modal-close-btn" data-close="modal-network-overview">&times;</button>
+      <button class="modal-close-btn" data-close="modal-network-overview" aria-label="Tutup ringkasan jaringan">&times;</button>
       <div class="modal-header">
         <h2>Network Overview & Data Provenance</h2>
         <p id="modal-overview-subtitle">Struktur makro jaringan dan integritas korpus.</p>
