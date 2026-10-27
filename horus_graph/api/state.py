@@ -91,6 +91,13 @@ def load_state(path: str) -> AppState:
 
 
 def get_state(explicit: Optional[Path | str] = None) -> AppState:
+    """State untuk satu bundle.
+
+    `explicit` sebaiknya sudah berupa path hasil `resolve_bundle_path`, seperti
+    yang disimpan `create_app` di `app.state.bundle_path`. Bila None, pemindaian
+    `data/bundles/` hanya terjadi ketika server memang start tanpa bundle —
+    bukan pada setiap permintaan.
+    """
     path = resolve_bundle_path(explicit)
     if path is None:
         raise BundleNotFound(

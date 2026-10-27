@@ -14,6 +14,8 @@ import logging
 from functools import lru_cache
 from typing import Any, Dict, List, Optional
 
+from starlette.concurrency import run_in_threadpool
+
 from ..api.state import AppState
 from . import fallback, intent as intent_mod, llm, tools
 from .specs import tool_specs
@@ -71,7 +73,9 @@ class Copilot:
             return _message("Copilot", "Pertanyaan kosong.")
 
         if not llm.llm_available():
-            result = fallback.answer(self.state, text)
+            # Jalur deterministik menyentuh pandas dan networkx: jalankan di
+            # threadpool supaya permintaan lain (mis. PING) tidak menunggu.
+            result = await run_in_threadpool(fallback.answer, self.state, text)
             result["llm"] = False
             return result
 
@@ -81,7 +85,7 @@ class Copilot:
             return result
         except Exception as exc:  # noqa: BLE001 - gateway bisa gagal dengan cara apa pun
             logger.warning("Agen LLM gagal (%s), memakai jawaban deterministik.", exc)
-            result = fallback.answer(self.state, text)
+            result = await run_in_threadpool(fallback.answer, self.state, text)
             result["llm"] = False
             result["llm_error"] = f"{type(exc).__name__}: {exc}"
             return result
@@ -147,7 +151,9 @@ class Copilot:
                 name = call.function.name
                 called.append(name)
                 arguments = _parse_arguments(call.function.arguments)
-                result = tools.execute(self.state, name, arguments)
+                result = await run_in_threadpool(
+                    tools.execute, self.state, name, arguments
+                )
                 command = _canvas_from(self.state, name, result, command, query)
                 messages.append(
                     {
@@ -169,7 +175,7 @@ class Copilot:
         final_response = await llm.call_llm(messages, tools=None)
         final = (final_response.choices[0].message.content or "").strip()
         if not final:
-            result = fallback.answer(self.state, query)
+            result = await run_in_threadpool(fallback.answer, self.state, query)
             return {**result, "agent": agent, "intent": intent}
         return _message(agent, final, command, called, intent)
 

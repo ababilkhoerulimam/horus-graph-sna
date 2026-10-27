@@ -85,7 +85,14 @@ def get_client() -> Any:
             raise LLMUnavailable(
                 "Paket `openai` belum terpasang. Pasang dengan: pip install 'horus-graph[llm]'"
             ) from exc
-        _client = AsyncOpenAI(base_url=cfg.base_url, api_key=cfg.api_key)
+        # Batas waktu dan retry eksplisit: tanpa ini satu gateway yang diam
+        # menahan permintaan sampai default SDK (10 menit) habis.
+        _client = AsyncOpenAI(
+            base_url=cfg.base_url,
+            api_key=cfg.api_key,
+            timeout=REQUEST_TIMEOUT_SECONDS,
+            max_retries=MAX_RETRIES,
+        )
     return _client
 
 
@@ -111,4 +118,10 @@ async def call_llm(
 def reset_client() -> None:
     """Untuk pengujian: paksa klien dibangun ulang setelah env berubah."""
     global _client
-    _client = None
+    # Batas waktu satu panggilan LLM dan jumlah percobaan ulang. Gateway yang
+# lambat lebih baik menyerah dan memakai jalur deterministik daripada membuat
+# drawer menggantung.
+REQUEST_TIMEOUT_SECONDS = 30.0
+MAX_RETRIES = 1
+
+_client = None

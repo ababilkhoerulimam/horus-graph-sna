@@ -12,7 +12,7 @@ import pyarrow.parquet as pq
 
 from ..contract import schema
 from ..contract.models import Domain, Manifest, Presentation
-from ..contract.validate import Finding, validate_bundle
+from ..contract.validate import Finding, validate_and_read
 
 
 class BundleInvalid(RuntimeError):
@@ -93,33 +93,46 @@ class DataBundle:
         }
 
 
-def _read_optional(root: Path, table: str) -> Optional[pd.DataFrame]:
-    relative = schema.TABLES[table][0]
-    path = root / relative
-    if not path.exists():
-        return None
-    frame = pq.read_table(path).to_pandas()
-    return frame if not frame.empty else None
+def _read_frames(root: Path) -> Dict[str, pd.DataFrame]:
+    """Baca semua tabel sekali; hanya dipakai saat validasi dilewati."""
+    frames: Dict[str, pd.DataFrame] = {}
+    for table, (relative, _, required) in schema.TABLES.items():
+        target = root / relative
+        if not required and not target.exists():
+            continue
+        frames[table] = pq.read_table(target).to_pandas()
+    return frames
+
+
+def _present(
+    frames: Dict[str, pd.DataFrame], table: str
+) -> Optional[pd.DataFrame]:
+    """Tabel opsional yang kosong atau tidak ada berarti lapisan belum tersedia."""
+    frame = frames.get(table)
+    return None if frame is None or frame.empty else frame
 
 
 def load_bundle(path: Path | str, strict: bool = True) -> DataBundle:
-    """Muat bundle; dengan `strict`, pelanggaran kontrak langsung menggagalkan load."""
+    """
+    Muat bundle; dengan `strict`, pelanggaran kontrak langsung menggagalkan load.
+
+    Frame diambil dari validator, bukan dibaca ulang: validator sudah membuka
+    setiap parquet untuk memeriksa skema dan foreign key, jadi pembacaan kedua
+    hanya membuang waktu.
+    """
     root = Path(path)
     if strict:
-        findings = validate_bundle(root)
+        findings, frames = validate_and_read(root)
         errors = [f for f in findings if f.level == "error"]
         if errors:
             raise BundleInvalid(findings)
+    else:
+        frames = _read_frames(root)
 
     manifest = Manifest(
         **json.loads((root / schema.MANIFEST).read_text(encoding="utf-8"))
     )
     domain = Domain(**json.loads((root / schema.DOMAIN).read_text(encoding="utf-8")))
-
-    frames = {}
-    for table, (relative, _, _) in schema.TABLES.items():
-        if schema.TABLES[table][2]:
-            frames[table] = pq.read_table(root / relative).to_pandas()
 
     return DataBundle(
         root=root,
@@ -130,6 +143,6 @@ def load_bundle(path: Path | str, strict: bool = True) -> DataBundle:
         mentions=frames["mentions"],
         topics=frames["topics"],
         article_topics=frames["article_topics"],
-        transmission=_read_optional(root, "transmission"),
-        sentiment=_read_optional(root, "sentiment"),
+        transmission=_present(frames, "transmission"),
+        sentiment=_present(frames, "sentiment"),
     )

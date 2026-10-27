@@ -115,6 +115,32 @@ def test_loader_mengembalikan_counts_dan_status_layer(tmp_path):
     assert bundle.domain.ego_id == "Ego FC"
 
 
+def test_loader_tidak_membaca_parquet_dua_kali(tmp_path, monkeypatch):
+    root = _write(tmp_path / "bundle")
+    dibaca: list[str] = []
+    asli = pq.read_table
+
+    def hitung(path, *args, **kwargs):
+        dibaca.append(Path(path).name)
+        return asli(path, *args, **kwargs)
+
+    monkeypatch.setattr(pq, "read_table", hitung)
+    load_bundle(root)
+
+    assert dibaca, "loader tidak membaca parquet sama sekali"
+    assert len(dibaca) == len(set(dibaca)), f"parquet dibaca ulang: {dibaca}"
+
+
+def test_loader_tanpa_validasi_membaca_data_yang_sama(tmp_path):
+    root = _write(tmp_path / "bundle")
+    ketat = load_bundle(root)
+    longgar = load_bundle(root, strict=False)
+
+    assert longgar.counts() == ketat.counts()
+    assert list(longgar.articles.columns) == list(ketat.articles.columns)
+    assert longgar.layer_status("sentiment") == "awaiting_input"
+
+
 def test_loader_menolak_bundle_rusak(tmp_path):
     frames = _frames()
     frames["entities"] = pd.concat([frames["entities"], frames["entities"].iloc[[0]]])

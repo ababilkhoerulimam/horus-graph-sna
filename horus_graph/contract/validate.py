@@ -12,7 +12,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 import pyarrow.parquet as pq
@@ -285,25 +285,39 @@ def _check_layers(
 
 def validate_bundle(path: Path | str) -> List[Finding]:
     """Validasi satu bundle. Kembalikan temuan; list kosong berarti patuh."""
+    findings, _ = validate_and_read(path)
+    return findings
+
+
+def validate_and_read(
+    path: Path | str,
+) -> Tuple[List[Finding], Dict[str, pd.DataFrame]]:
+    """
+    Validasi sekaligus serahkan frame yang sudah dibaca validator.
+
+    Validator memang harus membaca setiap tabel untuk memeriksa kunci, tipe
+    kolom, dan foreign key. Mengembalikan frame itu membuat pemanggil seperti
+    `load_bundle` tidak perlu membuka berkas yang sama untuk kedua kalinya.
+    """
     root = Path(path)
     findings: List[Finding] = []
 
     manifest_payload = _read_json(root / schema.MANIFEST, "manifest", findings)
     domain_payload = _read_json(root / schema.DOMAIN, "domain", findings)
     if manifest_payload is None or domain_payload is None:
-        return findings
+        return findings, {}
 
     try:
         manifest = Manifest(**manifest_payload)
     except ValidationError as exc:
         findings.append(_error("manifest_invalid", "manifest", str(exc).splitlines()[0]))
-        return findings
+        return findings, {}
 
     try:
         domain = Domain(**domain_payload)
     except ValidationError as exc:
         findings.append(_error("domain_invalid", "domain", str(exc).splitlines()[0]))
-        return findings
+        return findings, {}
 
     if manifest.contract_version.split(".")[0] != str(schema.CONTRACT_MAJOR):
         findings.append(
@@ -400,4 +414,4 @@ def validate_bundle(path: Path | str) -> List[Finding]:
         _check_domain(domain, frames["entities"], manifest, findings)
 
     _check_layers(manifest, present, findings)
-    return findings
+    return findings, frames

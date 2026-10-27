@@ -22,11 +22,13 @@ from ..enhance import (
     epoch_turnover,
     topology_profile,
 )
+from ..enhance.reporting import reporting_block
 from ..presentation import Presentation
 from . import queries, serializers
 from .state import AppState, BundleNotFound, get_state
 
 router = APIRouter()
+
 
 
 def _state(request: Request) -> AppState:
@@ -78,7 +80,10 @@ def bootstrap(request: Request) -> Dict[str, Any]:
 
 @router.get("/api/provenance")
 def provenance(request: Request) -> Dict[str, Any]:
-    return serializers.bootstrap_payload(_state(request))["provenance"]
+    # `bootstrap_payload` merakit 140 KB payload untuk mengambil satu blok;
+    # blok itu sendiri murah, jadi panggil langsung.
+    state = _state(request)
+    return reporting_block(state.bundle, state.network, seed=serializers.PROVENANCE_SEED)
 
 
 # --- graf ------------------------------------------------------------------

@@ -2,7 +2,7 @@
 
 from .models import Domain, Epoch, Manifest
 from .schema import CONTRACT_MAJOR, CONTRACT_VERSION
-from .validate import Finding, validate_bundle
+from .validate import Finding, validate_and_read, validate_bundle
 
 __all__ = [
     "CONTRACT_MAJOR",
@@ -11,5 +11,6 @@ __all__ = [
     "Epoch",
     "Finding",
     "Manifest",
+    "validate_and_read",
     "validate_bundle",
 ]

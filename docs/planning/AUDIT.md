@@ -77,13 +77,18 @@ akan salah begitu repo di-fork untuk dataset lain.
 
 | Tahap | Waktu | Catatan |
 | --- | --- | --- |
-| `validate_bundle` | 1,72 s | 93% dari `load_bundle`; membaca parquet **dua kali** + sha256 per file |
+| `validate_bundle` | 2,07 s | bacaan pertama 5 parquet (3,0 MB) menanggung I/O dingin; sha256 hanya 13,5 ms |
+| baca ulang di `load_bundle` | 0,07 s | frame dibaca **dua kali**; bacaan kedua murah karena cache halaman sudah hangat |
 | `build_network` | 0,68 s | ~50% di `summary()`: `diameter` + `average_shortest_path_length` = 2×77 BFS |
 | `build_temporal` | 4,12 s | 56% konversi Arrow→object di `DataBundle.subset()` |
 | `build_bipartite` | 0,75 s | merge 54.615 × 191.087 |
 | `detect_anomalies` | 0,58 s | murah |
 
 Sisa dari 30 detik adalah import pyarrow/scipy + baca parquet + sha256 (I/O).
+
+Catatan koreksi: pembacaan ganda sempat dicatat sebagai penyebab utama lambatnya
+startup (93%). Setelah diukur per tahap, bacaan kedua hanya 0,07 s — yang mahal
+adalah bacaan pertama saat cache masih dingin, dan itu terjadi sekali saja.
 
 ### 2.2 Jalur request
 

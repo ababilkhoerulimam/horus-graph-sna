@@ -34,7 +34,13 @@ def simulate_removal(network: NetworkBundle, target: str) -> Dict[str, Any]:
     base_nodes = base.number_of_nodes()
     base_edges = base.number_of_edges()
     base_density = metrics.density(base_edges, base_nodes)
-    base_betweenness = metrics.betweenness(base)
+    # Betweenness graf asli sudah dihitung saat build dan disimpan di
+    # `node_metrics`; menghitungnya ulang di sini hanya menggandakan pekerjaan
+    # termahal pada setiap permintaan.
+    base_betweenness = {
+        str(node): float(value)
+        for node, value in network.node_metrics["betweenness"].items()
+    }
 
     incident = list(base.edges(entity_id))
 

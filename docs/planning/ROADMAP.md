@@ -66,10 +66,11 @@ pada bilah komparasi juga tidak lagi ditulis mati sebagai `epoch_1..3`.
 Tujuan: cold start 30 detik → di bawah 2 detik; tidak ada endpoint yang
 menghitung ulang pekerjaan yang sudah ada.
 
-- [ ] **1.1 GZip** — XS
+- [x] **1.1 GZip** — XS
   - Berkas: `horus_graph/api/app.py`
   - Kerjakan: `app.add_middleware(GZipMiddleware, minimum_size=1024)`.
   - Terima: `curl -H "Accept-Encoding: gzip" -s -o /dev/null -w "%{size_download}"` untuk `/api/bootstrap` < 30.000 byte.
+  - Hasil: 141.770 → 20.996 byte (85% turun). `index.html` 66.799 byte ter-gzip.
 
 - [ ] **1.2 Artefak pra-hitung** — L
   - Berkas: `horus_graph/cli.py:57-118` (`build --all` sudah menghitung semua, hanya belum menulis), `horus_graph/api/state.py`, modul baru `horus_graph/io/artifacts.py`
@@ -83,30 +84,56 @@ menghitung ulang pekerjaan yang sudah ada.
   - Kerjakan: pindahkan ke artefak build (ikut 1.2) atau jadikan `POST` + cache per `(bundle, resamples, bootstrap_resamples, seed)`. Turunkan default `resamples` 100 → 20.
   - Terima: GET `/api/enhance` tidak ada lagi, atau balas < 100 ms dari cache. Tidak ada request yang menahan threadpool > 1 detik.
 
-- [ ] **1.4 Baca parquet sekali** — S
+- [x] **1.4 Baca parquet sekali** — S
   - Berkas: `horus_graph/io/bundle.py`, `horus_graph/contract/validate.py`
   - Kerjakan: validator mengembalikan frame yang sudah dibaca, `load_bundle` memakainya; sha256 opsional (`--verify-hash`).
   - Terima: startup turun ≥ 1,5 detik; `validate` CLI tetap mendeteksi bundle rusak (tes lama hijau).
+  - Hasil: `validate_and_read()` mengembalikan `(temuan, frames)`; `load_bundle`
+    memakai frame itu dan hanya membaca ulang bila `strict=False`. `_read_optional`
+    diganti `_present()` yang membaca dari dict frame.
+  - Koreksi target: penghematan terukur **72 ms**, bukan 1,5 detik. Bacaan kedua
+    murah karena cache halaman sudah hangat; yang mahal adalah bacaan pertama
+    (2,07 s untuk 3,0 MB) dan itu dibayar sekali oleh validator. Angka 1,5 detik
+    di AUDIT berasal dari asumsi yang salah — sudah dikoreksi di sana.
+  - sha256 **tetap wajib**: 13,5 ms untuk 3,0 MB, yaitu 0,7% startup. Membuatnya
+    opsional akan melemahkan kontrak tanpa keuntungan terukur, jadi `--verify-hash`
+    tidak ditambahkan.
 
-- [ ] **1.5 Kontrafaktual memakai metrik yang ada** — XS
+- [x] **1.5 Kontrafaktual memakai metrik yang ada** — XS
   - Berkas: `horus_graph/analysis/counterfactual.py:37`
   - Kerjakan: `base_betweenness = network.node_metrics["betweenness"].to_dict()`.
   - Terima: respons `/api/analysis/counterfactual` < 30 ms; `baseline_betweenness` sama dengan nilai di `/api/bootstrap` untuk simpul yang sama.
+  - Hasil: 22 ms (hangat). `baseline_betweenness` cocok persis dengan
+    `/api/bootstrap`: Persita Tangerang 0,0412 / Karim Rossi 0,0957 /
+    PSIS Semarang 0,0724.
 
-- [ ] **1.6 `/api/provenance` tanpa payload penuh** — XS
+- [x] **1.6 `/api/provenance` tanpa payload penuh** — XS
   - Berkas: `horus_graph/api/routes.py:79-81`
   - Kerjakan: panggil `reporting_block(state.bundle, state.network, seed=42)` langsung.
   - Terima: < 50 ms; isi identik dengan sebelumnya.
+  - Hasil: 378 ms → 7–10 ms. `PROVENANCE_SEED = 42` dipindah ke `serializers.py`
+    supaya bootstrap dan provenance memakai konstanta yang sama.
 
-- [ ] **1.7 Bundle diresolusi sekali** — S
+- [x] **1.7 Bundle diresolusi sekali** — S
   - Berkas: `horus_graph/api/state.py:45-66`, `horus_graph/api/app.py:32`
   - Kerjakan: resolve saat `create_app`, simpan path final di `app.state.bundle_path`; `get_state` tidak lagi memindai `data/bundles/`.
   - Terima: menambah folder baru di `data/bundles/` saat server jalan tidak mengubah dataset yang disajikan (docstring `app.py` jadi benar).
+  - Hasil: `run()` meresolusi satu kali lalu menyerahkan path final ke
+    `get_state()` dan `create_app()`; docstring `get_state` menyatakan kontrak itu.
 
-- [ ] **1.8 Copilot tidak memblokir loop** — S
+- [x] **1.8 Copilot tidak memblokir loop** — S
   - Berkas: `horus_graph/copilot/service.py:150`, `horus_graph/copilot/llm.py:103`
   - Kerjakan: `await run_in_threadpool(tools.execute, ...)` dan `run_in_threadpool(fallback.answer, ...)`; `AsyncOpenAI(..., timeout=30.0, max_retries=1)`.
   - Terima: kirim pertanyaan yang memicu `generate_executive_briefing`, lalu `PING` — `PONG` tetap balik < 500 ms.
+  - Hasil: tiga pemanggilan `fallback.answer` dan `tools.execute` lewat
+    `run_in_threadpool`; `REQUEST_TIMEOUT_SECONDS = 30.0`, `MAX_RETRIES = 1`.
+
+**Selesai fase 1 bila:** kedelapan butir hijau dan tidak ada endpoint yang
+menghitung ulang pekerjaan yang sudah ada.
+
+Status: **6 dari 8 selesai** — 233 tes lulus. Sisa 1.2 (artefak pra-hitung) dan
+1.3 (`/api/enhance` keluar dari jalur request); keduanya bersinggungan sehingga
+dikerjakan berurutan.
 
 ---
 

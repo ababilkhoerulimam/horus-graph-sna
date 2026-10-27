@@ -21,12 +21,16 @@ from .state import AppState
 
 ROUND = 4
 
+# Seed blok provenance. Dipakai bootstrap dan /api/provenance supaya angka acak
+# yang dilaporkan tidak pernah berbeda antar panel.
+PROVENANCE_SEED = 42
+
 
 def bootstrap_payload(state: AppState) -> Dict[str, Any]:
     """Seluruh data yang dibutuhkan visualizer untuk boot, dalam satu panggilan."""
     network = state.network
     presentation = state.presentation
-    block = reporting_block(state.bundle, network, seed=42)
+    block = reporting_block(state.bundle, network, seed=PROVENANCE_SEED)
 
     return {
         "presentation": presentation.as_dict(),
