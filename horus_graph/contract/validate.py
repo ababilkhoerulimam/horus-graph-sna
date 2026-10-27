@@ -338,10 +338,20 @@ def validate_bundle(path: Path | str) -> List[Finding]:
         _check_articles(frames["articles"], manifest, findings)
 
     if "entities" in frames and "articles" in frames:
-        _check_foreign_keys(
-            frames["articles"], "articles", "source_id",
-            set(frames["entities"]["entity_id"]), "entities", findings,
+        # source_id adalah penerbit artikel, bukan aktor jaringan. Penerbit boleh
+        # tidak terdaftar di entities; itu hanya informasi, bukan pelanggaran.
+        unknown_sources = set(frames["articles"]["source_id"].dropna()) - set(
+            frames["entities"]["entity_id"]
         )
+        if unknown_sources:
+            findings.append(
+                _warn(
+                    "source_not_in_entities",
+                    "articles",
+                    f"{len(unknown_sources)} penerbit tidak terdaftar di entities: "
+                    f"{sorted(unknown_sources)[:5]}",
+                )
+            )
 
     if "mentions" in frames:
         _check_mentions(frames["mentions"], findings)

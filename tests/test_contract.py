@@ -130,11 +130,13 @@ def test_primary_key_duplikat(tmp_path):
     assert "primary_key_duplicate" in codes
 
 
-def test_foreign_key_artikel_ke_sumber(tmp_path):
+def test_penerbit_di_luar_entities_hanya_peringatan(tmp_path):
+    """source_id adalah penerbit, bukan aktor; tidak harus ada di entities."""
     frames = _frames()
     frames["articles"].loc[0, "source_id"] = "Media Hantu"
-    codes = _codes(validate_bundle(_write(tmp_path / "bundle", frames)))
-    assert "foreign_key_violation" in codes
+    findings = validate_bundle(_write(tmp_path / "bundle", frames))
+    assert "source_not_in_entities" in {f.code for f in findings if f.level == "warn"}
+    assert not [f for f in findings if f.level == "error"]
 
 
 def test_mention_menunjuk_entitas_asing(tmp_path):

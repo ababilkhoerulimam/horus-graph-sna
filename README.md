@@ -52,7 +52,7 @@ print(bundle.counts(), bundle.layer_status("transmission"))
 ## Status
 
 - [x] M0 kontrak: skema, model, validator, loader/writer, CLI
-- [ ] M1 exporter korpus lama → bundle
+- [x] M1 exporter korpus lama → bundle (27.407 artikel, 191.087 mention, 2,5 MB)
 - [ ] M2 core build + metrik (golden test vs 77/475/0.1623)
 - [ ] M3 temporal, bipartite, anomali
 - [ ] M4 analysis: dossier, path, what-if, briefing

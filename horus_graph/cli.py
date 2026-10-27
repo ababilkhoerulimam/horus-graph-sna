@@ -54,6 +54,19 @@ def _cmd_info(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_export_legacy(args: argparse.Namespace) -> int:
+    from .export.legacy import export_legacy_bundle
+
+    result = export_legacy_bundle(
+        repo=Path(args.repo),
+        out=Path(args.out),
+        limit=args.limit,
+        progress=args.progress,
+    )
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="horus-graph", description="SNA engine")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -66,6 +79,15 @@ def build_parser() -> argparse.ArgumentParser:
     info = sub.add_parser("info", help="Ringkasan isi bundle")
     info.add_argument("bundle")
     info.set_defaults(func=_cmd_info)
+
+    export = sub.add_parser(
+        "export-legacy", help="(migrasi) ekspor korpus horus-agent menjadi bundle"
+    )
+    export.add_argument("--repo", required=True, help="Path repo horus-agent")
+    export.add_argument("--out", required=True, help="Direktori bundle tujuan")
+    export.add_argument("--limit", type=int, default=None, help="Batasi jumlah artikel")
+    export.add_argument("--progress", action="store_true")
+    export.set_defaults(func=_cmd_export_legacy)
 
     return parser
 

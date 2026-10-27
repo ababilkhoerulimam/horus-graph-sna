@@ -218,3 +218,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Bundle data (regenerate with: horus-graph export-legacy)
+data/

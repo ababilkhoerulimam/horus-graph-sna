@@ -23,9 +23,14 @@ packages = ["horus_graph"]
 [project.scripts]
 horus-graph = "horus_graph.cli:main"
 
+[project.optional-dependencies]
+# Hanya untuk alat migrasi `export-legacy` yang membaca config horus-agent (yaml).
+legacy = ["pyyaml>=6.0"]
+
 [dependency-groups]
 dev = [
     "pytest>=8.0",
+    "pyyaml>=6.0",
 ]
 
 [tool.pytest.ini_options]
