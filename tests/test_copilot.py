@@ -8,7 +8,6 @@ dan tidak ada nama domain yang bocor ke dalam kode.
 
 from __future__ import annotations
 
-import re
 from datetime import date
 from pathlib import Path
 
@@ -20,11 +19,12 @@ from horus_graph.api.app import create_app
 from horus_graph.api.state import AppState
 from horus_graph.contract import schema
 from horus_graph.contract.models import Presentation as PresentationMeta
+from horus_graph.copilot import fallback, specs, tools
+from horus_graph.copilot import intent as intent_mod
 from horus_graph.core.anomaly import detect_anomalies
 from horus_graph.core.bipartite import build_bipartite
 from horus_graph.core.build import build_network
 from horus_graph.core.temporal import build_temporal
-from horus_graph.copilot import fallback, intent as intent_mod, specs, tools
 from horus_graph.io import write_bundle
 from horus_graph.presentation import resolve_presentation
 

@@ -81,7 +81,7 @@ def test_pasangan_hanya_segitiga_atas_dan_unik(bundle_factory):
     cooc = cooccurrence(bundle)
     assert cooc.pair_count == 3
     assert np.all(cooc.pair_u < cooc.pair_v)
-    keys = list(zip(cooc.pair_u.tolist(), cooc.pair_v.tolist()))
+    keys = list(zip(cooc.pair_u.tolist(), cooc.pair_v.tolist(), strict=False))
     assert keys == sorted(keys)
     assert len(set(keys)) == len(keys)
 

@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Pasang paket dan alat
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[api]" pytest httpx pyyaml ruff mypy
+
+      - name: Ruff
+        run: ruff check horus_graph tests
+
+      - name: Mypy
+        run: mypy horus_graph
+
+      # Bundle golden tidak ada di repo (data/ di-.gitignore); tes yang
+      # membutuhkannya melewati diri sendiri, sisanya tetap berjalan.
+      - name: Pytest
+        run: pytest -q

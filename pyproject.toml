@@ -41,6 +41,8 @@ dev = [
     "httpx>=0.28.1",
     "pytest>=8.0",
     "pyyaml>=6.0",
+    "ruff>=0.17",
+    "mypy>=1.11",
 ]
 
 [tool.pytest.ini_options]
@@ -50,3 +52,34 @@ filterwarnings = [
     # Peringatan dari starlette tentang httpx 1.x, bukan dari kode repo ini.
     "ignore:Using `httpx` with `starlette.testclient`:Warning",
 ]
+
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["data", "presentation"]
+
+[tool.ruff.lint]
+# Sengaja tanpa `UP`: repo memakai gaya `Dict[...]`/`Optional[...]` secara
+# konsisten, dan mengubah 700 anotasi bukan perbaikan yang sepadan risikonya.
+select = ["E4", "E7", "E9", "F", "I", "B"]
+ignore = [
+    # `Depends(...)` di nilai default adalah pola FastAPI, bukan bug.
+    "B008",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["horus_graph"]
+
+[tool.ruff.lint.per-file-ignores]
+# Impor di blok `TYPE_CHECKING` adalah re-ekspor untuk pemeriksa tipe; isinya
+# dijaga `_LAZY` + `__all__`, bukan oleh pemakaian langsung di berkas ini.
+"horus_graph/enhance/__init__.py" = ["F401"]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["horus_graph"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true

@@ -106,7 +106,7 @@ def _trace_wire(wire: nx.DiGraph, src: str, tgt: str) -> Optional[Dict[str, Any]
         return 1.0 / max(MIN_ALPHA, float(data.get("alpha") or 0.0))
 
     path = nx.shortest_path(wire, src, tgt, weight=cost)
-    hops = [_wire_hop(wire, u, v) for u, v in zip(path, path[1:])]
+    hops = [_wire_hop(wire, u, v) for u, v in zip(path, path[1:], strict=False)]
 
     return _wire_response(
         path=path,
@@ -245,7 +245,7 @@ def _alternative(
 
 def _hops(network: NetworkBundle, path: List[str]) -> List[Dict[str, Any]]:
     hops = []
-    for u, v in zip(path, path[1:]):
+    for u, v in zip(path, path[1:], strict=False):
         data = network.graph[u][v]
         hops.append(
             {

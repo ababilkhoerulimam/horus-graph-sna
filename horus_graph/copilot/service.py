@@ -17,9 +17,10 @@ from typing import Any, Dict, List, Optional
 from starlette.concurrency import run_in_threadpool
 
 from ..api.state import AppState
-from . import fallback, intent as intent_mod, llm, tools
-from .specs import tool_specs
+from . import fallback, llm, tools
+from . import intent as intent_mod
 from .prompt import build_persona, centre_label, example_lines
+from .specs import tool_specs
 
 logger = logging.getLogger("horus_graph.copilot")
 

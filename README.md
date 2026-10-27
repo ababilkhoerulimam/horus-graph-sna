@@ -209,6 +209,9 @@ angka tidak mungkin berbeda antar tampilan.
 | `GET /api/topics/actor-network` | bipartit topik-aktor |
 | `GET /api/temporal`, `/api/provenance` | epos dan asal angka |
 | `GET /api/health`, `/api/dataset/status` | status proses dan kapabilitas (`copilot`, `llm`) |
+| `GET /api/datasets` | daftar snapshot di folder induk, read-only |
+| `GET /api/export/{graphml\|gexf\|csv}` | unduh jaringan beserta metrik simpul |
+| `GET /metrics` | hitungan permintaan dan histogram durasi (teks Prometheus) |
 
 Tidak ada endpoint passthrough artefak JSON: UI membaca `/api/bootstrap` sekali,
 bukan enam berkas terpisah.
@@ -252,6 +255,23 @@ judul, `ego.label`, `entity_types`, dan contoh entitas diambil dari simpul
 berderajat tertinggi. Fork repo + bundle baru cukup mengganti bundle. Kalimat
 jawaban deterministik ada di `DEFAULT_WORDING` dan bisa ditimpa per bundle lewat
 `manifest.presentation.wording`.
+
+## Deploy
+
+```bash
+make check                      # ruff + mypy + pytest, sama dengan CI
+
+docker build -t horus-graph .
+docker run -p 8000:8000 \
+  -e HORUS_API_TOKEN=rahasia \
+  -e HORUS_BUNDLE=/data/bundles/nama-bundle \
+  -v "$PWD/data/bundles:/data/bundles:ro" \
+  horus-graph
+```
+
+Bundle tidak dibawa ke dalam image — data berubah lebih sering daripada kode.
+Karena container bind ke `0.0.0.0`, `HORUS_API_TOKEN` wajib; tanpa itu proses
+menolak start. Buka `http://localhost:8000/?token=rahasia`.
 
 ## Prinsip
 

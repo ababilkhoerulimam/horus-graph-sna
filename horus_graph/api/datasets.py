@@ -84,9 +84,11 @@ def update_index(parent: Path, entries: List[Dict[str, Any]]) -> Optional[Path]:
         return None
 
     now = datetime.now(timezone.utc).isoformat()
-    riwayat: Dict[str, Dict[str, Any]] = {
-        item.get("snapshot_id"): dict(item) for item in read_index(parent) if item.get("snapshot_id")
-    }
+    riwayat: Dict[str, Dict[str, Any]] = {}
+    for item in read_index(parent):
+        snapshot = item.get("snapshot_id")
+        if isinstance(snapshot, str) and snapshot:
+            riwayat[snapshot] = dict(item)
     for entry in entries:
         snapshot = entry["snapshot_id"]
         merged = dict(riwayat.get(snapshot, {}))

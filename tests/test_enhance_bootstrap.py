@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from horus_graph.core import build_network
 from horus_graph.enhance.bootstrap import bootstrap_network

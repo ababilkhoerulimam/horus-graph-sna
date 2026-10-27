@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import time
 from datetime import date
 from pathlib import Path
-import time
 
 import pandas as pd
 import pyarrow as pa

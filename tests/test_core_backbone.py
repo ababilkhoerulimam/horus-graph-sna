@@ -79,7 +79,7 @@ def test_edge_diselamatkan_ditandai_setelah_pengurutan(bundle_factory):
     selected, rescued, report = select_edges(cooc, BackboneConfig(min_support=3, min_npmi=0.2))
     flags = {
         frozenset((cooc.entity_ids[int(cooc.pair_u[p])], cooc.entity_ids[int(cooc.pair_v[p])])): bool(r)
-        for p, r in zip(selected, rescued)
+        for p, r in zip(selected, rescued, strict=False)
     }
     assert flags[frozenset(("A", "B"))] is False
     assert flags[frozenset(("A", "C"))] is True

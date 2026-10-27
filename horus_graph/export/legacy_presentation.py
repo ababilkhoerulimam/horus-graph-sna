@@ -19,9 +19,6 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from ..contract.models import (
-    ClusterStyle,
-    EgoStyle,
-    EntityTypeStyle,
     Presentation as PresentationMeta,
 )
 

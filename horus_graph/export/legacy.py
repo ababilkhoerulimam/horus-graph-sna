@@ -106,7 +106,7 @@ def entities_frame(
             # Label selalu tampil untuk dua tingkat teratas; UI memakai `tier`
             # bila kolom ini kosong.
             "is_anchor": [
-                _tier(entity) is not None and _tier(entity) <= 1
+                (lambda tier: tier is not None and tier <= 1)(_tier(entity))
                 for entity in domain.entities
             ],
         }
@@ -190,9 +190,9 @@ def _legacy_context(repo: Path) -> LegacyContext:
     if str(repo) not in sys.path:
         sys.path.insert(0, str(repo))
 
-    from src.core.config import get_domain  # type: ignore[import-not-found]
-    from src.core.corpus import CorpusReader  # type: ignore[import-not-found]
-    from src.core.matching import EntityMatcher, TopicMatcher  # type: ignore[import-not-found]
+    from src.core.config import get_domain
+    from src.core.corpus import CorpusReader
+    from src.core.matching import EntityMatcher, TopicMatcher
 
     git_sha = None
     head = repo / ".git" / "HEAD"

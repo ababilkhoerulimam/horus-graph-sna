@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 from dataclasses import replace
 from datetime import date
-from pathlib import Path
 
 import pandas as pd
 import pyarrow as pa
@@ -22,8 +21,10 @@ from horus_graph.contract.models import (
     EgoStyle,
     EntityTypeStyle,
     Palette,
-    Presentation as PresentationMeta,
     RadiusScale,
+)
+from horus_graph.contract.models import (
+    Presentation as PresentationMeta,
 )
 from horus_graph.io import load_bundle, write_bundle
 from horus_graph.presentation import resolve_presentation

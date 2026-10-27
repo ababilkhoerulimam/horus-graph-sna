@@ -20,7 +20,7 @@ def epoch_turnover(temporal: TemporalBundle) -> pd.DataFrame:
     slices = [item for item in temporal.slices if item.window.id != "all_time"]
     rows: List[Dict[str, Any]] = []
 
-    for previous, current in zip(slices, slices[1:]):
+    for previous, current in zip(slices, slices[1:], strict=False):
         previous_nodes = set(previous.graph.nodes)
         current_nodes = set(current.graph.nodes)
         previous_edges = _edges(previous.graph)

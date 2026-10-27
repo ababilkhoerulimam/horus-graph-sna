@@ -165,7 +165,7 @@ def to_gexf(network: NetworkBundle) -> str:
         '  <graph mode="static" defaultedgetype="undirected">',
         '    <attributes class="node">',
     ]
-    for index, (name, kind) in enumerate(node_attrs):
+    for name, kind in node_attrs:
         gexf_type = {"string": "string", "long": "long", "double": "double", "boolean": "boolean"}[kind]
         lines.append(f'      <attribute id="{name}" title="{name}" type="{gexf_type}"/>')
     lines.append("    </attributes>")

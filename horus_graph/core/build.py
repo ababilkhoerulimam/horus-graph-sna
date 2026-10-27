@@ -110,7 +110,7 @@ def build_network(
 
     graph = nx.Graph()
     graph.add_nodes_from(cooc.entity_ids)
-    for position, is_rescued in zip(selected, rescued):
+    for position, is_rescued in zip(selected, rescued, strict=False):
         u = cooc.entity_ids[int(cooc.pair_u[position])]
         v = cooc.entity_ids[int(cooc.pair_v[position])]
         graph.add_edge(

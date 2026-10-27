@@ -330,9 +330,21 @@ Tujuan: boleh dipakai lebih dari satu orang dan lebih dari satu mesin.
     `horus_http_requests_total` dan `horus_http_request_duration_seconds`
     (11 bucket) tanpa `prometheus_client`. Dua `print()` di `run()` diganti logger.
 
-- [ ] **3.5 Packaging & CI** — M
+- [x] **3.5 Packaging & CI** — M
   - Kerjakan: `Dockerfile` multi-stage, `.github/workflows/ci.yml` (ruff + mypy + pytest), `[tool.ruff]`/`[tool.mypy]` di `pyproject.toml`, `Makefile` dengan `check`.
   - Terima: `docker run` menyajikan UI; CI hijau pada PR kosong.
+  - Hasil: `Dockerfile` dua tahap (image 859 MB, tanpa compiler di lapisan akhir),
+    `.dockerignore`, `Makefile` (`install/lint/type/test/check/serve`), dan CI
+    matrix Python 3.11/3.12. Diukur: `docker run` dengan bundle di-mount
+    menyajikan UI penuh (77 simpul, 475 sisi, densitas 0,1623) dan
+    `/api/health` menjawab 401 tanpa token. `ruff check` dan `mypy` bersih.
+  - Catatan: `make` tidak terpasang di mesin pengembangan ini, jadi target
+    `check` dijalankan lewat perintah yang sama secara langsung; sintaks
+    Makefile belum dieksekusi di sini.
+  - Perbaikan yang ikut terbawa: `mypy` menemukan `Optional` yang tidak
+    diimpor di `analysis/counterfactual.py` (NameError bila anotasi dievaluasi),
+    `p_value` yang bisa `None` tapi ditipe `float`, dan `zip()` tanpa `strict=`
+    di 11 tempat.
 
 - [x] **3.6 Kontrak OpenAPI** — M
   - Kerjakan: `response_model` untuk endpoint yang bentuknya stabil; dokumentasikan endpoint yang sengaja `Dict`.

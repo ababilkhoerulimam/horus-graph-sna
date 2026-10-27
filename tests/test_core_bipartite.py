@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from horus_graph.core.bipartite import build_bipartite
 
 
@@ -53,7 +51,7 @@ def test_support_dan_npmi_dihitung_dari_artikel_bersama(bundle_factory):
 
 def test_ambang_min_support_membuang_edge_tipis(bundle_factory):
     result = build_bipartite(_corpus(bundle_factory), min_support=6)
-    assert ("T2", "A") not in set(zip(result.edges["topic_id"], result.edges["entity_id"]))
+    assert ("T2", "A") not in set(zip(result.edges["topic_id"], result.edges["entity_id"], strict=False))
 
 
 def test_keanggotaan_topik_diurutkan_menurut_npmi_bukan_volume(bundle_factory):

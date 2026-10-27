@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Dict, Optional
@@ -13,7 +12,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from ..contract import schema
-from ..contract.models import Domain, Manifest
+from ..contract.models import DateRange, Domain, GeneratorInfo, LayerStatus, Manifest
 
 
 def _to_arrow(frame: pd.DataFrame, target: pa.Schema, table: str) -> pa.Table:
@@ -76,7 +75,7 @@ def write_bundle(
 
     counts: Dict[str, int] = {}
     hashes: Dict[str, str] = {}
-    layers: Dict[str, str] = {}
+    layers: Dict[str, LayerStatus] = {}
 
     for table, (relative, table_schema, required) in schema.TABLES.items():
         frame = frames.get(table)
@@ -96,15 +95,15 @@ def write_bundle(
         contract_version=schema.CONTRACT_VERSION,
         dataset_id=dataset_id,
         snapshot_at=datetime.now(timezone.utc),
-        date_range={"start": date_range[0], "end": date_range[1]},
+        date_range=DateRange(start=date_range[0], end=date_range[1]),
         timezone="UTC",
         counts=counts,
         file_sha256=hashes,
-        generator={
-            "name": generator,
-            "version": generator_version,
-            "git_sha": generator_git_sha,
-        },
+        generator=GeneratorInfo(
+            name=generator,
+            version=generator_version,
+            git_sha=generator_git_sha,
+        ),
         dictionary_version=dictionary_version,
         layers=layers,
         **(extra or {}),

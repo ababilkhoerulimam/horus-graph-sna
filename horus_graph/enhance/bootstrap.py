@@ -84,7 +84,7 @@ def bootstrap_network(
         partition = metrics.louvain(graph)
         labels = np.array([partition.get(entity_id, 0) for entity_id in cooc.entity_ids])
         community_draws.append(labels)
-        ari_draws.append(stats.adjusted_rand_index(baseline_labels, labels))
+        ari_draws.append(stats.adjusted_rand_index(baseline_labels.tolist(), labels.tolist()))
 
     betweenness = np.vstack(betweenness_draws)
     communities = np.vstack(community_draws)

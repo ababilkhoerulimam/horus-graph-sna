@@ -33,7 +33,7 @@ class NullModelResult:
     null_mean: Dict[str, Optional[float]]
     null_sd: Dict[str, Optional[float]]
     z: Dict[str, Optional[float]]
-    p_value: Dict[str, float]
+    p_value: Dict[str, Optional[float]]
     resamples: int
     seed: int
     swaps_per_edge: int

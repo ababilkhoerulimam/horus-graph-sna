@@ -66,7 +66,7 @@ def entity_monthly_counts(bundle: DataBundle) -> pd.DataFrame:
 
     published = pd.to_datetime(bundle.articles["published_at"], format="ISO8601", utc=True)
     article_month = dict(
-        zip(bundle.articles["article_id"].astype(str), published.dt.strftime("%Y-%m"))
+        zip(bundle.articles["article_id"].astype(str), published.dt.strftime("%Y-%m"), strict=False)
     )
     frame = bundle.mentions[["article_id", "entity_id"]].astype(str).drop_duplicates()
     frame["month"] = frame["article_id"].map(article_month)

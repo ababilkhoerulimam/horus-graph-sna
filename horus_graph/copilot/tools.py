@@ -157,7 +157,7 @@ def filter_subgraph(state: AppState, args: Dict[str, Any]) -> Dict[str, Any]:
             "node_ids": [],
         }
 
-    node_ids = set()
+    node_ids: set[str] = set()
     for item in windows:
         node_ids.update(str(node) for node in item.graph.nodes)
 

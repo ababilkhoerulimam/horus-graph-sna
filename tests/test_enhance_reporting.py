@@ -16,7 +16,7 @@ def _dense_bundle(bundle_factory):
     # Rantai empat segitiga: 9 tepi, cukup bebas untuk pengacakan derajat.
     groups = [("A", "B", "C"), ("B", "C", "D"), ("C", "D", "E"), ("D", "E", "F")]
     rows = []
-    for start, group in zip(range(0, 40, 10), groups):
+    for start, group in zip(range(0, 40, 10), groups, strict=False):
         rows += [(f"art{i:03d}", e, 1) for i in range(start, start + 10) for e in group]
     return bundle_factory(list("ABCDEF"), rows, articles=60, ego="A")
 

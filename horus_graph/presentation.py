@@ -22,8 +22,10 @@ from .contract.models import (
     EgoStyle,
     EntityTypeStyle,
     Palette,
-    Presentation as PresentationMeta,
     RadiusScale,
+)
+from .contract.models import (
+    Presentation as PresentationMeta,
 )
 from .io.bundle import DataBundle
 

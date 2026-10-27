@@ -9,7 +9,7 @@ dari konstanta di file ini.
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, List, Mapping, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 
@@ -310,7 +310,7 @@ def entity_years(state: AppState) -> Dict[str, Tuple[Optional[int], List[int]]]:
 
     published = pd.to_datetime(articles["published_at"], format="ISO8601", utc=True)
     year_of = dict(
-        zip(articles["article_id"].astype(str), published.dt.year.astype("Int64"))
+        zip(articles["article_id"].astype(str), published.dt.year.astype("Int64"), strict=False)
     )
     pairs = mentions[["article_id", "entity_id"]].astype(str).drop_duplicates()
     pairs["year"] = pairs["article_id"].map(year_of)

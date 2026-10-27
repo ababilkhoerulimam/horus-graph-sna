@@ -73,7 +73,7 @@ def sentiment_ranking(
         }
 
     field = "neg" if kind == "negative" else "pos"
-    rows = []
+    rows: List[Dict[str, Any]] = []
     for entity_id, record in network.sentiment.scores.items():
         if entity_type and (network.type_of(entity_id) or "").lower() != entity_type.lower():
             continue

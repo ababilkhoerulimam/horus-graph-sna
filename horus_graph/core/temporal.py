@@ -178,13 +178,14 @@ def _node_metrics(graph: nx.Graph, cooc) -> pd.DataFrame:
     rows = []
     for node in sorted(graph.nodes):
         burt = constraint.get(node)
+        eff = effective.get(node)
         rows.append(
             {
                 "entity_id": node,
                 "degree": int(graph.degree(node)),
                 "betweenness": round(float(betweenness.get(node, 0.0)), 6),
                 "burt_constraint": None if burt is None else round(float(burt), 4),
-                "effective_size": None if effective.get(node) is None else round(float(effective[node]), 2),
+                "effective_size": None if eff is None else round(float(eff), 2),
                 "articles": articles.get(node, 0),
             }
         )

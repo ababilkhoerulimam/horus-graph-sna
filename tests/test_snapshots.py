@@ -9,9 +9,6 @@ from __future__ import annotations
 
 import json
 import shutil
-from pathlib import Path
-
-import pytest
 
 from horus_graph.api import datasets
 from horus_graph.contract.models import DateRange, GeneratorInfo, Manifest
@@ -48,8 +45,8 @@ def test_snapshot_id_berbentuk_heksadesimal_pendek():
 
 
 def test_loader_mengisi_snapshot_id(tmp_path, bundle_factory):
-    from tests.test_api import _write_bundle
     from horus_graph.io.bundle import load_bundle
+    from tests.test_api import _write_bundle
 
     root = _write_bundle(tmp_path / "b", bundle_factory)
     bundle = load_bundle(root)
@@ -59,8 +56,8 @@ def test_loader_mengisi_snapshot_id(tmp_path, bundle_factory):
 
 
 def test_snapshot_id_tidak_berubah_setelah_folder_dipindah(tmp_path, bundle_factory):
-    from tests.test_api import _write_bundle
     from horus_graph.io.bundle import load_bundle
+    from tests.test_api import _write_bundle
 
     root = _write_bundle(tmp_path / "asli", bundle_factory)
     pindah = tmp_path / "pindahan"
@@ -70,8 +67,8 @@ def test_snapshot_id_tidak_berubah_setelah_folder_dipindah(tmp_path, bundle_fact
 
 
 def test_snapshot_yang_ditulis_pipeline_tidak_ditimpa(tmp_path, bundle_factory):
-    from tests.test_api import _write_bundle
     from horus_graph.io.bundle import load_bundle
+    from tests.test_api import _write_bundle
 
     root = _write_bundle(tmp_path / "b", bundle_factory)
     manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))

@@ -90,7 +90,7 @@ def metrics_text() -> str:
         "# HELP horus_http_request_duration_seconds Durasi permintaan HTTP.",
         "# TYPE horus_http_request_duration_seconds histogram",
     ]
-    for edge, count in zip(BUCKETS, buckets):
+    for edge, count in zip(BUCKETS, buckets, strict=False):
         lines.append(
             f'horus_http_request_duration_seconds_bucket{{le="{edge}"}} {count}'
         )

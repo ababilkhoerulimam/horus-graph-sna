@@ -43,10 +43,10 @@ class SentimentLayer:
 
 
 def transmission_layer(bundle: DataBundle) -> Optional[TransmissionLayer]:
-    if not bundle.has_transmission:
+    frame = bundle.transmission
+    if frame is None or frame.empty:
         return None
 
-    frame = bundle.transmission
     graph = nx.DiGraph()
     for row in frame.itertuples(index=False):
         graph.add_edge(
@@ -71,10 +71,10 @@ def transmission_layer(bundle: DataBundle) -> Optional[TransmissionLayer]:
 
 
 def sentiment_layer(bundle: DataBundle) -> Optional[SentimentLayer]:
-    if not bundle.has_sentiment:
+    frame = bundle.sentiment
+    if frame is None or frame.empty:
         return None
 
-    frame = bundle.sentiment
     scores: Dict[str, Dict[str, Any]] = {}
     for row in frame.itertuples(index=False):
         scores[str(row.entity_id)] = {
