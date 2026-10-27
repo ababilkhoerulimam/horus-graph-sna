@@ -55,20 +55,50 @@ def _cmd_info(args: argparse.Namespace) -> int:
 
 
 def _cmd_build(args: argparse.Namespace) -> int:
+    from .core.anomaly import detect_anomalies
     from .core.backbone import BackboneConfig
+    from .core.bipartite import build_bipartite
     from .core.build import build_network
+    from .core.temporal import build_temporal
 
     bundle = load_bundle(Path(args.bundle))
     config = BackboneConfig(min_support=args.min_support, min_npmi=args.min_npmi)
     network = build_network(bundle, config)
 
-    report = {
+    report: dict = {
         "summary": dict(network.summary),
         "backbone": network.backbone.as_dict(),
         "provenance": network.provenance(),
     }
+    temporal = bipartite = anomaly = None
+    if args.all:
+        temporal = build_temporal(bundle, BackboneConfig(
+            min_support=args.min_support, min_npmi=args.min_npmi, rescue_isolated=False
+        ))
+        bipartite = build_bipartite(bundle, min_support=args.min_support)
+        anomaly = detect_anomalies(bundle)
+        report["temporal"] = [
+            {
+                "id": slice_.window.id,
+                "start_year": slice_.window.start_year,
+                "end_year": slice_.window.end_year,
+                "nodes": slice_.graph.number_of_nodes(),
+                "edges": slice_.graph.number_of_edges(),
+                "density": slice_.density,
+                "articles": slice_.articles,
+                "top_broker": slice_.top_broker,
+            }
+            for slice_ in temporal.slices
+        ]
+        report["bipartite"] = bipartite.summary()
+        report["anomaly"] = {
+            "months": anomaly.months,
+            "partial_periods": list(anomaly.partial_periods),
+            "spikes": [dict(spike) for spike in anomaly.spikes],
+        }
+
     if args.json:
-        print(json.dumps(report, indent=2, ensure_ascii=False))
+        print(json.dumps(report, indent=2, ensure_ascii=False, default=str))
         return 0
 
     summary = network.summary
@@ -85,6 +115,24 @@ def _cmd_build(args: argparse.Namespace) -> int:
         f"Backbone: {backbone.candidate_pairs} kandidat, {backbone.above_threshold} lolos ambang, "
         f"{backbone.added_for_support} diselamatkan, {len(backbone.still_isolated)} tetap terisolasi"
     )
+
+    if temporal is not None:
+        for slice_ in temporal.slices:
+            print(
+                f"  {slice_.window.id} {slice_.window.start_year}-{slice_.window.end_year}: "
+                f"{slice_.graph.number_of_nodes()} simpul, {slice_.graph.number_of_edges()} edge, "
+                f"densitas {slice_.density}, {slice_.articles} artikel"
+            )
+        assert bipartite is not None and anomaly is not None
+        print(
+            f"Bipartit: {bipartite.summary()['edges']} edge topik-aktor, "
+            f"{bipartite.summary()['actors']} aktor"
+        )
+        print(
+            f"Anomali: {anomaly.months} bulan, {len(anomaly.spikes)} spike, "
+            f"bulan parsial {', '.join(anomaly.partial_periods) or '-'}"
+        )
+
     if args.top:
         frame = network.node_metrics.sort_values("betweenness", ascending=False)
         columns = ["degree", "betweenness", "pagerank", "burt_constraint", "louvain_community"]
@@ -123,6 +171,7 @@ def build_parser() -> argparse.ArgumentParser:
     build.add_argument("--min-support", type=int, default=3)
     build.add_argument("--min-npmi", type=float, default=0.2)
     build.add_argument("--top", type=int, default=0, help="Tampilkan N simpul betweenness tertinggi")
+    build.add_argument("--all", action="store_true", help="Ikut hitung temporal, bipartit, anomali")
     build.add_argument("--json", action="store_true")
     build.set_defaults(func=_cmd_build)
 

@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Collection, Dict, List, Optional
 
 import pandas as pd
 import pyarrow.parquet as pq
@@ -53,6 +53,28 @@ class DataBundle:
         if layer == "sentiment":
             return "ready" if self.has_sentiment else "awaiting_input"
         raise KeyError(layer)
+
+    def subset(self, article_ids: Collection[str]) -> "DataBundle":
+        """
+        Salinan bundle yang hanya memuat artikel tertentu.
+
+        Dipakai analisis berjendela (epos, rentang tahun, what-if). Denominator
+        NPMI ikut mengecil karena `articles` juga disaring — itu yang membuat
+        NPMI per epos sebanding dengan NPMI seluruh korpus, bukan digelembungkan
+        oleh artikel di luar jendela.
+        """
+        keep = set(str(value) for value in article_ids)
+        articles = self.articles[self.articles["article_id"].astype(str).isin(keep)]
+        mentions = self.mentions[self.mentions["article_id"].astype(str).isin(keep)]
+        article_topics = self.article_topics[
+            self.article_topics["article_id"].astype(str).isin(keep)
+        ]
+        return replace(
+            self,
+            articles=articles.reset_index(drop=True),
+            mentions=mentions.reset_index(drop=True),
+            article_topics=article_topics.reset_index(drop=True),
+        )
 
     def counts(self) -> Dict[str, int]:
         return {

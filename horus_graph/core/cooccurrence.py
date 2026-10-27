@@ -15,7 +15,7 @@ tidak akan muat.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -36,6 +36,7 @@ class Cooccurrence:
     support: np.ndarray
     npmi: np.ndarray
     node_articles: np.ndarray
+    incidence: sparse.csr_matrix
     unknown_mentions: int = 0
 
     @property
@@ -109,5 +110,31 @@ def cooccurrence(bundle: DataBundle) -> Cooccurrence:
         support=support,
         npmi=values,
         node_articles=node_articles,
+        incidence=incidence,
         unknown_mentions=unknown,
     )
+
+
+def edge_years(
+    cooc: Cooccurrence, article_years: np.ndarray, positions: np.ndarray
+) -> Dict[int, List[int]]:
+    """
+    Tahun pendukung untuk pasangan terpilih.
+
+    Dihitung per tahun di dalam jendela, bukan dari agregat global: edge pada
+    epos 2024-2026 tidak boleh mengklaim dukungan artikel 2021.
+    """
+    if positions.size == 0:
+        return {}
+    result: Dict[int, List[int]] = {}
+    for year in np.unique(article_years):
+        rows = np.flatnonzero(article_years == year)
+        if rows.size == 0:
+            continue
+        block = (cooc.incidence[rows].T @ cooc.incidence[rows]).tocsr()
+        for position in positions:
+            u = int(cooc.pair_u[position])
+            v = int(cooc.pair_v[position])
+            if block[u, v] > 0:
+                result.setdefault(int(position), []).append(int(year))
+    return result

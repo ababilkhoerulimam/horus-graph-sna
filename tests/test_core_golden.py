@@ -12,11 +12,29 @@ import numpy as np
 import pytest
 
 from horus_graph.core import build_network
+from horus_graph.core.anomaly import detect_anomalies
+from horus_graph.core.bipartite import build_bipartite
+from horus_graph.core.temporal import build_temporal
 
 
 @pytest.fixture(scope="module")
 def network(golden_bundle):
     return build_network(golden_bundle)
+
+
+@pytest.fixture(scope="module")
+def temporal(golden_bundle):
+    return build_temporal(golden_bundle)
+
+
+@pytest.fixture(scope="module")
+def bipartite(golden_bundle):
+    return build_bipartite(golden_bundle)
+
+
+@pytest.fixture(scope="module")
+def anomaly(golden_bundle):
+    return detect_anomalies(golden_bundle)
 
 
 def test_populasi_dan_backbone_sama(network):
@@ -101,3 +119,58 @@ def test_provenance_menyebut_metode_setiap_angka(network):
     assert provenance["backbone"]["min_npmi"] == 0.2
     for key in ("betweenness", "constraint", "effective_size", "pagerank", "closeness", "community"):
         assert provenance["metrics"][key]
+
+
+@pytest.mark.parametrize(
+    "epoch_id, start_year, end_year, nodes, edges, density, articles",
+    [
+        ("epoch_1", 2021, 2022, 63, 387, 0.1982, 4557),
+        ("epoch_2", 2023, 2024, 68, 436, 0.1914, 8813),
+        ("epoch_3", 2025, 2026, 69, 421, 0.1795, 14037),
+        ("all_time", 2021, 2026, 69, 467, 0.1991, 27407),
+    ],
+)
+def test_irisan_epos_sama(
+    temporal, epoch_id, start_year, end_year, nodes, edges, density, articles
+):
+    slice_ = temporal.by_id(epoch_id)
+    assert (slice_.window.start_year, slice_.window.end_year) == (start_year, end_year)
+    assert slice_.graph.number_of_nodes() == nodes
+    assert slice_.graph.number_of_edges() == edges
+    assert slice_.density == density
+    assert slice_.articles == articles
+
+
+def test_epos_memakai_backbone_tanpa_penyelamatan(temporal):
+    assert temporal.by_id("all_time").graph.number_of_edges() == 467
+    assert len(temporal.by_id("all_time").isolated) == 8
+    assert temporal.by_id("epoch_1").top_broker == {
+        "id": "Dewa United FC",
+        "betweenness": 0.109186,
+    }
+    assert temporal.by_id("epoch_1").top_autonomy == {
+        "id": "Liga 1",
+        "burt_constraint": 0.1458,
+    }
+
+
+def test_bipartit_sama(bipartite):
+    summary = bipartite.summary()
+    assert summary["topics"] == 5
+    assert summary["actors"] == 56
+    assert summary["edges"] == 280
+    assert summary["negative_edges"] == 110
+    assert summary["npmi_min"] == -0.2173
+    assert summary["npmi_max"] == 0.7219
+    assert bipartite.media_topics["source_id"].nunique() == 21
+
+
+def test_anomali_sama(anomaly):
+    assert anomaly.months == 70
+    assert sum(anomaly.monthly_counts.values()) == 27407
+    assert anomaly.partial_periods == ("2026-10",)
+    assert [(s["period"], s["article_count"], s["z_score"]) for s in anomaly.spikes] == [
+        ("2022-06", 393, 11.56),
+        ("2021-12", 274, 5.02),
+        ("2023-07", 897, 4.83),
+    ]

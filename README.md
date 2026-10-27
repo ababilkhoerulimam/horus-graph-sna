@@ -32,12 +32,13 @@ hanya ada satu sumber kebenaran.
 horus-graph validate path/to/bundle    # 0 error berarti patuh
 horus-graph info path/to/bundle        # ringkasan counts + status layer
 horus-graph build path/to/bundle       # bangun jaringan + metrik
+horus-graph build path/to/bundle --all # + irisan epos, bipartit, anomali
 horus-graph build path/to/bundle --json --top 10
 ```
 
 ```python
 from horus_graph import load_bundle
-from horus_graph.core import build_network
+from horus_graph.core import build_bipartite, build_network, build_temporal, detect_anomalies
 
 bundle = load_bundle("path/to/bundle")
 print(bundle.counts(), bundle.layer_status("transmission"))
@@ -46,6 +47,15 @@ network = build_network(bundle)          # BackboneConfig(min_support=3, min_npm
 print(network.summary)                   # densitas, modularitas, komponen
 print(network.node_metrics.head())       # degree, betweenness, constraint, komunitas
 print(network.provenance())              # metode + populasi di balik setiap angka
+
+temporal = build_temporal(bundle)        # satu subgraf per epos + all_time
+print(temporal.by_id("epoch_1").density)
+
+bipartite = build_bipartite(bundle)      # topik x aktor, media dikecualikan
+print(bipartite.summary())
+
+anomaly = detect_anomalies(bundle)       # robust z per bulan
+print(anomaly.spikes)
 ```
 
 ## Pipeline komputasi
@@ -56,6 +66,11 @@ mentions ──► incidensi biner (artikel × entitas, sparse)
          ──► NPMI (denominator = seluruh artikel bertanggal)
          ──► ambang support/NPMI + penyelamatan konektivitas
          ──► graf berbobot ──► sentralitas + Louvain
+
+articles.published_at ──► jendela epos ──► subgraf per epos (denominator ikut menyusut)
+articles × article_topics ──► n_t ──┐
+mentions                    ──► n_a ──┴─► NPMI topik-aktor (media dikecualikan)
+articles.published_at       ──► hitung per bulan ──► robust z (median + MAD)
 ```
 
 `count` pada `mentions` tidak dipakai sebagai bobot: satu artikel yang menyebut
@@ -78,7 +93,7 @@ yang lolos ambang dari yang hanya menjaga graf tetap terhubung.
 - [x] M0 kontrak: skema, model, validator, loader/writer, CLI
 - [x] M1 exporter korpus lama → bundle (27.407 artikel, 191.087 mention, 2,5 MB)
 - [x] M2 core build + metrik (golden test vs 77/475/0.1623 — lulus persis)
-- [ ] M3 temporal, bipartite, anomali
+- [x] M3 temporal, bipartite, anomali (epos 387/436/421/467 edge, 280 edge bipartit, 70 bulan)
 - [ ] M4 analysis: dossier, path, what-if, briefing
 - [ ] M5 layer transmission & sentiment
 - [ ] M6 enhance: null model, bootstrap CI, community stability, k-core, turnover

@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Iterable, List, Sequence, Tuple
+from typing import Iterable, Optional, Sequence, Tuple
 
 import pandas as pd
 import pytest
 
-from horus_graph.contract.models import DateRange, Domain, GeneratorInfo, Manifest
+from horus_graph.contract.models import DateRange, Domain, Epoch, GeneratorInfo, Manifest
 from horus_graph.io.bundle import DataBundle
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -33,25 +33,35 @@ def build_bundle(
     mentions: Iterable[Tuple[str, str, int]],
     articles: int,
     ego: str = "A",
+    epochs: Sequence[Tuple[str, int, int]] = (),
+    entity_types: Optional[Sequence[str]] = None,
+    dates: Optional[Sequence[str]] = None,
+    sources: Optional[Sequence[str]] = None,
+    topics: Sequence[str] = (),
+    article_topics: Iterable[Tuple[str, str]] = (),
 ) -> DataBundle:
     """
     Bundle minimal yang memenuhi bentuk kontrak.
 
     `articles` adalah jumlah artikel di korpus (termasuk yang tidak menyebut
-    entitas apa pun) karena angka itulah denominator NPMI.
+    entitas apa pun) karena angka itulah denominator NPMI. `dates` mengisi
+    `published_at` per artikel (tanggal saja, presisi sumber).
     """
     entity_frame = pd.DataFrame(
         {
             "entity_id": list(entity_ids),
-            "entity_type": ["Entity"] * len(entity_ids),
+            "entity_type": list(entity_types) if entity_types else ["Entity"] * len(entity_ids),
             "label": list(entity_ids),
         }
     )
+    published = list(dates) if dates else ["2024-01-01"] * articles
+    if len(published) != articles:
+        raise ValueError("dates harus sepanjang jumlah artikel")
     article_frame = pd.DataFrame(
         {
             "article_id": [f"art{i:03d}" for i in range(articles)],
-            "source_id": ["src"] * articles,
-            "published_at": ["2024-01-01T00:00:00Z"] * articles,
+            "source_id": list(sources) if sources else ["src"] * articles,
+            "published_at": [f"{value}T00:00:00Z" for value in published],
             "url_hash": [f"hash{i:03d}" for i in range(articles)],
         }
     )
@@ -65,7 +75,11 @@ def build_bundle(
         domain_id="synthetic",
         ego_id=ego,
         label="Synthetic",
-        entity_types=["Entity"],
+        entity_types=list(entity_types) if entity_types else ["Entity"],
+        epochs=[
+            Epoch(id=epoch_id, label=epoch_id, start_year=start, end_year=end)
+            for epoch_id, start, end in epochs
+        ],
     )
     return DataBundle(
         root=REPO_ROOT,
@@ -74,8 +88,12 @@ def build_bundle(
         entities=entity_frame,
         articles=article_frame,
         mentions=mention_frame,
-        topics=pd.DataFrame(columns=["topic_id", "label"]),
-        article_topics=pd.DataFrame(columns=["article_id", "topic_id"]),
+        topics=pd.DataFrame(
+            {"topic_id": list(topics), "label": list(topics)}
+        ),
+        article_topics=pd.DataFrame(
+            list(article_topics), columns=["article_id", "topic_id"]
+        ),
         transmission=None,
         sentiment=None,
     )
