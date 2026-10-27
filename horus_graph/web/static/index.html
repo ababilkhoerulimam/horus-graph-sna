@@ -3093,6 +3093,15 @@
         Kurva dimuat saat panel ini dibuka.
       </div>
 
+      <!-- Uji statistik: null model + bootstrap. Perhitungannya puluhan detik,
+           jadi server mengerjakannya di latar belakang dan panel memantau. -->
+      <div style="font-size:12px;font-weight:800;color:#F8FAFC;margin-bottom:8px;text-transform:uppercase;">
+        Uji Statistik: Null Model &amp; Bootstrap
+      </div>
+      <div id="inference-body" style="margin-bottom:20px;font-size:11px;color:#94A3B8;">
+        Status uji dimuat saat panel ini dibuka.
+      </div>
+
       <!-- Provenance Box -->
       <div style="font-size:12px;font-weight:800;color:#F8FAFC;margin-bottom:8px;text-transform:uppercase;">
         Data Provenance & Metodologi Ekstraksi
@@ -5282,6 +5291,7 @@
       if (modal) {
         modal.classList.add("open");
         loadSensitivity();
+        loadInference(0);
       }
     });
 
@@ -6020,12 +6030,22 @@
         const targetId = this.getAttribute("data-close");
         const m = document.getElementById(targetId);
         if (m) m.classList.remove("open");
+        // Panel tertutup berarti tidak ada yang membaca; hentikan pemantauan
+        // supaya tab yang ditinggal tidak terus menanyakan status uji.
+        if (targetId === "modal-network-overview" && typeof stopInferencePoll === "function") {
+          stopInferencePoll();
+        }
       });
     });
 
     document.querySelectorAll(".analytics-modal").forEach(m => {
       m.addEventListener("click", function(e) {
-        if (e.target === this) this.classList.remove("open");
+        if (e.target === this) {
+          this.classList.remove("open");
+          if (this.id === "modal-network-overview" && typeof stopInferencePoll === "function") {
+            stopInferencePoll();
+          }
+        }
       });
     });
 
@@ -7586,13 +7606,13 @@
              aria-label="${yLabel} terhadap ${xLabel}">
           <line x1="${PL}" y1="${H - PB}" x2="${W - PR}" y2="${H - PB}" stroke="rgba(255,255,255,0.18)" />
           <line x1="${PL}" y1="${PT}" x2="${PL}" y2="${H - PB}" stroke="rgba(255,255,255,0.18)" />
-          <text x="${PL - 6}" y="${PT + 8}" fill="#64748B" font-size="9" text-anchor="end">${maxEdges}</text>
-          <text x="${PL - 6}" y="${H - PB}" fill="#64748B" font-size="9" text-anchor="end">0</text>
+          <text x="${PL - 6}" y="${PT + 8}" fill="#8A99AE" font-size="9" text-anchor="end">${maxEdges}</text>
+          <text x="${PL - 6}" y="${H - PB}" fill="#8A99AE" font-size="9" text-anchor="end">0</text>
           ${marker}
           <polyline points="${line("edges")}" fill="none" stroke="#38BDF8" stroke-width="1.4" stroke-dasharray="3,3" opacity="0.85" />
           <polyline points="${line("passed")}" fill="none" stroke="#22D3EE" stroke-width="2" />
-          <text x="${PL}" y="${H - 6}" fill="#64748B" font-size="9">${axis.lo}</text>
-          <text x="${W - PR}" y="${H - 6}" fill="#64748B" font-size="9" text-anchor="end">${axis.hi}</text>
+          <text x="${PL}" y="${H - 6}" fill="#8A99AE" font-size="9">${axis.lo}</text>
+          <text x="${W - PR}" y="${H - 6}" fill="#8A99AE" font-size="9" text-anchor="end">${axis.hi}</text>
         </svg>`;
     }
 
@@ -7664,6 +7684,138 @@
           if (ticket !== sensitivityRequest) return;
           console.warn("[Sensitivity] Error:", err);
           host.textContent = "Kurva sensitivitas gagal dimuat (\u2014).";
+        });
+    }
+
+    // -------------------------------------------------------------
+    // Uji statistik: null model + bootstrap
+    // -------------------------------------------------------------
+    // Perhitungannya ~1 menit di server, jadi permintaan pertama hanya
+    // memulai pekerjaan. Panel memantau, dan selama belum ada hasil ia
+    // menuliskan status — bukan angka.
+    let inferenceCache = null;
+    let inferencePoll = null;
+
+    const INFERENCE_POLL_MS = 3000;
+    const INFERENCE_POLL_LIMIT = 40;   // ~2 menit
+
+    function stopInferencePoll() {
+      if (inferencePoll !== null) {
+        clearTimeout(inferencePoll);
+        inferencePoll = null;
+      }
+    }
+
+    function pValueText(value, resolution) {
+      if (value === null || value === undefined || Number.isNaN(Number(value))) {
+        return "tidak teruji";
+      }
+      // p tidak pernah ditulis 0: angka terkecil yang bisa dinyatakan uji
+      // empiris adalah batas resolusinya, bukan nol.
+      const floor = (resolution === null || resolution === undefined) ? null : 2 * resolution;
+      if (floor !== null && Number(value) <= floor + 1e-9) {
+        return "p \u2264 " + floor.toFixed(3);
+      }
+      return "p = " + Number(value).toFixed(3);
+    }
+
+    function renderInference(data) {
+      const host = document.getElementById("inference-body");
+      if (!host) return;
+
+      if (!data || data.status === "computing") {
+        const resamples = (data && data.resamples) || 0;
+        host.innerHTML = `Sedang dihitung di latar belakang (${formatCount(resamples)} resampling).
+          Panel ini akan terisi sendiri; angka tidak ditampilkan sebelum uji selesai.`;
+        return;
+      }
+
+      if (data.status === "failed") {
+        host.textContent = "Uji statistik gagal dihitung (\u2014). " + (data.detail || "");
+        return;
+      }
+
+      const block = data.inference || {};
+      const nullModel = block.null_model || {};
+      const resolution = block.p_value_resolution;
+      const bootstrap = block.bootstrap || {};
+      const ari = bootstrap.ari || {};
+
+      const names = [["modularity", "Modularitas Q"], ["transitivity", "Transitivitas"],
+                     ["assortativity", "Asortativitas"]];
+      const rows = names.map(([key, label]) => {
+        const observed = (nullModel.observed || {})[key];
+        const z = (nullModel.z || {})[key];
+        const p = (nullModel.p_value || {})[key];
+        return `<tr>
+          <td style="padding:4px 8px 4px 0;color:#CBD5E1;">${label}</td>
+          <td style="padding:4px 8px;color:#F8FAFC;font-weight:700;">${formatNumber(observed, 4)}</td>
+          <td style="padding:4px 8px;color:#94A3B8;">${formatNumber(z, 2)}</td>
+          <td style="padding:4px 0;color:${p === null || p === undefined ? "#8A99AE" : "#22D3EE"};">${pValueText(p, resolution)}</td>
+        </tr>`;
+      }).join("");
+
+      const resolutionText = (resolution === null || resolution === undefined)
+        ? "Resolusi uji tidak tersedia (tidak ada resample)."
+        : `Resolusi uji: 1/(${formatCount(nullModel.resamples)} + 1) = ${Number(resolution).toFixed(4)}; ` +
+          `batas dua sisi ${(2 * Number(resolution)).toFixed(3)}. p tidak pernah ditulis 0.`;
+
+      const ariText = (ari.mean === null || ari.mean === undefined)
+        ? "Stabilitas komunitas: tidak ada resample (\u2014)."
+        : `Stabilitas komunitas (ARI): <strong>${formatNumber(ari.mean, 4)}</strong> ` +
+          `dengan rentang p05\u2013p95 <strong>${formatNumber(ari.p05, 4)}\u2013${formatNumber(ari.p95, 4)}</strong>.`;
+
+      host.innerHTML = `
+        <div style="margin-bottom:6px;">
+          Pembanding: ${formatCount(nullModel.resamples)} graf acak berderajat sama (double-edge swap),
+          seed ${nullModel.seed === undefined ? "\u2014" : nullModel.seed}.
+          ${resolutionText}
+        </div>
+        <div class="prov-box" style="margin-bottom:8px;">
+          <table style="width:100%;border-collapse:collapse;font-size:11px;">
+            <thead>
+              <tr style="color:#8A99AE;text-align:left;">
+                <th style="padding-bottom:4px;">Metrik</th>
+                <th style="padding-bottom:4px;">Teramati</th>
+                <th style="padding-bottom:4px;">z</th>
+                <th style="padding-bottom:4px;">Uji</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <div>${ariText}</div>`;
+    }
+
+    function loadInference(attempt) {
+      const host = document.getElementById("inference-body");
+      if (!host) return;
+      if (inferenceCache) { renderInference(inferenceCache); return; }
+
+      const round = attempt || 0;
+      fetch("/api/inference")
+        .then(res => {
+          if (!res.ok && res.status !== 202) throw new Error("HTTP " + res.status);
+          return res.json();
+        })
+        .then(data => {
+          if (!data) return;
+          if (data.status === "computing") {
+            renderInference(data);
+            if (round < INFERENCE_POLL_LIMIT) {
+              stopInferencePoll();
+              inferencePoll = setTimeout(() => loadInference(round + 1), INFERENCE_POLL_MS);
+            }
+            return;
+          }
+          stopInferencePoll();
+          inferenceCache = data;
+          renderInference(data);
+        })
+        .catch(err => {
+          stopInferencePoll();
+          console.warn("[Inference] Error:", err);
+          host.textContent = "Uji statistik gagal dimuat (\u2014).";
         });
     }
 

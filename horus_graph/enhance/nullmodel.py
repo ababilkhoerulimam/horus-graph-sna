@@ -62,7 +62,7 @@ def degree_preserving_null(
     """Bandingkan metrik graf dengan distribusi null yang derajatnya sama."""
     graph = network.graph
     if graph.number_of_edges() < 2:
-        return _empty(graph)
+        return _empty(resamples, seed, swaps_per_edge)
 
     observed = {
         "modularity": _modularity(graph),
@@ -91,7 +91,7 @@ def degree_preserving_null(
 
     used = len(draws["modularity"])
     if used == 0:
-        return _empty(graph)
+        return _empty(resamples, seed, swaps_per_edge)
 
     return NullModelResult(
         observed={name: _round(observed[name]) for name in METRICS},
@@ -101,14 +101,25 @@ def degree_preserving_null(
             for name in METRICS
         },
         z={name: _round(stats.z_score(observed[name], draws[name])) for name in METRICS},
-        p_value={
-            name: _round(stats.two_sided_p_value(observed[name], draws[name]))
-            for name in METRICS
-        },
+        p_value={name: _p_value(observed[name], draws[name]) for name in METRICS},
         resamples=used,
         seed=seed,
         swaps_per_edge=swaps_per_edge,
     )
+
+
+def _p_value(observed: float, draws: list) -> Optional[float]:
+    """
+    p hanya ada bila metriknya terdefinisi.
+
+    `empirical_p_value` mengembalikan 1.0 untuk observasi NaN agar perbandingan
+    yang seluruhnya False tidak berubah menjadi "sangat signifikan". Untuk
+    laporan, 1.0 tetap salah: itu angka yang dibaca sebagai "sudah diuji, tidak
+    signifikan", padahal metriknya tidak terukur sama sekali.
+    """
+    if not np.isfinite(observed):
+        return None
+    return _round(stats.two_sided_p_value(observed, draws))
 
 
 def _modularity(graph: nx.Graph) -> float:
@@ -150,14 +161,22 @@ def _round(value: Optional[float]) -> Optional[float]:
     return to_number(value, 4)
 
 
-def _empty(graph: nx.Graph) -> NullModelResult:
+def _empty(resamples: int, seed: int, swaps_per_edge: int) -> NullModelResult:
+    """
+    Tidak ada yang bisa diuji.
+
+    `p_value` sengaja None, bukan 1.0: p = 1.0 adalah hasil uji, sedangkan di
+    sini tidak ada uji yang berjalan. `seed` diteruskan apa adanya supaya
+    pembaca bisa melihat parameter yang diminta, bukan angka 0 yang tidak
+    pernah dipakai.
+    """
     return NullModelResult(
         observed={name: None for name in METRICS},
         null_mean={name: None for name in METRICS},
         null_sd={name: None for name in METRICS},
         z={name: None for name in METRICS},
-        p_value={name: 1.0 for name in METRICS},
+        p_value={name: None for name in METRICS},
         resamples=0,
-        seed=0,
-        swaps_per_edge=0,
+        seed=seed,
+        swaps_per_edge=swaps_per_edge,
     )

@@ -39,10 +39,13 @@ def test_pengacakan_menjaga_derajat(bundle_factory):
 
 def test_graf_tanpa_edge_mengembalikan_none(bundle_factory):
     bundle = bundle_factory(["A", "B"], [("art000", "A", 1)], articles=5)
-    result = degree_preserving_null(build_network(bundle), resamples=10)
+    result = degree_preserving_null(build_network(bundle), resamples=10, seed=7)
     assert result.resamples == 0
     assert result.observed["modularity"] is None
-    assert result.p_value["modularity"] == 1.0
+    # p = 1.0 adalah hasil uji; di sini tidak ada uji yang berjalan.
+    assert result.p_value["modularity"] is None
+    # Parameter yang diminta tetap terbaca, bukan diganti nol.
+    assert result.seed == 7
 
 
 def test_hasil_deterministik_dengan_seed_sama(bundle_factory):

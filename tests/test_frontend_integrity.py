@@ -127,3 +127,29 @@ def test_bootstrap_menyatakan_status_lapisan():
 
     assert "function sentimentLayerStatus(" in index
     assert "dataset.layers" in index
+
+
+# Kata kunci yang tidak boleh dipakai sebagai nama variabel. Satu pelanggaran
+# membuat seluruh blok <script> gagal di-parse, dan gejalanya menyesatkan:
+# halaman tetap tampil, tetapi semua data berhenti dimuat tanpa error di UI.
+RESERVED_BINDING = re.compile(
+    r"\b(?:const|let|var)\s+"
+    r"(null|true|false|undefined|this|super|new|typeof|void|delete|instanceof|in|of"
+    r"|class|function|return|if|else|for|while|do|switch|case|break|continue"
+    r"|throw|try|catch|finally|with|debugger|yield|await|export|import|extends)\s*="
+)
+
+
+def test_tidak_ada_kata_kunci_dipakai_sebagai_nama_variabel():
+    offenders = [
+        f"{path.name}:{number}: {line.strip()[:100]}"
+        for path, lines in _sources()
+        for number, line in enumerate(lines, 1)
+        if RESERVED_BINDING.search(line)
+    ]
+
+    assert offenders == [], (
+        "Nama variabel tidak boleh berupa kata kunci JavaScript: satu pelanggaran "
+        "membuat seluruh skrip gagal di-parse dan data berhenti dimuat:\n"
+        + "\n".join(offenders)
+    )

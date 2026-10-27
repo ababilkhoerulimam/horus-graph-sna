@@ -159,6 +159,62 @@ def _analysis_context(args: argparse.Namespace):
     return bundle, network, temporal
 
 
+def _cmd_inference(args: argparse.Namespace) -> int:
+    """
+    Hitung null model dan bootstrap di luar server.
+
+    Perintah ini ada karena biayanya puluhan detik: dijalankan sebagai langkah
+    build, lalu server hanya membaca artefaknya.
+    """
+    from .analysis import inference as inference_artifact
+    from .core.build import build_network
+
+    bundle = load_bundle(Path(args.bundle))
+    network = build_network(bundle)
+    params = inference_artifact.InferenceParams(
+        resamples=args.resamples,
+        bootstrap_resamples=args.bootstrap_resamples,
+        seed=args.seed,
+        ci=args.ci,
+    )
+    payload = inference_artifact.compute(bundle, network, params)
+
+    if args.write:
+        path = inference_artifact.write_artifact(Path(args.bundle), payload)
+        print(f"Artefak ditulis: {path.name}")
+
+    if args.json:
+        print(json.dumps(payload, indent=2, ensure_ascii=False, default=str))
+        return 0
+
+    block = payload["inference"]
+    null = block.get("null_model") or {}
+    resolution = block.get("p_value_resolution")
+    print(
+        f"Null model ({null.get('resamples', 0)} resample, seed {null.get('seed')}, "
+        f"resolusi p {resolution})"
+    )
+    for name in ("modularity", "transitivity", "assortativity"):
+        observed = (null.get("observed") or {}).get(name)
+        p_value = (null.get("p_value") or {}).get(name)
+        z = (null.get("z") or {}).get(name)
+        if observed is None:
+            print(f"  {name:14} tidak terdefinisi")
+            continue
+        p_text = "tidak teruji" if p_value is None else f"p={p_value}"
+        print(f"  {name:14} {observed}  z={z}  {p_text}")
+
+    ari = (block.get("bootstrap") or {}).get("ari") or {}
+    if ari.get("mean") is None:
+        print("Bootstrap: tidak ada resample")
+    else:
+        print(
+            f"Bootstrap: ARI {ari['mean']} "
+            f"(p05 {ari['p05']} - p95 {ari['p95']})"
+        )
+    return 0
+
+
 def _cmd_dossier(args: argparse.Namespace) -> int:
     from .analysis.dossier import entity_dossier
 
@@ -400,6 +456,19 @@ def build_parser() -> argparse.ArgumentParser:
     build.add_argument("--all", action="store_true", help="Ikut hitung temporal, bipartit, anomali")
     build.add_argument("--json", action="store_true")
     build.set_defaults(func=_cmd_build)
+
+    inference = sub.add_parser(
+        "inference", help="Hitung null model dan bootstrap (mahal; simpan sebagai artefak)"
+    )
+    inference.add_argument("bundle")
+    inference.add_argument("--resamples", type=int, default=200)
+    inference.add_argument("--bootstrap-resamples", type=int, default=200)
+    inference.add_argument("--seed", type=int, default=42)
+    inference.add_argument("--ci", type=float, default=90.0, help="Lebar selang kepercayaan")
+    inference.add_argument("--write", action="store_true",
+                           help="Simpan hasil ke <bundle>/inference.json agar dibaca server")
+    inference.add_argument("--json", action="store_true")
+    inference.set_defaults(func=_cmd_inference)
 
     dossier = sub.add_parser("dossier", help="Profil satu entitas")
     dossier.add_argument("bundle")

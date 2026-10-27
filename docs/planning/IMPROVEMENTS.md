@@ -237,7 +237,7 @@ seberapa yakin?". V1 bergantung pada V0.4 (tautan) dan V0.1 (peringkat).
   bisa melihat akibat pergeseran ambang tanpa kanvas ikut berubah di bawah
   tangannya.
 
-- [ ] **V1.2 Inferensi sampai ke layar** — M
+- [x] **V1.2 Inferensi sampai ke layar** — M
   - Berkas: `api/routes.py:106`, `enhance/reporting.py:68`, `index.html`
   - Kerjakan: endpoint `GET /api/inference` yang menghitung null model dan
     bootstrap dengan seed tetap lalu menyimpannya di cache proses per
@@ -250,6 +250,51 @@ seberapa yakin?". V1 bergantung pada V0.4 (tautan) dan V0.1 (peringkat).
   - Tes: `tests/test_api.py` — `/api/inference` mengembalikan `null_model` dan
     `bootstrap`; p-value ≥ resolusi; panggilan kedua tidak menaikkan hitungan
     komputasi (dihitung lewat spy).
+
+  **Status: selesai — dengan satu perubahan rencana.**
+
+  Biayanya diukur lebih dulu, dan angkanya mengubah desain: pada bundle golden,
+  200 resampling null model memakan **50 detik** dan bootstrap artikel **22
+  detik**. Endpoint yang menghitung di dalam handler berarti satu permintaan
+  menggantung lebih dari satu menit — gagal pada kriteria "respons kedua < 100
+  ms", dan lebih buruk lagi karena UI tidak bisa membedakan "sedang dihitung"
+  dari "macet".
+
+  Jadi inferensi diperlakukan sebagai artefak, bukan kerja per permintaan:
+
+  1. `horus-graph inference <bundle> --write` menghitung di luar server dan
+     menulis `<bundle>/inference.json` (tulis atomik: `.tmp` lalu `replace`).
+  2. `GET /api/inference` membaca artefak itu bila ada dan masih cocok dengan
+     parameternya → `source: "artifact"`, ~10 ms.
+  3. Bila tidak ada, permintaan **tidak** menghitung: ia memulai satu thread
+     latar (`InferenceJobs`, satu per `snapshot_id`) dan menjawab **202**
+     `status: "computing"`. UI memantau tiap 3 detik, paling banyak 40 kali,
+     dan berhenti saat panel ditutup.
+  4. Hasil di memori dipakai lebih dulu daripada menghitung ulang; kegagalan
+     menulis artefak (bundle di mount read-only) tidak menggagalkan permintaan.
+
+  **Bug integritas yang ikut diperbaiki.** `degree_preserving_null` mengembalikan
+  `p_value = 1.0` untuk semua metrik ketika tidak ada resample yang berhasil.
+  Itu angka hasil uji pada situasi yang tidak punya uji: pembaca melihat "sudah
+  diuji, tidak signifikan" padahal metriknya tidak terukur. Sekarang `None`,
+  dan `_p_value` mengembalikan `None` juga bila observasinya tidak terdefinisi
+  (`empirical_p_value` sengaja tetap 1.0 di lapisan statistik, karena di sana
+  ia dipakai untuk membandingkan, bukan untuk dilaporkan). `seed` yang diminta
+  juga diteruskan apa adanya, bukan diganti 0.
+
+  **Bug frontend yang tertangkap saat verifikasi visual.** Panel pertama kali
+  ditulis dengan `const null = block.null_model || {}`. `null` kata kunci, jadi
+  seluruh blok `<script>` gagal di-parse; halaman tetap tampil (markup statis)
+  tetapi tidak ada data yang dimuat, tanpa satu pun pesan di UI. Diperbaiki,
+  lalu ditutup dengan pagar baru di `tests/test_frontend_integrity.py`:
+  `test_tidak_ada_kata_kunci_dipakai_sebagai_nama_variabel`.
+
+  Hasil pada bundle golden (seed 42, 200 resample): modularitas Q 0.3872
+  (z 27.58, p ≤ 0.010), transitivity 0.7352 (z 62.45, p ≤ 0.010),
+  assortativity 0.2255 (z 6.75, p ≤ 0.010), ARI komunitas 0.9156
+  (p05–p95 0.8044–1.0000). Panel menuliskan resolusi 1/(200+1) = 0.0050 dan
+  batas dua sisi 0.010, jadi `p ≤ 0.010` terbaca sebagai batas resolusi, bukan
+  sebagai nol.
 
 - [ ] **V1.3 Diff epos yang sungguhan** — M
   - Berkas: `api/queries.py` (`graph_compare`), `api/routes.py:…`

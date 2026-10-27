@@ -18,6 +18,7 @@ from fastapi.responses import PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 from .. import __version__
+from ..analysis.inference import InferenceJobs
 from ..copilot.ws import router as copilot_router
 from .auth import ensure_bind_is_safe, require_token
 from .observability import RequestContextMiddleware, configure_logging, metrics_text
@@ -49,6 +50,9 @@ def create_app(bundle: Optional[Path | str] = None) -> FastAPI:
     # `data/bundles/` dan memilih ulang "yang terbaru", sehingga menambah folder
     # saat server berjalan akan menukar dataset di tengah jalan.
     app.state.bundle_path = resolve_bundle_path(bundle)
+    # Satu registry per aplikasi, bukan per modul: dua aplikasi dalam satu
+    # proses (tes, atau dua bundle) tidak boleh saling meminjam hasil inferensi.
+    app.state.inference_jobs = InferenceJobs()
     app.include_router(router)
     # Copilot selalu dipasang: jalur deterministiknya tidak butuh LLM, jadi
     # drawer tidak pernah menawarkan kanal yang tidak ada.

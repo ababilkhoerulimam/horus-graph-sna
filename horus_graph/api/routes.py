@@ -15,7 +15,10 @@ from ..analysis import (
     top_brokers,
     trace_path,
 )
+from ..analysis import inference as inference_artifact
+from ..analysis.inference import InferenceJobs, InferenceParams
 from ..analysis.sensitivity import sensitivity
+from ..contract.snapshot import snapshot_id
 from ..copilot.llm import llm_available
 from ..enhance.reporting import reporting_block
 from ..export import formats as export_formats
@@ -105,6 +108,77 @@ def provenance(request: Request) -> Dict[str, Any]:
     # blok itu sendiri murah, jadi panggil langsung.
     state = _state(request)
     return reporting_block(state.bundle, state.network, seed=serializers.PROVENANCE_SEED)
+
+
+@router.get("/api/inference")
+def inference(request: Request, response: Response) -> Dict[str, Any]:
+    """
+    Null model + bootstrap sebagai artefak, bukan kerja per permintaan.
+
+    Biayanya ~72 detik pada bundle 77 simpul, jadi handler ini tidak pernah
+    menghitung. Urutannya: artefak di disk → hasil di memori → mulai
+    perhitungan latar dan jawab `computing` (202). UI memantau sampai `ready`.
+    """
+    state = _state(request)
+    params = InferenceParams()
+    jobs: InferenceJobs = request.app.state.inference_jobs
+    # `manifest.snapshot_id` opsional (bisa kosong pada bundle lama); id yang
+    # dipakai sebagai kunci cache harus selalu ada, jadi dihitung dari isi.
+    key = state.bundle.manifest.snapshot_id or snapshot_id(state.bundle.manifest)
+
+    stored = inference_artifact.read_artifact(state.root)
+    if stored is not None and not inference_artifact.stale(stored, params):
+        return {
+            "status": "ready",
+            "source": "artifact",
+            "snapshot_id": key,
+            "params": stored.get("params", params.as_dict()),
+            "inference": stored["inference"],
+        }
+
+    cached = jobs.result(key)
+    if cached is not None:
+        return {
+            "status": "ready",
+            "source": "memory",
+            "snapshot_id": key,
+            "params": cached.get("params", params.as_dict()),
+            "inference": cached["inference"],
+        }
+
+    failure = jobs.error(key)
+    if failure is not None:
+        return {
+            "status": "failed",
+            "snapshot_id": key,
+            "params": params.as_dict(),
+            "detail": failure,
+        }
+
+    started = jobs.start(
+        key,
+        lambda: inference_artifact.compute(state.bundle, state.network, params),
+        on_done=lambda payload: _persist_inference(state.root, payload),
+    )
+    # 202 hanya untuk permintaan yang benar-benar memulai perhitungan; yang
+    # sudah berjalan tetap 202 karena jawabannya sama: belum ada hasil.
+    response.status_code = 202 if started else 200
+    return {
+        "status": "computing",
+        "snapshot_id": key,
+        "params": params.as_dict(),
+        "resamples": params.resamples,
+        "bootstrap_resamples": params.bootstrap_resamples,
+    }
+
+
+def _persist_inference(bundle_root: Any, payload: Dict[str, Any]) -> None:
+    # Bundle bisa berada di mount read-only; hasil tetap dipakai dari memori,
+    # jadi gagal menulis bukan alasan menggagalkan permintaan.
+    try:
+        inference_artifact.write_artifact(bundle_root, payload)
+    except OSError:
+        logger.warning("Artefak inferensi gagal ditulis ke %s", bundle_root, exc_info=True)
 
 
 # --- graf ------------------------------------------------------------------
