@@ -12,13 +12,14 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 from .. import __version__
 from ..copilot.ws import router as copilot_router
+from .auth import ensure_bind_is_safe, require_token
 from .observability import RequestContextMiddleware, configure_logging, metrics_text
 from .routes import router
 from .state import resolve_bundle_path
@@ -54,8 +55,10 @@ def create_app(bundle: Optional[Path | str] = None) -> FastAPI:
     app.include_router(copilot_router)
 
     # Didaftarkan sebelum mount statis, kalau tidak `/` yang menangkap semua.
+    # Metrik ikut dijaga: tanpa token, endpoint ini terbuka seperti API lain.
     @app.get("/metrics", include_in_schema=False, response_class=PlainTextResponse)
-    def metrics() -> str:
+    def metrics(request: Request) -> str:
+        require_token(request)
         return metrics_text()
 
     _mount_web(app)
@@ -82,6 +85,10 @@ def run(
 
     configure_logging()
     logger = logging.getLogger("horus_graph.api")
+
+    # Bind ke antarmuka jaringan tanpa token akan membuka seluruh API; lebih
+    # baik gagal di sini daripada berjalan dan diam-diam terbuka.
+    ensure_bind_is_safe(host)
 
     # Resolusi sekali saja: `get_state` di bawah dan `create_app` harus memakai
     # path yang sama, bukan memindai dua kali dan berpotensi memilih berbeda.

@@ -11,6 +11,43 @@
       document.write('<script src="https://d3js.org/d3.v7.min.js"><\/script>');
     }
   </script>
+  <script>
+    // Token API. Hanya dipakai bila server disetel HORUS_API_TOKEN; tanpa itu
+    // header ini tidak dikirim dan permintaan berjalan seperti biasa.
+    //
+    // Nilai masuk lewat ?token=…, disimpan di sessionStorage, lalu dihapus dari
+    // address bar supaya tidak tertinggal di riwayat atau ikut terkirim sebagai
+    // referer.
+    (function () {
+      const TOKEN_KEY = "horusToken";
+      let token = "";
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const dariUrl = params.get("token");
+        if (dariUrl) {
+          sessionStorage.setItem(TOKEN_KEY, dariUrl);
+          params.delete("token");
+          const sisa = params.toString();
+          window.history.replaceState({}, "", window.location.pathname + (sisa ? "?" + sisa : ""));
+        }
+        token = sessionStorage.getItem(TOKEN_KEY) || "";
+      } catch (e) {
+        token = "";
+      }
+
+      window.HORUS_TOKEN = token;
+      if (!token) return;
+
+      const asli = window.fetch.bind(window);
+      window.fetch = function (input, init) {
+        const opts = Object.assign({}, init || {});
+        const headers = new Headers(opts.headers || (input && input.headers) || {});
+        headers.set("Authorization", "Bearer " + token);
+        opts.headers = headers;
+        return asli(input, opts);
+      };
+    })();
+  </script>
   <style>
     :root {
       --sidebar-width: 400px;

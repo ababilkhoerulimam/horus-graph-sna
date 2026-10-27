@@ -280,10 +280,19 @@ Status: **selesai** — 10 butir dikerjakan; 254 tes lulus.
 
 Tujuan: boleh dipakai lebih dari satu orang dan lebih dari satu mesin.
 
-- [ ] **3.1 Autentikasi minimum** — M
+- [x] **3.1 Autentikasi minimum** — M
   - Berkas: `horus_graph/api/app.py`, `horus_graph/copilot/ws.py`, `horus_graph/cli.py`
   - Kerjakan: `HORUS_API_TOKEN` + dependency `Depends` di router dan handshake WS; tolak bind non-loopback bila token kosong; cek `Origin` pada WS.
   - Terima: tanpa token, request ke `0.0.0.0` ditolak 401; WS dari origin asing ditolak.
+  - Hasil: `horus_graph/api/auth.py` — `require_token` sebagai dependency router
+    (`/api/*`) dan per-route di `ws.py`; `secrets.compare_digest`, bukan `==`.
+    Bind non-loopback tanpa token **ditolak saat start** (`ensure_bind_is_safe`),
+    bukan dijawab 401 setelah terbuka — lebih cepat gagal, tidak ada jendela
+    terbuka. Handshake WS memeriksa `Origin` terhadap header `Host` dan token
+    sebelum `accept()`, lalu menutup dengan 1008. Frontend membaca `?token=…`,
+    menyimpannya di `sessionStorage`, menghapusnya dari address bar, dan
+    menyuntikkan header lewat pembungkus `fetch`. Diverifikasi di port 8141:
+    tanpa token 401, dengan header/query 200, UI terisi penuh.
 
 - [ ] **3.2 Export** — M
   - Kerjakan: `horus-graph export --format graphml|csv|gexf` dan endpoint `/api/export/{format}`. Sertakan atribut metrik per simpul.

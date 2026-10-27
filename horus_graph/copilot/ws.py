@@ -11,9 +11,17 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from pydantic import BaseModel
 
+from ..api.auth import origin_matches_host, require_token, token_ok, websocket_token
 from ..api.state import BundleNotFound, get_state
 from .llm import llm_available
 from .service import Copilot, get_copilot
@@ -21,6 +29,9 @@ from .sessions import get_session_store
 
 logger = logging.getLogger("horus_graph.copilot.ws")
 
+# Dependency dipasang per-route, bukan di router: router ini juga memuat
+# endpoint WebSocket, dan `Request` tidak ada di scope WebSocket.
+_AUTH = [Depends(require_token)]
 router = APIRouter()
 
 
@@ -39,18 +50,18 @@ def _copilot(bundle_path: Any) -> Copilot:
 # --- riwayat sesi ----------------------------------------------------------
 
 
-@router.get("/api/chat/sessions")
+@router.get("/api/chat/sessions", dependencies=_AUTH)
 def list_sessions() -> Dict[str, Any]:
     return {"sessions": get_session_store().list_sessions()}
 
 
-@router.post("/api/chat/sessions")
+@router.post("/api/chat/sessions", dependencies=_AUTH)
 def create_session(payload: Optional[CreateSessionRequest] = None) -> Dict[str, Any]:
     title = payload.title if payload else None
     return get_session_store().create_session(title=title)
 
 
-@router.get("/api/chat/sessions/{session_id}/messages")
+@router.get("/api/chat/sessions/{session_id}/messages", dependencies=_AUTH)
 def session_messages(session_id: str) -> Dict[str, Any]:
     return {
         "session_id": session_id,
@@ -58,7 +69,7 @@ def session_messages(session_id: str) -> Dict[str, Any]:
     }
 
 
-@router.delete("/api/chat/sessions/{session_id}")
+@router.delete("/api/chat/sessions/{session_id}", dependencies=_AUTH)
 def delete_session(session_id: str) -> Dict[str, Any]:
     if not get_session_store().delete_session(session_id):
         raise HTTPException(status_code=404, detail="Sesi tidak ditemukan.")
@@ -68,7 +79,7 @@ def delete_session(session_id: str) -> Dict[str, Any]:
 # --- introspeksi -----------------------------------------------------------
 
 
-@router.get("/api/copilot/tools")
+@router.get("/api/copilot/tools", dependencies=_AUTH)
 def copilot_tools(request: Request) -> Dict[str, Any]:
     from .tools import tool_names
 
@@ -84,6 +95,13 @@ def copilot_tools(request: Request) -> Dict[str, Any]:
 
 @router.websocket("/ws/copilot")
 async def copilot_socket(websocket: WebSocket) -> None:
+    # Diperiksa sebelum `accept()`: handshake yang ditolak tidak boleh menjadi
+    # koneksi yang hidup. WebSocket tidak tunduk pada same-origin policy, jadi
+    # Origin dan token diperiksa di sini, bukan diserahkan ke browser.
+    if not origin_matches_host(websocket) or not token_ok(websocket_token(websocket)):
+        await websocket.close(code=1008)
+        return
+
     await websocket.accept()
     try:
         copilot = _copilot(websocket.app.state.bundle_path)

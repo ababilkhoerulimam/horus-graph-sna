@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from ..analysis import (
     entity_dossier,
@@ -19,11 +19,14 @@ from ..copilot.llm import llm_available
 from ..enhance.reporting import reporting_block
 from ..presentation import Presentation
 from . import queries, serializers
+from .auth import require_token
 from .state import AppState, BundleNotFound, get_state
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+# Semua endpoint data tunduk pada satu pemeriksaan token. Tanpa
+# `HORUS_API_TOKEN`, pemeriksaan itu tidak melakukan apa pun.
+router = APIRouter(dependencies=[Depends(require_token)])
 
 
 

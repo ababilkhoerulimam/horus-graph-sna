@@ -91,6 +91,20 @@ horus-graph serve --bundle path/to/bundle --port 8080
 terbaru di `data/bundles/`. Tanpa bundle, API tetap hidup dan mengembalikan 503
 dengan pesan yang bisa ditampilkan UI — bukan mati saat start.
 
+Server hanya mendengarkan `127.0.0.1` secara default. Untuk membukanya ke
+jaringan, setel token lebih dulu:
+
+```bash
+export HORUS_API_TOKEN=rahasia
+horus-graph serve --host 0.0.0.0 --port 8080
+```
+
+Tanpa token, bind ke host non-loopback ditolak saat start. Dengan token, semua
+`/api/*`, `/ws/copilot`, dan `/metrics` meminta `Authorization: Bearer <token>`
+(atau `?token=<token>` untuk WebSocket dan tautan biasa). Buka UI dengan
+`http://host:8080/?token=rahasia`; token disimpan di `sessionStorage` lalu
+dihapus dari address bar.
+
 ```python
 from horus_graph import load_bundle
 from horus_graph.core import build_bipartite, build_network, build_temporal, detect_anomalies

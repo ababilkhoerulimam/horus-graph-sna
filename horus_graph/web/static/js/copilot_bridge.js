@@ -8,7 +8,10 @@
     const protocol = isHttps ? "wss:" : "ws:";
     // If served via file://, fallback to default local backend 127.0.0.1:8000
     const host = window.location.host || "127.0.0.1:8000";
-    return `${protocol}//${host}/ws/copilot`;
+    // Browser tidak bisa menyetel header pada WebSocket, jadi token ikut
+    // sebagai query. Server memeriksanya sebelum handshake diterima.
+    const token = window.HORUS_TOKEN ? "?token=" + encodeURIComponent(window.HORUS_TOKEN) : "";
+    return `${protocol}//${host}/ws/copilot${token}`;
   }
 
   function connect() {
