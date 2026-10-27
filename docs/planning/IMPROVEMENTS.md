@@ -479,6 +479,70 @@ memindahkan renderer yang isinya masih akan berubah di V0–V1.
   - Tes: satu tes per metrik dengan graf kecil yang jawabannya bisa dihitung
     tangan; difusi deterministik pada seed tetap.
 
+  - [x] **(a) Consensus clustering + stabilitas per simpul**
+  - [ ] (b) Triad census + rich-club
+  - [ ] (c) Difusi independent cascade + threshold
+  - [ ] (d) Graph sequence + sentralitas dinamis
+
+  **Status (a): selesai.**
+
+  **Di mana.** `core/metrics/community.py` (`consensus`, `ConsensusResult`,
+  `CONSENSUS_METHOD = "coassociation_louvain"`), dipanggil dari
+  `build_network` dengan `consensus_runs=20`.
+
+  **Apa yang diukur.** `stability[v]` adalah rata-rata proporsi anggota
+  komunitas acuan yang ikut bersama `v` pada jalankan lain. Pada bundle emas:
+  median 0,9836, kesepakatan ARI antar jalankan 0,9496, dan 3 simpul batas —
+  Banten International Stadium 0,4737, Super League 0,4947,
+  cnnindonesia-com 0,4947. Ketiganya masuk akal: stadion, nama kompetisi, dan
+  portal berita memang menempel ke lebih dari satu gugus.
+
+  **Empat keputusan yang menyimpang dari rencana:**
+
+  1. **Matriks co-asosiasi tidak pernah dibentuk.** Angka yang sama diperoleh
+     dari tabel kontingensi per jalankan: untuk simpul `v` di komunitas `C`,
+     `|jalankan(v) ∩ C| - 1` dibagi `|C| - 1`. Hasilnya identik dengan
+     merata-ratakan kolom matriks, tetapi biaya memori `O(n)`, bukan `O(n²)` —
+     pada 10 ribu simpul matriks itu 400 MB dan tidak akan pernah dipakai.
+  2. **Jalankan acuan tidak ikut dirata-rata.** Partisi acuan diambil dari
+     jalankan yang paling dekat ke semua jalankan lain (ARI rata-rata
+     tertinggi), lalu jalankan itu dikeluarkan dari perhitungan stabilitas.
+     Kalau ikut, setiap simpul otomatis mendapat tambahan `1/runs` yang bukan
+     hasil ukur. Dengan `runs=2` konsekuensinya bisa diuji: nilainya harus
+     tepat 0 atau 1, tidak pernah 0,5.
+  3. **Dihitung di `build_network`, bukan sebagai artefak.** Berbeda dari V1.2
+     yang butuh 72 detik, 20 jalankan Louvain pada graf 77 simpul memakan
+     ~0,15 detik — satu orde di bawah betweenness. Menjadikannya artefak hanya
+     membuat stabilitas tidak tersedia sampai ada yang menjalankan perintah
+     tambahan. Karena itu blok `graph.consensus` selalu ada, dan
+     `status: awaiting_input` hanya muncul untuk graf kosong atau tanpa sisi.
+  4. **`louvain_community` tidak diganti partisi konsensus.** Partisi konsensus
+     hanya dipakai sebagai acuan pengukuran; menggantinya akan mengubah
+     `graph.communities`, ARI perbandingan epos, dan seluruh angka komunitas
+     yang sudah teruji, sekaligus membuat stabilitas mengukur dirinya sendiri.
+
+  **Permukaan baca.** `graph.consensus` (status, metode, `runs`, `agreement`,
+  jumlah komunitas, `stability_median`, `unstable_count`, daftar `unstable`),
+  `graph.nodes[].community_stability` (`null` bila simpul sendirian di
+  komunitasnya), `dossier.community_stability`, dan baris ringkas di
+  `horus-graph build`. Di UI: judul panel komunitas menyebut stabilitas
+  median, tiap kotak komunitas menyebut stabilitas median anggotanya, dan ada
+  kotak "Simpul batas" yang menyebut nama simpulnya — atau kalimat "belum
+  dihitung" beserta alasannya bila memang tidak diukur.
+
+  **ARI dipindah ke `core`.** `adjusted_rand_index` sekarang hidup di
+  `core/metrics/agreement.py` karena dipakai partisi konsensus, dan `core`
+  tidak boleh bergantung pada `enhance`. `enhance/stats.py` mengekspor ulang
+  nama yang sama, jadi pemanggil lama tidak berubah.
+
+  **Tes.** `tests/test_core_consensus.py` (12) memakai dua segitiga berjembatan
+  (semua stabilitas 1,0 — bisa dihitung tangan), siklus enam (semua di antara
+  0 dan 1), simpul terisolasi (`null`), graf kosong dan tanpa sisi
+  (`awaiting_input`), determinisme seed, dan batas `runs ≥ 2`.
+  `tests/test_frontend_consensus.py` (6) menjaga agar `null` tidak menjadi
+  angka di UI. Suite: 429 → 448.
+
+
 **Selesai V2 bila:** satu bundle 10 ribu simpul terbuka dalam 2 detik, dua
 pengguna dengan peran berbeda bisa bekerja tanpa saling menimpa, dan setiap
 tindakan yang mengubah temuan tercatat.

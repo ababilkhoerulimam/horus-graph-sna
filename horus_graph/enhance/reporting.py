@@ -62,6 +62,7 @@ def reporting_block(
             "min_npmi": backbone.min_npmi,
             "rescue_isolated": backbone.rescue_isolated,
             "rescued_edges": backbone.added_for_support,
+            "consensus_runs": network.consensus.runs,
             "seed": seed,
         },
         "metrics": dict(provenance["metrics"]),
@@ -89,6 +90,19 @@ def _limitations(
         "Ko-okurensi mengukur kebersamaan penyebutan dalam artikel, bukan hubungan kausal.",
         "Ambang support dan NPMI adalah pilihan analis; angka tanpa ambang ini tidak sebanding.",
     ]
+
+    consensus = network.consensus
+    if consensus.available:
+        notes.append(
+            f"Stabilitas komunitas adalah rata-rata proporsi rekan komunitas yang bertahan "
+            f"pada {consensus.runs} jalankan Louvain berlainan seed; nilainya bukan peluang "
+            "dan tidak boleh dibaca sebagai tingkat keyakinan."
+        )
+    else:
+        notes.append(
+            "Stabilitas komunitas tidak dilaporkan: "
+            f"{consensus.reason or 'tidak ada partisi yang bisa dibandingkan.'}"
+        )
 
     if network.layers.get("transmission") == "awaiting_input":
         notes.append(

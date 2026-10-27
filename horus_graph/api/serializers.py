@@ -62,6 +62,9 @@ def bootstrap_payload(state: AppState) -> Dict[str, Any]:
             "links": link_payloads(network),
             "summary": dict(network.summary),
             "communities": community_payloads(network, presentation),
+            # Stabilitas komunitas per simpul; blok ini menyebut metode,
+            # jumlah jalankan, dan simpul batas supaya angkanya bisa diaudit.
+            "consensus": network.consensus.as_dict(),
         },
         "epochs": epoch_payloads(state),
         "topics": topic_payloads(state),
@@ -111,6 +114,9 @@ def node_payloads(state: AppState) -> List[Dict[str, Any]]:
             "effective_size": _num(row["effective_size"]),
             "structural_hole_role": row["structural_hole_role"],
             "community": int(row["louvain_community"]),
+            # `None` bila simpul tidak punya pasangan di komunitasnya sendiri:
+            # stabilitas yang tidak terukur tidak boleh tampil sebagai 1,0.
+            "community_stability": _num(row.get("community_stability")),
             "first_seen_year": first_year,
             "active_years": active_years,
         }

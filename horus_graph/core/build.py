@@ -40,6 +40,7 @@ class NetworkBundle:
     summary: Mapping[str, Any]
     backbone: BackboneReport
     cooccurrence: Cooccurrence
+    consensus: metrics.ConsensusResult
 
     @property
     def edge_count(self) -> int:
@@ -83,6 +84,7 @@ class NetworkBundle:
                 "pagerank": metrics.PAGERANK_METHOD,
                 "closeness": metrics.CLOSENESS_METHOD,
                 "community": metrics.COMMUNITY_METHOD,
+                "consensus": metrics.CONSENSUS_METHOD,
             },
             "layers": {
                 "transmission": {
@@ -121,8 +123,17 @@ def backbone_config(bundle: DataBundle) -> BackboneConfig:
 def build_network(
     bundle: DataBundle,
     config: Optional[BackboneConfig] = None,
+    *,
+    consensus_runs: int = metrics.DEFAULT_CONSENSUS_RUNS,
 ) -> NetworkBundle:
-    """Bangun jaringan dari `mentions` dan hitung seluruh metrik simpul."""
+    """
+    Bangun jaringan dari `mentions` dan hitung seluruh metrik simpul.
+
+    `consensus_runs` dihitung di sini, bukan sebagai artefak terpisah, karena
+    biayanya satu orde di bawah betweenness: 20 jalankan Louvain pada graf
+    77 simpul memakan ~0,15 detik. Menjadikannya artefak hanya akan membuat
+    stabilitas tidak tersedia sampai ada yang menjalankan perintah tambahan.
+    """
     config = config or backbone_config(bundle)
     cooc = cooccurrence(bundle)
     selected, rescued, report = select_edges(cooc, config)
@@ -146,6 +157,7 @@ def build_network(
     effective_map = metrics.effective_size(graph)
     pagerank_map = metrics.pagerank(graph)
     communities = metrics.louvain(graph)
+    consensus = metrics.consensus(graph, runs=consensus_runs)
 
     node_metrics = _node_frame(
         graph,
@@ -156,6 +168,7 @@ def build_network(
         constraint=constraint_map,
         effective_size=effective_map,
         pagerank=pagerank_map,
+        stability=consensus.stability,
     )
 
     return NetworkBundle(
@@ -175,6 +188,7 @@ def build_network(
         summary=metrics.summary(graph, communities),
         backbone=report,
         cooccurrence=cooc,
+        consensus=consensus,
     )
 
 
@@ -195,6 +209,7 @@ def _node_frame(
     constraint: Mapping[str, Optional[float]],
     effective_size: Mapping[str, Optional[float]],
     pagerank: Mapping[str, Optional[float]],
+    stability: Mapping[str, Optional[float]],
 ) -> pd.DataFrame:
     """Satu baris per entitas; kolom `None` berarti tidak tersedia, bukan nol."""
     rows = []
@@ -214,6 +229,7 @@ def _node_frame(
                     None if burt is None else round(float(burt), 4)
                 ),
                 "louvain_community": int(communities.get(entity_id, 1)),
+                "community_stability": _round(stability.get(entity_id), 4),
             }
         )
     frame = pd.DataFrame(rows)

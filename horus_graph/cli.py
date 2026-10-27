@@ -76,6 +76,7 @@ def _cmd_build(args: argparse.Namespace) -> int:
     report: dict = {
         "summary": dict(network.summary),
         "backbone": network.backbone.as_dict(),
+        "consensus": network.consensus.as_dict(),
         "provenance": network.provenance(),
     }
     temporal = bipartite = anomaly = None
@@ -123,6 +124,7 @@ def _cmd_build(args: argparse.Namespace) -> int:
         f"Backbone: {backbone.candidate_pairs} kandidat, {backbone.above_threshold} lolos ambang, "
         f"{backbone.added_for_support} diselamatkan, {len(backbone.still_isolated)} tetap terisolasi"
     )
+    _print_consensus(network.consensus)
 
     if temporal is not None:
         for slice_ in temporal.slices:
@@ -146,6 +148,21 @@ def _cmd_build(args: argparse.Namespace) -> int:
         columns = ["degree", "betweenness", "pagerank", "burt_constraint", "louvain_community"]
         print(frame.head(args.top)[columns].to_string())
     return 0
+
+
+def _print_consensus(consensus) -> None:
+    """Stabilitas komunitas: angka yang menjawab 'partisi ini kuat atau tidak'."""
+    block = consensus.as_dict()
+    if block["status"] != "ready":
+        print(f"Stabilitas komunitas: tidak diukur ({block['reason']})")
+        return
+    print(
+        f"Stabilitas komunitas: {block['runs']} jalankan Louvain, "
+        f"kesepakatan ARI {block['agreement']}, median {block['stability_median']}, "
+        f"{block['unstable_count']} simpul batas"
+    )
+    for item in block["unstable"]:
+        print(f"  batas {item['id']}: {item['stability']}")
 
 
 def _analysis_context(args: argparse.Namespace):

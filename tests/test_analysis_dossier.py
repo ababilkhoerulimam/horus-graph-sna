@@ -39,6 +39,8 @@ def test_dossier_memuat_metrik_dari_jaringan(bundle_factory):
     assert dossier["betweenness"] == pytest.approx(float(row["betweenness"]))
     assert dossier["articles"] == int(row["articles"])
     assert dossier["community"] == int(row["louvain_community"])
+    # Stabilitas ikut terbaca per entitas, bukan hanya di ringkasan graf.
+    assert dossier["community_stability"] == pytest.approx(float(row["community_stability"]))
 
 
 def test_tetangga_diurutkan_menurut_bobot(bundle_factory):

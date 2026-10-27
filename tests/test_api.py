@@ -157,6 +157,26 @@ def test_edge_membawa_npmi_dan_jaccard(client):
         assert link["weight"] > 0
 
 
+def test_bootstrap_membawa_stabilitas_komunitas_per_simpul(client):
+    payload = client.get("/api/bootstrap").json()
+    block = payload["graph"]["consensus"]
+
+    assert block["status"] == "ready"
+    assert block["method"] == "coassociation_louvain"
+    assert block["runs"] == 20
+    assert block["communities"] >= 1
+
+    nodes = {node["id"]: node for node in payload["graph"]["nodes"]}
+    for node in nodes.values():
+        stability = node["community_stability"]
+        assert stability is None or 0.0 <= stability <= 1.0
+
+    # Rantai A-B-C-D: simpul ujung hanya punya satu rekan komunitas, simpul
+    # tengah bisa berpindah sisi. Yang diuji bukan nilainya, melainkan bahwa
+    # angka itu ada dan bisa dibaca per simpul.
+    assert sum(1 for node in nodes.values() if node["community_stability"] is not None) >= 2
+
+
 def test_tanpa_lapisan_sentimen_simpul_tidak_membawa_blok(client):
     payload = client.get("/api/bootstrap").json()
 

@@ -4762,7 +4762,14 @@
         });
         const cLabel = clusterLabels[d.cluster] || d.cluster || labelOf("cluster", "Klaster");
         const commLabel = d.louvain_community_label || (d.louvain_community ? `Komunitas #${d.louvain_community}` : "");
-        clusterMetaEl.textContent = commLabel ? `• ${cLabel} (${commLabel})` : `• ${cLabel}`;
+        // Stabilitas dibaca dari payload apa adanya: simpul tanpa rekan
+        // komunitas mengirim null, dan itu bukan "stabil sempurna".
+        const stab = (typeof d.community_stability === "number")
+          ? ` \u00b7 stabil ${d.community_stability.toFixed(2)}`
+          : "";
+        clusterMetaEl.textContent = commLabel
+          ? `• ${cLabel} (${commLabel}${stab})`
+          : `• ${cLabel}`;
       }
 
       // Panel metrik hanya menampilkan yang benar-benar dikirim serializer.
@@ -7700,10 +7707,16 @@
       setText("macro-components-sub", "simpul terisolasi: " + formatCount(summary.isolated));
 
       const title = document.getElementById("community-breakdown-title");
+      const consensus = meta.consensus || null;
       if (title) {
+        // Stabilitas hanya ikut ditulis bila memang diukur; "n/a" pada judul
+        // terbaca seperti angka yang hilang, jadi lebih baik tidak disebut.
+        const stab = (consensus && typeof consensus.stability_median === "number")
+          ? ` \u00b7 stabilitas median ${consensus.stability_median.toFixed(2)}`
+          : "";
         title.textContent = communities.count === undefined
           ? "Struktur Komunitas Louvain"
-          : `Struktur ${communities.count} Komunitas Louvain (Q = ${formatNumber(communities.modularity, 4)})`;
+          : `Struktur ${communities.count} Komunitas Louvain (Q = ${formatNumber(communities.modularity, 4)})${stab}`;
       }
       const breakdown = document.getElementById("community-breakdown");
       if (breakdown) {
@@ -7714,16 +7727,44 @@
           if (key === undefined || key === null) return;
           (groups[key] = groups[key] || []).push(n);
         });
+        const stabilityOf = n => (typeof n.community_stability === "number" ? n.community_stability : null);
+        const medianOf = values => {
+          if (!values.length) return null;
+          const sorted = values.slice().sort((a, b) => a - b);
+          const middle = Math.floor(sorted.length / 2);
+          return sorted.length % 2
+            ? sorted[middle]
+            : (sorted[middle - 1] + sorted[middle]) / 2;
+        };
         Object.keys(groups).sort((a, b) => groups[b].length - groups[a].length).forEach(key => {
           const members = groups[key].slice().sort(
             (a, b) => ((b.metrics && b.metrics.degree) || 0) - ((a.metrics && a.metrics.degree) || 0)
           );
           const top = members.slice(0, 3).map(m => m.display_label || m.label || m.id).join(", ");
+          const median = medianOf(members.map(stabilityOf).filter(v => v !== null));
+          const stab = median === null ? "" : ` &bull; stabil ${median.toFixed(2)}`;
           const box = document.createElement("div");
           box.className = "prov-box";
-          box.innerHTML = `<strong>Komunitas ${key}:</strong> ${members.length} simpul &bull; Top: ${top}`;
+          box.innerHTML = `<strong>Komunitas ${key}:</strong> ${members.length} simpul &bull; Top: ${top}${stab}`;
           breakdown.appendChild(box);
         });
+        // Simpul batas adalah hasil ukur, bukan peringatan: mereka berpindah
+        // sisi pada sebagian jalankan Louvain, jadi keanggotaannya tidak boleh
+        // dibaca sebagai temuan yang pasti.
+        const border = document.createElement("div");
+        border.className = "prov-box";
+        if (!consensus || consensus.status !== "ready") {
+          border.innerHTML = `<strong>Stabilitas komunitas:</strong> belum dihitung. ` +
+            `${(consensus && consensus.reason) || "Jalankan build ulang untuk mengukurnya."}`;
+        } else if (consensus.unstable_count > 0) {
+          const names = (consensus.unstable || []).map(item => entityLabel(item.id)).join(", ");
+          border.innerHTML = `<strong>Simpul batas:</strong> ${consensus.unstable_count} simpul ` +
+            `berpindah sisi pada sebagian dari ${consensus.runs} jalankan Louvain. ${names}`;
+        } else {
+          border.innerHTML = `<strong>Simpul batas:</strong> tidak ada; seluruh simpul bertahan ` +
+            `pada ${consensus.runs} jalankan Louvain (kesepakatan ARI ${formatNumber(consensus.agreement, 3)}).`;
+        }
+        breakdown.appendChild(border);
       }
 
       // Disclosure korpus: angka dari /api/bootstrap (coverage).
@@ -8543,7 +8584,13 @@
         allData = {
           nodes: payload.graph.nodes.map(normalizeNode),
           links: payload.graph.links.map(normalizeLink),
-          metadata: { counts: payload.dataset.counts, summary: payload.graph.summary }
+          metadata: {
+            counts: payload.dataset.counts,
+            summary: payload.graph.summary,
+            // Stabilitas komunitas per simpul; blok ini boleh tidak ada pada
+            // payload lama, jadi pembacanya selalu memakai fallback.
+            consensus: payload.graph.consensus || null
+          }
         };
         allData.nodes.forEach(n => {
           n.color = n.color || colorForType(n.entity_type);

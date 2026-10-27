@@ -39,6 +39,9 @@ def entity_dossier(
         "label": network.label_of(entity_id),
         "entity_type": network.type_of(entity_id),
         "community": int(row["louvain_community"]),
+        # `None` bila simpul sendirian di komunitasnya: tidak ada rekan untuk
+        # diukur, dan itu bukan berarti keanggotaannya sempurna.
+        "community_stability": _float(row.get("community_stability")),
         "degree": int(row["degree"]),
         "pagerank": _float(row["pagerank"]),
         "betweenness": _float(row["betweenness"]),
