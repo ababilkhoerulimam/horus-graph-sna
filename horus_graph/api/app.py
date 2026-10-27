@@ -15,6 +15,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from .. import __version__
+from ..copilot.ws import router as copilot_router
 from .routes import router
 
 # Visualizer statis. `index.html` memakai path relatif (`css/`, `js/`), jadi
@@ -30,6 +31,9 @@ def create_app(bundle: Optional[Path | str] = None) -> FastAPI:
     )
     app.state.bundle_path = bundle
     app.include_router(router)
+    # Copilot selalu dipasang: jalur deterministiknya tidak butuh LLM, jadi
+    # drawer tidak pernah menawarkan kanal yang tidak ada.
+    app.include_router(copilot_router)
     _mount_web(app)
     return app
 

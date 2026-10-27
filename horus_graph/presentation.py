@@ -64,6 +64,52 @@ DEFAULT_WORDING: Dict[str, str] = {
     ),
     "boot_error": "Gagal memuat data jaringan.",
     "awaiting_layer": "Lapisan ini belum tersedia.",
+    # Kalimat jawaban deterministik copilot. Semuanya struktural: tidak ada
+    # nama domain, hanya placeholder yang diisi angka dari bundle aktif.
+    # Bundle boleh menimpanya lewat `manifest.presentation.wording`.
+    "fallback_overview": (
+        "{title}: {nodes} simpul, {edges} sisi, kepadatan {density}, "
+        "{communities} komunitas (modularitas {modularity}). Korpus {articles} "
+        "{articles_label}, rentang {year_start}-{year_end}."
+    ),
+    "fallback_broker": "Broker teratas menurut betweenness: {items}.",
+    "fallback_holes": "Otonomi struktural tertinggi (constraint terendah): {items}.",
+    "fallback_dossier": (
+        "{label} ({entity_type}) punya {degree} relasi, betweenness {betweenness}, "
+        "constraint {constraint}, muncul di {articles} {articles_label}."
+    ),
+    "fallback_path": (
+        "Jalur terkuat {origin} ke {target}: {path} ({hops} langkah, "
+        "bobot total {weight})."
+    ),
+    "fallback_path_none": "Tidak ada jalur antara {origin} dan {target} pada graf ini.",
+    "fallback_path_missing": (
+        "Sebutkan dua entitas untuk ditelusuri, misalnya \"jalur dari {example_a} ke {example_b}\"."
+    ),
+    "fallback_sentiment_awaiting": (
+        "Skor sentimen belum tersedia pada bundle ini, jadi peringkat sentimen "
+        "tidak bisa disusun dari data."
+    ),
+    "fallback_sentiment": "Sentimen {kind} tertinggi: {items}.",
+    "fallback_topic": "Jaringan topik-aktor: {topics} topik, {actors} aktor, {edges} tepi.",
+    "fallback_anomaly": "Lonjakan jumlah {articles_label} terdeteksi pada: {items}.",
+    "fallback_anomaly_none": "Tidak ada lonjakan bulanan yang melewati ambang.",
+    "fallback_compare": (
+        "Dari {baseline} ke {target}: {gained} entitas masuk, {lost} keluar, "
+        "{persisted} bertahan."
+    ),
+    "fallback_whatif": (
+        "Tanpa {label}: kepadatan berubah {delta}, {lost_edges} relasi hilang, "
+        "{isolated} simpul terisolasi."
+    ),
+    "fallback_whatif_protected": "{label} adalah pusat jaringan dan tidak dihapus dalam simulasi.",
+    "fallback_unknown": (
+        "Saya bisa menjawab soal topologi, broker, lubang struktural, jalur, "
+        "sentimen, topik, anomali, dan simulasi. Contoh: {examples}"
+    ),
+    "fallback_greeting": (
+        "Copilot siap. Dataset aktif: {title} ({nodes} simpul, {edges} sisi)."
+    ),
 }
 
 

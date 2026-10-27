@@ -192,10 +192,44 @@ angka tidak mungkin berbeda antar tampilan.
 | `GET /api/edges/evidence?source=&target=` | artikel yang menyebut kedua entitas |
 | `GET /api/topics/actor-network` | bipartit topik-aktor |
 | `GET /api/temporal`, `/api/enhance`, `/api/provenance` | epos, inferensi, asal angka |
-| `GET /api/health`, `/api/dataset/status` | status proses |
+| `GET /api/health`, `/api/dataset/status` | status proses dan kapabilitas (`copilot`, `llm`) |
 
 Tidak ada endpoint passthrough artefak JSON: UI membaca `/api/bootstrap` sekali,
 bukan enam berkas terpisah.
+
+## Copilot (M10)
+
+Drawer tanya-jawab punya dua jalur dan satu set tool:
+
+| Jalur | Syarat | Sumber kalimat |
+| --- | --- | --- |
+| LLM + tool calling | `HORUS_LLM_BASE_URL`, `HORUS_LLM_MODEL`, ekstra `[llm]` | model |
+| Deterministik | selalu aktif | `presentation.wording` |
+
+Keduanya memanggil `horus_graph.copilot.tools` yang membaca `AppState` yang
+sama dengan endpoint HTTP, jadi angka di drawer tidak bisa berbeda dari kanvas.
+Tanpa gateway, copilot tetap menjawab soal topologi, broker, lubang struktural,
+jalur, sentimen, topik, anomali, dan simulasi.
+
+```bash
+pip install "horus-graph[api,llm]"
+export HORUS_LLM_BASE_URL=http://127.0.0.1:20130/v1
+export HORUS_LLM_MODEL=<nama-model-di-gateway>
+horus-graph serve
+```
+
+| Endpoint | Isi |
+| --- | --- |
+| `WS /ws/copilot` | percakapan, dossier saat simpul diklik, perintah kanvas |
+| `GET /api/copilot/tools` | daftar tool, status LLM, salam pembuka |
+| `GET/POST /api/chat/sessions` | riwayat sesi (memori proses) |
+| `GET /api/chat/sessions/{id}/messages`, `DELETE` | isi dan hapus sesi |
+
+Persona, contoh pertanyaan, dan deskripsi 20 tool dirakit dari `presentation`:
+judul, `ego.label`, `entity_types`, dan contoh entitas diambil dari simpul
+berderajat tertinggi. Fork repo + bundle baru cukup mengganti bundle. Kalimat
+jawaban deterministik ada di `DEFAULT_WORDING` dan bisa ditimpa per bundle lewat
+`manifest.presentation.wording`.
 
 ## Prinsip
 
@@ -218,4 +252,5 @@ bukan enam berkas terpisah.
 - [x] M7 kontrak presentasi v1.1: kolom opsional entitas + `manifest.presentation`
 - [x] M8 API: `/api/bootstrap` dan seluruh endpoint analisis
 - [x] M9 visualizer: port HTML, cabut seluruh hardcode domain
-- [ ] M10 copilot opsional: `[llm]` extra, prompt dibangun dari `presentation`
+- [x] M10 copilot opsional: `[llm]` extra, prompt dibangun dari `presentation`
+- [x] M11 horus-agent diarsipkan, menunjuk ke repo ini

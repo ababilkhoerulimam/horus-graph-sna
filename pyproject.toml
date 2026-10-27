@@ -29,7 +29,12 @@ legacy = ["pyyaml>=6.0"]
 api = [
     "fastapi>=0.115",
     "uvicorn>=0.32",
+    # `/ws/copilot` butuh implementasi WebSocket di sisi server. Copilot tetap
+    # berjalan tanpanya lewat REST, tetapi drawer memakai kanal WebSocket.
+    "websockets>=12",
 ]
+# Jawaban bebas dari LLM. Tanpa ekstra ini copilot memakai jalur deterministik.
+llm = ["openai>=1.40"]
 
 [dependency-groups]
 dev = [
