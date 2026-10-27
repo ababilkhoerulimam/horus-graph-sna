@@ -34,7 +34,6 @@ class AnomalyConfig:
 @dataclass(frozen=True)
 class AnomalyReport:
     monthly_counts: Dict[str, int]
-    series: pd.DataFrame
     spikes: Tuple[Dict[str, Any], ...]
     partial_periods: Tuple[str, ...]
     config: AnomalyConfig
@@ -60,7 +59,7 @@ def detect_anomalies(
     config = config or AnomalyConfig()
     counts = monthly_counts(bundle)
     if not counts:
-        return AnomalyReport({}, _empty_series(), (), (), config)
+        return AnomalyReport({}, (), (), config)
 
     published = pd.to_datetime(bundle.articles["published_at"], format="ISO8601", utc=True)
     first_date = published.min().date()
@@ -70,36 +69,31 @@ def detect_anomalies(
     values = [counts[period] for period in periods]
     partial = _partial_periods(periods, first_date, last_date)
 
-    rows: List[Dict[str, Any]] = []
     spikes: List[Dict[str, Any]] = []
 
     for index, period in enumerate(periods):
-        baseline = values[max(0, index - config.window_months): index]
-        entry: Dict[str, Any] = {
-            "period": period,
-            "article_count": values[index],
-            "is_partial": period in partial,
-        }
-
+        baseline = values[max(0, index - config.window_months) : index]
         if len(baseline) < config.min_baseline_months:
-            entry.update(_no_baseline(len(baseline), "BASELINE_KURANG"))
-            rows.append(entry)
+            # Baseline belum cukup: bulan ini tidak dinilai sama sekali, bukan
+            # dinilai nol.
             continue
 
         median = float(statistics.median(baseline))
         mad = float(statistics.median([abs(value - median) for value in baseline]))
         scale = config.mad_scale * mad
-
         if scale == 0:
-            entry.update(_no_baseline(len(baseline), "SKALA_NOL"))
-            entry["baseline_median"] = round(median, 2)
-            entry["baseline_mad"] = round(mad, 2)
-            rows.append(entry)
+            # Semua bulan pembanding sama: z tidak terdefinisi, bukan tak hingga.
             continue
 
         z = (values[index] - median) / scale
-        entry.update(
+        if z <= 0 or period in partial:
+            continue
+
+        spikes.append(
             {
+                "period": period,
+                "article_count": values[index],
+                "is_partial": False,
                 "z_score": round(z, 2),
                 "severity": _severity(z, config.severity),
                 "baseline_median": round(median, 2),
@@ -109,10 +103,6 @@ def detect_anomalies(
                 "window_months": config.window_months,
             }
         )
-        rows.append(entry)
-
-        if z > 0 and not entry["is_partial"]:
-            spikes.append(dict(entry))
 
     if config.dedupe_consecutive and spikes:
         spikes = _dedupe_consecutive(spikes, periods)
@@ -120,7 +110,6 @@ def detect_anomalies(
     spikes.sort(key=lambda item: item["z_score"], reverse=True)
     return AnomalyReport(
         monthly_counts=counts,
-        series=pd.DataFrame(rows),
         spikes=tuple(spikes[: config.top_n]),
         partial_periods=tuple(sorted(partial)),
         config=config,
@@ -214,18 +203,3 @@ def _dedupe_consecutive(
         runs.append(spike)
         last_index = index
     return runs
-
-
-def _empty_series() -> pd.DataFrame:
-    return pd.DataFrame(
-        columns=[
-            "period",
-            "article_count",
-            "is_partial",
-            "z_score",
-            "severity",
-            "baseline_median",
-            "baseline_mad",
-            "baseline_n",
-        ]
-    )

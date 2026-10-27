@@ -387,13 +387,55 @@ Status: **selesai** — 8 butir dikerjakan; 289 tes, ruff, dan mypy bersih.
 
 Dikerjakan kapan saja, tapi jangan mencampur dengan fase lain.
 
-- [ ] **P.1** Hapus `export/legacy.py` + `export/legacy_presentation.py` + extra `[legacy]` (439 baris)
-- [ ] **P.2** Hapus `Cooccurrence.as_frame`, `intent.describe`, `topology.core_numbers`, `anomaly.series`
-- [ ] **P.3** Hapus `bipartite._media_topic_table` + kolom `media_topics` + `presentation.sankey_columns`
-- [ ] **P.4** Hapus parameter `betweenness_samples` beserta cabang aproksimasinya
-- [ ] **P.5** Satukan delapan koersi None/NaN jadi satu `horus_graph/_coerce.py`
-- [ ] **P.6** Satukan perhitungan `stance` (tiga implementasi, dua pembagi hardcoded)
-- [ ] **P.7** Tambah tes untuk `copilot/service.py` (loop tool-calling + fallback saat gateway gagal) dengan klien palsu
+- [x] **P.1** Hapus `export/legacy.py` + `export/legacy_presentation.py` + extra `[legacy]` (439 baris)
+  - Hasil: 634 baris kode migrasi hilang (`legacy.py` 278, `legacy_presentation.py`
+    158, dua berkas tes 198), subcommand `export-legacy`, extra `[legacy]`, dan
+    `pyyaml` ikut dibuang. Tes turun 289 → 281 (delapan tes legacy).
+- [x] **P.2** Hapus `Cooccurrence.as_frame`, `intent.describe`, `topology.core_numbers`, `anomaly.series`
+  - Hasil: empat simbol mati hilang. `detect_anomalies` kini hanya mencatat spike:
+    bulan dengan baseline kurang atau skala nol dilewati, bukan dinilai nol.
+- [x] **P.3** Hapus `bipartite._media_topic_table` + kolom `media_topics` + `presentation.sankey_columns`
+  - Hasil: tabel perantara, field `media_topics`, dan `sankey_columns` (model +
+    `PresentationMeta` + `as_dict` + contoh README + bundle contoh) dihapus.
+- [x] **P.4** Hapus parameter `betweenness_samples` beserta cabang aproksimasinya
+  - Hasil: `betweenness()` selalu exact; parameter dan cabang pivot acak hilang.
+    Angka antara tidak lagi bergantung pada jumlah sampel.
+- [x] **P.5** Satukan delapan koersi None/NaN jadi satu `horus_graph/_coerce.py`
+  - Hasil: `is_missing`/`to_float`/`to_number` jadi satu-satunya jawaban untuk
+    "apakah angka ini ada". Tujuh pembungkus (`serializers._num`,
+    `fallback._num`, `tools._num`, `build._round`, `layers._is_missing`,
+    `centrality._clean`, `topology._finite`, `nullmodel._round`) mendelegasi ke
+    sana; `nullmodel._nan_reduce` tetap lokal karena ia reduksi, bukan koersi.
+    Dijaga `tests/test_coerce.py` (13 kasus, termasuk `0` dan `[]`).
+- [x] **P.6** Satukan perhitungan `stance` (tiga implementasi, dua pembagi hardcoded)
+  - Hasil: `core/stance.py::stance_of` jadi satu-satunya rumus; empat panel
+    (dossier, peringkat, kontrafaktual, blok API) memakainya. Penyebutnya jumlah
+    baris itu sendiri, bukan `100.0`, dan `None` muncul saat totalnya nol.
+    Dijaga `test_stance_empat_panel_memakai_rumus_yang_sama` dengan baris
+    berjumlah 99.7 — angka yang dulu bercabang 0.097 vs 0.0973.
+- [x] **P.7** Tambah tes untuk `copilot/service.py` (loop tool-calling + fallback saat gateway gagal) dengan klien palsu
+  - Hasil: tujuh tes dengan gateway palsu — jalur deterministik tanpa gateway,
+    tool dipanggil lalu hasilnya dikirim balik sebagai pesan `tool`, argumen JSON
+    rusak tidak menjatuhkan agen, loop berhenti di `MAX_TOOL_TURNS` dengan
+    panggilan penutup tanpa tool, kegagalan gateway jatuh ke fallback dengan
+    `llm_error`, pertanyaan kosong tidak memanggil gateway, riwayat dipotong dan
+    peran asing dibuang. Sekalian memperbaiki `llm.reset_client()` yang tidak
+    pernah mengosongkan `_client` (badan fungsi tertimpa komentar saat
+    penyuntingan sebelumnya). Suite 280 → 303 setelah P.1–P.7.
+
+---
+
+## Konfigurasi lokal
+
+`serve` memuat `.env.local` dari direktori kerja (`horus_graph/env.py`, ~25
+baris, tanpa dependensi baru). Variabel yang sudah ada di shell menang, jadi
+berkas ini tidak bisa menimpa konfigurasi Docker atau produksi. Isinya kunci
+gateway LLM dan, bila dipakai, `HORUS_API_TOKEN`.
+
+Gateway yang dipakai di mesin ini kompatibel OpenAI di `127.0.0.1:20130/v1`;
+modelnya harus mendukung tool calling karena copilot mengirim 20 tool lewat
+Chat Completions. `GET /api/health` → `capabilities.llm` adalah satu-satunya
+cara memastikan gateway benar-benar terbaca.
 
 ---
 

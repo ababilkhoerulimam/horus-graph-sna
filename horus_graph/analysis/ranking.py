@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 
 from ..core.build import NetworkBundle
 from ..core.metrics import structural_hole_role
+from ..core.stance import stance_of
 
 AUTONOMY_THRESHOLD = 0.25
 CONSTRAINT_THRESHOLD = 0.45
@@ -79,16 +80,16 @@ def sentiment_ranking(
             continue
         pos = float(record["pos"])
         neg = float(record["neg"])
-        total = pos + float(record["neu"]) + neg
+        neu = float(record["neu"])
         rows.append(
             {
                 "id": entity_id,
                 "label": network.label_of(entity_id),
                 "entity_type": network.type_of(entity_id),
                 "pos": pos,
-                "neu": float(record["neu"]),
+                "neu": neu,
                 "neg": neg,
-                "stance": round((pos - neg) / total, 3) if total else None,
+                "stance": stance_of(pos, neu, neg),
                 "confidence": record.get("confidence"),
                 "method": record.get("method"),
                 "degree": int(network.node_metrics.at[entity_id, "degree"])

@@ -130,7 +130,6 @@ class Presentation:
     orbit_tiers: Tuple[str, ...]
     epoch_narratives: Mapping[str, str]
     action_rules: Mapping[str, ActionRule]
-    sankey_columns: Tuple[str, ...]
     radius_scale: RadiusScale
 
     def label(self, key: str, default: Optional[str] = None) -> str:
@@ -174,7 +173,6 @@ class Presentation:
             "action_rules": {
                 key: rule.model_dump() for key, rule in self.action_rules.items()
             },
-            "sankey_columns": list(self.sankey_columns),
             "radius_scale": self.radius_scale.model_dump(),
         }
 
@@ -203,7 +201,6 @@ def resolve_presentation(bundle: DataBundle) -> Presentation:
         orbit_tiers=tuple(meta.orbit_tiers),
         epoch_narratives=dict(meta.epoch_narratives),
         action_rules=dict(meta.action_rules),
-        sankey_columns=tuple(meta.sankey_columns),
         radius_scale=meta.radius_scale or RadiusScale(),
     )
 

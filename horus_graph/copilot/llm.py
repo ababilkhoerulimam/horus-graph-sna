@@ -68,6 +68,12 @@ def llm_available() -> bool:
     return True
 
 
+# Batas waktu satu panggilan LLM dan jumlah percobaan ulang. Gateway yang
+# lambat lebih baik menyerah dan memakai jalur deterministik daripada membuat
+# drawer menggantung.
+REQUEST_TIMEOUT_SECONDS = 30.0
+MAX_RETRIES = 1
+
 _client: Any = None
 
 
@@ -118,10 +124,4 @@ async def call_llm(
 def reset_client() -> None:
     """Untuk pengujian: paksa klien dibangun ulang setelah env berubah."""
     global _client
-    # Batas waktu satu panggilan LLM dan jumlah percobaan ulang. Gateway yang
-# lambat lebih baik menyerah dan memakai jalur deterministik daripada membuat
-# drawer menggantung.
-REQUEST_TIMEOUT_SECONDS = 30.0
-MAX_RETRIES = 1
-
-_client = None
+    _client = None

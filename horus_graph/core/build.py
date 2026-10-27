@@ -12,9 +12,9 @@ from dataclasses import dataclass
 from typing import Any, Dict, Mapping, Optional, Tuple
 
 import networkx as nx
-import numpy as np
 import pandas as pd
 
+from .._coerce import to_number
 from ..contract.models import Domain
 from ..io.bundle import DataBundle
 from . import metrics
@@ -102,7 +102,6 @@ class NetworkBundle:
 def build_network(
     bundle: DataBundle,
     config: BackboneConfig = BackboneConfig(),
-    betweenness_samples: Optional[int] = None,
 ) -> NetworkBundle:
     """Bangun jaringan dari `mentions` dan hitung seluruh metrik simpul."""
     cooc = cooccurrence(bundle)
@@ -121,7 +120,7 @@ def build_network(
             rescued=bool(is_rescued),
         )
 
-    betweenness_map = metrics.betweenness(graph, samples=betweenness_samples)
+    betweenness_map = metrics.betweenness(graph)
     closeness_map = metrics.closeness(graph)
     constraint_map = metrics.constraint(graph)
     effective_map = metrics.effective_size(graph)
@@ -202,9 +201,5 @@ def _node_frame(
 
 
 def _round(value: Optional[float], digits: int) -> Optional[float]:
-    if value is None:
-        return None
-    number = float(value)
-    if np.isnan(number) or np.isinf(number):
-        return None
-    return round(number, digits)
+    return to_number(value, digits)
+

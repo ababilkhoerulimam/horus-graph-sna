@@ -46,7 +46,6 @@ default netral (`Simpul`, `Sisi`, `Kepadatan`, ...).
   "labels": {"node": "Aktor"},
   "wording": {"no_bundle": "..."},
   "action_rules": {"broker": {"title": "...", "body": "{label} ..."}},
-  "sankey_columns": ["Sumber", "Isu", "Aktor"],
   "radius_scale": {"min": 11, "max": 47}
 }
 ```
@@ -58,14 +57,10 @@ visualizer memakai cabang tanpa pusat — tidak ada cincin nol, tidak ada
 
 Fork = taruh bundle baru, jalankan. Tidak ada kode yang perlu disunting.
 
-Metadata tampilan boleh ditulis sebagai berkas JSON dan dipakai ulang saat
-mengekspor: `presentation/horus-agent.json` adalah contoh lengkap (judul,
-deskripsi entitas, aturan tindakan, istilah). Ekspor dengan berkas itu:
-
-```bash
-horus-graph export-legacy <repo-lama> data/bundles/<nama> \
-  --presentation presentation/horus-agent.json
-```
+`presentation/horus-agent.json` adalah contoh lengkap blok metadata (judul,
+deskripsi entitas, aturan tindakan, istilah). Blok itu disalin ke
+`manifest.presentation` saat bundle dibuat — pipeline yang menulis bundle
+sendiri cukup menaruh bentuk yang sama di manifest, tanpa menyentuh kode.
 
 ## Pakai
 
@@ -92,6 +87,17 @@ horus-graph serve --bundle path/to/bundle --port 8080
 `serve` memilih bundle lewat urutan: `--bundle` → `HORUS_BUNDLE` → bundle
 terbaru di `data/bundles/`. Tanpa bundle, API tetap hidup dan mengembalikan 503
 dengan pesan yang bisa ditampilkan UI — bukan mati saat start.
+
+Kalau ada `.env.local` di direktori kerja, `serve` memuatnya lebih dulu
+(`KEY=VALUE`, `#` untuk komentar). Variabel yang sudah ada di shell tidak
+ditimpa, jadi berkas itu hanya untuk nilai lokal seperti kunci API dan token:
+
+```bash
+# .env.local  (sudah masuk .gitignore)
+HORUS_LLM_API_KEY=...
+HORUS_LLM_BASE_URL=http://127.0.0.1:20130/v1
+HORUS_LLM_MODEL=<nama-model-di-gateway>
+```
 
 Server hanya mendengarkan `127.0.0.1` secara default. Untuk membukanya ke
 jaringan, setel token lebih dulu:
@@ -240,8 +246,13 @@ jalur, sentimen, topik, anomali, dan simulasi.
 pip install "horus-graph[api,llm]"
 export HORUS_LLM_BASE_URL=http://127.0.0.1:20130/v1
 export HORUS_LLM_MODEL=<nama-model-di-gateway>
+export HORUS_LLM_API_KEY=<kunci-gateway>   # opsional, default "local"
 horus-graph serve
 ```
+
+Model harus mendukung tool calling: copilot mengirim 20 tool lewat Chat
+Completions. `GET /api/health` melaporkan `capabilities.llm` — kalau `false`,
+gateway belum terbaca dan semua jawaban datang dari jalur deterministik.
 
 | Endpoint | Isi |
 | --- | --- |

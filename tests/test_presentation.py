@@ -101,7 +101,6 @@ def test_presentation_bundle_menimpa_seluruh_default(bundle_factory):
         labels={"node": "Aktor"},
         wording={"empty_anomaly": "Tidak ada lonjakan."},
         action_rules={"broker": ActionRule(title="Jembatan", body="{label} menghubungkan")},
-        sankey_columns=["Sumber", "Isu", "Aktor"],
         radius_scale=RadiusScale(min=8, max=40),
     )
     presentation = resolve_presentation(
@@ -122,7 +121,6 @@ def test_presentation_bundle_menimpa_seluruh_default(bundle_factory):
     assert presentation.label("edge") == "Sisi"  # default yang tidak ditimpa tetap ada
     assert presentation.text("empty_anomaly") == "Tidak ada lonjakan."
     assert presentation.action_rules["broker"].title == "Jembatan"
-    assert presentation.sankey_columns == ("Sumber", "Isu", "Aktor")
     assert presentation.radius_scale.max == 40.0
 
 

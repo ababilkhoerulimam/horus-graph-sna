@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 
 from ..core import metrics
 from ..core.build import NetworkBundle
+from ..core.stance import stance_of
 from .resolve import resolve_entity
 
 ABSORBING_LIMIT = 5
@@ -84,9 +85,7 @@ def _lost_sentiment(network: NetworkBundle, entity_id: str) -> Optional[float]:
     record = network.sentiment.scores.get(entity_id)
     if not record:
         return None
-    pos = float(record["pos"])
-    neg = float(record["neg"])
-    return round((pos - neg) / 100.0, 4)
+    return stance_of(record.get("pos"), record.get("neu"), record.get("neg"))
 
 
 def _failure(reason: str, message: str, network: NetworkBundle) -> Dict[str, Any]:

@@ -12,6 +12,7 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List, Optional
 
+from .._coerce import to_number
 from ..api.state import AppState
 from . import intent as intent_mod
 from . import tools
@@ -377,12 +378,7 @@ def _example_prompts(state: AppState) -> List[str]:
 
 
 def _num(value: Any) -> Optional[float]:
-    if value is None:
-        return None
-    number = float(value)
-    if number != number:
-        return None
-    return round(number, 4)
+    return to_number(value, 4)
 
 
 _HANDLERS = {

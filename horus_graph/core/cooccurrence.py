@@ -43,17 +43,6 @@ class Cooccurrence:
     def pair_count(self) -> int:
         return int(self.support.size)
 
-    def as_frame(self) -> pd.DataFrame:
-        return pd.DataFrame(
-            {
-                "source": [self.entity_ids[i] for i in self.pair_u],
-                "target": [self.entity_ids[i] for i in self.pair_v],
-                "support": self.support.astype(np.int64),
-                "npmi": self.npmi,
-            }
-        )
-
-
 def _index_of(index: pd.Index, values: pd.Series) -> np.ndarray:
     """Posisi integer untuk setiap nilai; -1 bila tidak ada di index."""
     return index.get_indexer(values)

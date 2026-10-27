@@ -29,13 +29,6 @@ def test_media_dikecualikan_dari_sisi_aktor(bundle_factory):
     assert "MEDIA" not in set(result.edges["entity_id"])
 
 
-def test_media_tetap_dihitung_untuk_lapisan_sankey(bundle_factory):
-    result = build_bipartite(_corpus(bundle_factory))
-    media = result.media_topics.set_index(["source_id", "topic_id"])["articles"]
-    assert media[("MEDIA", "T1")] == 10
-    assert media[("MEDIA", "T2")] == 10
-
-
 def test_support_dan_npmi_dihitung_dari_artikel_bersama(bundle_factory):
     result = build_bipartite(_corpus(bundle_factory), min_support=1)
     edges = result.edges.set_index(["topic_id", "entity_id"])

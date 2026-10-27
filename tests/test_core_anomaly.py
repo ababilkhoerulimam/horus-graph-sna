@@ -39,11 +39,13 @@ def test_bulan_tanpa_artikel_diisi_nol(bundle_factory):
     assert monthly_counts(bundle) == {"2024-01": 1, "2024-02": 0, "2024-03": 2}
 
 
-def test_baseline_kurang_ditandai_bukan_dinilai(bundle_factory):
+def test_baseline_kurang_tidak_menghasilkan_spike(bundle_factory):
     counts = {f"2024-{month:02d}": 5 for month in range(1, 5)}
     report = detect_anomalies(_bundle(bundle_factory, counts))
-    assert report.series["severity"].iloc[0] == "BASELINE_KURANG"
-    assert report.series["z_score"].iloc[0] is None
+
+    # Empat bulan belum cukup jadi pembanding: tidak ada yang dinilai, dan
+    # tidak ada yang dilaporkan sebagai lonjakan.
+    assert report.months == 4
     assert report.spikes == ()
 
 
@@ -98,22 +100,22 @@ def test_skala_nol_tidak_membagi_dengan_nol(bundle_factory):
     counts["2024-01"] = 40
     report = detect_anomalies(_bundle(bundle_factory, counts))
 
-    last = report.series.iloc[-1]
-    assert last["severity"] == "SKALA_NOL"
-    assert last["z_score"] is None
+    # Dua belas bulan identik berarti MAD 0. z tidak terdefinisi, jadi bulan
+    # itu dilewati — bukan dibagi nol, bukan dilaporkan sebagai lonjakan.
     assert report.spikes == ()
 
 
-def test_seri_menyimpan_baseline_yang_dipakai(bundle_factory):
+def test_spike_menyimpan_baseline_yang_dipakai(bundle_factory):
     counts = {f"2023-{month:02d}": 10 + month for month in range(1, 13)}
     counts["2024-01"] = 200
     report = detect_anomalies(_bundle(bundle_factory, counts))
 
-    last = report.series.iloc[-1]
-    assert last["baseline_n"] == 12
-    assert last["window_months"] == 12
-    assert last["baseline_median"] == pytest.approx(16.5)
-    assert last["baseline_mad"] == pytest.approx(3.0)
+    spike = report.spikes[0]
+    assert spike["period"] == "2024-01"
+    assert spike["baseline_n"] == 12
+    assert spike["window_months"] == 12
+    assert spike["baseline_median"] == pytest.approx(16.5)
+    assert spike["baseline_mad"] == pytest.approx(3.0)
 
 
 def test_bundle_tanpa_artikel_tidak_melempar(bundle_factory):
@@ -121,4 +123,3 @@ def test_bundle_tanpa_artikel_tidak_melempar(bundle_factory):
     report = detect_anomalies(bundle)
     assert report.months == 0
     assert report.spikes == ()
-    assert report.series.empty

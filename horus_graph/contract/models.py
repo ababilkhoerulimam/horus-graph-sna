@@ -96,7 +96,6 @@ class Presentation(BaseModel):
     labels: Dict[str, str] = Field(default_factory=dict)
     wording: Dict[str, str] = Field(default_factory=dict)
     action_rules: Dict[str, ActionRule] = Field(default_factory=dict)
-    sankey_columns: List[str] = Field(default_factory=list)
     radius_scale: Optional[RadiusScale] = None
 
 

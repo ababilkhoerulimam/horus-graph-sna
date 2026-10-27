@@ -340,7 +340,10 @@ def _print_enhance(block: dict, topology, top: int) -> None:
 
 def _cmd_serve(args: argparse.Namespace) -> int:
     from .api.app import run
+    from .env import load_env_file
 
+    # Dimuat sebelum server berjalan; variabel yang sudah ada di shell menang.
+    load_env_file()
     run(
         bundle=args.bundle,
         host=args.host,
@@ -363,21 +366,6 @@ def _cmd_export(args: argparse.Namespace) -> int:
 
     Path(args.out).write_text(body, encoding="utf-8")
     print(f"Ditulis: {args.out} ({len(body)} bita)")
-    return 0
-
-
-def _cmd_export_legacy(args: argparse.Namespace) -> int:
-    from .export.legacy import export_legacy_bundle
-
-    result = export_legacy_bundle(
-        repo=Path(args.repo),
-        out=Path(args.out),
-        limit=args.limit,
-        progress=args.progress,
-        presentation=Path(args.presentation) if args.presentation else None,
-        auto_presentation=args.auto_presentation,
-    )
-    print(json.dumps(result, indent=2, ensure_ascii=False))
     return 0
 
 
@@ -465,23 +453,6 @@ def build_parser() -> argparse.ArgumentParser:
         "--out", default="-", help="Berkas tujuan; '-' menulis ke stdout"
     )
     export_graph.set_defaults(func=_cmd_export)
-
-    export = sub.add_parser(
-        "export-legacy", help="(migrasi) ekspor korpus horus-agent menjadi bundle"
-    )
-    export.add_argument("--repo", required=True, help="Path repo horus-agent")
-    export.add_argument("--out", required=True, help="Direktori bundle tujuan")
-    export.add_argument("--limit", type=int, default=None, help="Batasi jumlah artikel")
-    export.add_argument("--progress", action="store_true")
-    export.add_argument(
-        "--presentation", default=None, help="Berkas JSON metadata tampilan"
-    )
-    export.add_argument(
-        "--auto-presentation",
-        action="store_true",
-        help="Ekstrak metadata tampilan dari visualizer repo lama",
-    )
-    export.set_defaults(func=_cmd_export_legacy)
 
     return parser
 

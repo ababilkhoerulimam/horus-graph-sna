@@ -15,12 +15,12 @@ from typing import Any, Dict, Optional, Tuple
 
 import networkx as nx
 
+from .._coerce import to_number
 from ..core.build import NetworkBundle
 
 
 @dataclass(frozen=True)
 class TopologyProfile:
-    core_numbers: Dict[str, int]
     max_core: int
     core_nodes: Tuple[str, ...]
     periphery_nodes: Tuple[str, ...]
@@ -44,7 +44,7 @@ class TopologyProfile:
 def topology_profile(network: NetworkBundle) -> TopologyProfile:
     graph = network.graph
     if graph.number_of_nodes() == 0:
-        return TopologyProfile({}, 0, (), (), None, None, {})
+        return TopologyProfile(0, (), (), None, None, {})
 
     core_numbers = nx.core_number(graph)
     max_core = max(core_numbers.values()) if core_numbers else 0
@@ -61,7 +61,6 @@ def topology_profile(network: NetworkBundle) -> TopologyProfile:
         labelled.nodes[node]["entity_type"] = network.type_of(node) or "Unknown"
 
     return TopologyProfile(
-        core_numbers={node: int(value) for node, value in core_numbers.items()},
         max_core=int(max_core),
         core_nodes=core_nodes,
         periphery_nodes=periphery_nodes,
@@ -96,10 +95,8 @@ def _quiet():
 
 
 def _finite(value: float) -> Optional[float]:
-    number = float(value)
-    if number != number:  # NaN muncul pada graf tanpa variasi derajat/tipe
-        return None
-    return round(number, 4)
+    return to_number(value, 4)
+
 
 
 def _mixing(graph: nx.Graph) -> Dict[str, Dict[str, int]]:

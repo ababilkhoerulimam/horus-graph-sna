@@ -12,6 +12,7 @@ import pandas as pd
 import pytest
 
 from horus_graph.analysis import entity_dossier, sentiment_ranking, simulate_removal, trace_path
+from horus_graph.api.serializers import _sentiment_block
 from horus_graph.core import build_network
 
 
@@ -212,3 +213,23 @@ def test_peringkat_sentimen_menolak_jenis_lain(bundle_factory):
     network = build_network(_corpus(bundle_factory))
     with pytest.raises(ValueError):
         sentiment_ranking(network, kind="netral")
+
+
+def test_stance_empat_panel_memakai_rumus_yang_sama(bundle_factory):
+    """
+    Dossier, peringkat, kontrafaktual, dan blok API harus memberi angka identik.
+
+    Baris di bawah sengaja berjumlah 99.7, bukan 100: dengan penyebut hardcoded
+    100.0, tiga panel melaporkan 0.097 sementara peringkat melaporkan 0.0973.
+    Simpulnya B, bukan A, karena ego tidak boleh dihapus di simulasi.
+    """
+    frame = _sentiment([("B", 39.7, 30.0, 30.0, "lexicon", 0.9, None, None)])
+    network = build_network(_corpus(bundle_factory, sentiment=frame))
+
+    dossier = entity_dossier(network, "B")["sentiment"]["stance"]
+    ranking = sentiment_ranking(network, kind="negative", limit=1)["ranking"][0]["stance"]
+    removed = simulate_removal(network, "B")["lost_sentiment_impact"]
+    block = _sentiment_block(network, "B")["stance"]
+
+    assert dossier == ranking == removed == block
+    assert dossier == pytest.approx(9.7 / 99.7, abs=1e-4)

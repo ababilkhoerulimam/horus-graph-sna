@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, List, Optional
 
+from .._coerce import to_number
 from ..analysis import (
     entity_dossier,
     executive_briefing,
@@ -650,9 +651,4 @@ def _as_list(value: Any) -> List[str]:
 
 
 def _num(value: Any) -> Optional[float]:
-    if value is None:
-        return None
-    number = float(value)
-    if number != number:
-        return None
-    return round(number, 6)
+    return to_number(value, 6)

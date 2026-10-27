@@ -26,8 +26,6 @@ def test_k_core_memisahkan_inti_dan_pinggiran(bundle_factory):
     assert profile.max_core == 2
     assert profile.core_nodes == ("A", "B", "C")
     assert set(profile.periphery_nodes) == {"D", "E"}
-    assert profile.core_numbers["A"] == 2
-    assert profile.core_numbers["D"] == 1
 
 
 def test_asortativitas_derajat_dilaporkan(bundle_factory):

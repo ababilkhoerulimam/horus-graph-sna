@@ -15,6 +15,7 @@ from typing import Any, Dict, Mapping, Optional
 
 import networkx as nx
 
+from .._coerce import is_missing
 from ..io.bundle import DataBundle
 
 
@@ -96,7 +97,5 @@ def sentiment_layer(bundle: DataBundle) -> Optional[SentimentLayer]:
 
 
 def _is_missing(value: Any) -> bool:
-    if value is None:
-        return True
-    # pandas mengisi kolom kosong dengan NaN untuk tipe float.
-    return isinstance(value, float) and value != value
+    return is_missing(value)
+

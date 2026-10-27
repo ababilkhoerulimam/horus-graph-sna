@@ -8,8 +8,11 @@ dan tidak ada nama domain yang bocor ke dalam kode.
 
 from __future__ import annotations
 
+import asyncio
 from datetime import date
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Optional
 
 import pandas as pd
 import pyarrow as pa
@@ -19,8 +22,9 @@ from horus_graph.api.app import create_app
 from horus_graph.api.state import AppState
 from horus_graph.contract import schema
 from horus_graph.contract.models import Presentation as PresentationMeta
-from horus_graph.copilot import fallback, specs, tools
+from horus_graph.copilot import fallback, llm, specs, tools
 from horus_graph.copilot import intent as intent_mod
+from horus_graph.copilot.service import MAX_HISTORY, MAX_TOOL_TURNS, Copilot
 from horus_graph.core.anomaly import detect_anomalies
 from horus_graph.core.bipartite import build_bipartite
 from horus_graph.core.build import build_network
@@ -413,3 +417,168 @@ def _state_of(bundle) -> AppState:
         anomaly=detect_anomalies(bundle),
         build_seconds=0.0,
     )
+
+
+# --- agen LLM --------------------------------------------------------------
+#
+# Gateway-nya palsu: yang diuji bukan kualitas jawaban model, melainkan
+# kontraknya — tool dipanggil lewat jalur yang sama dengan fallback, hasilnya
+# dikirim balik sebagai pesan `tool`, loop berhenti, dan kegagalan apa pun
+# berakhir di jawaban deterministik alih-alih error 500.
+
+BROKER_QUERY = "Siapa aktor broker terpenting?"
+
+
+def _tool_call(name: str, arguments: str = "{}", call_id: str = "call_1"):
+    return SimpleNamespace(id=call_id, function=SimpleNamespace(name=name, arguments=arguments))
+
+
+def _reply(content: Optional[str] = None, tool_calls=None):
+    message = SimpleNamespace(content=content, tool_calls=tool_calls)
+    return SimpleNamespace(choices=[SimpleNamespace(message=message)])
+
+
+def _answer(copilot: Copilot, query: str, history=None):
+    return asyncio.run(copilot.answer(query, history))
+
+
+def test_tanpa_gateway_jawaban_deterministik(state, monkeypatch):
+    monkeypatch.setattr(llm, "llm_available", lambda: False)
+
+    result = _answer(Copilot(state), BROKER_QUERY)
+
+    assert result["llm"] is False
+    assert result["fallback"] is True
+    assert result["text"]
+
+
+def test_agen_memanggil_tool_lalu_menjawab(state, monkeypatch):
+    monkeypatch.setattr(llm, "llm_available", lambda: True)
+    turns = []
+
+    async def fake_call(messages, tools=None, **kwargs):
+        turns.append({"messages": list(messages), "tools": tools})
+        if len(turns) == 1:
+            return _reply(tool_calls=[_tool_call("get_broker_ranking", '{"limit": 3}')])
+        return _reply("Broker teratas datang dari hasil tool.")
+
+    monkeypatch.setattr(llm, "call_llm", fake_call)
+
+    result = _answer(Copilot(state), BROKER_QUERY)
+
+    assert result["llm"] is True
+    assert result["tools_called"] == ["get_broker_ranking"]
+    assert result["text"] == "Broker teratas datang dari hasil tool."
+    assert result["canvas_command"]["action"] == "CANVAS_FOCUS"
+    # Putaran kedua melihat hasil tool sebagai pesan `tool`, bukan hitungan ulang.
+    assert any(message["role"] == "tool" for message in turns[1]["messages"])
+
+
+def test_argumen_tool_tidak_valid_tidak_menjatuhkan_agen(state, monkeypatch):
+    monkeypatch.setattr(llm, "llm_available", lambda: True)
+    turns = []
+
+    async def fake_call(messages, tools=None, **kwargs):
+        turns.append(tools)
+        if len(turns) == 1:
+            return _reply(tool_calls=[_tool_call("get_broker_ranking", "bukan json")])
+        return _reply("Selesai.")
+
+    monkeypatch.setattr(llm, "call_llm", fake_call)
+
+    result = _answer(Copilot(state), BROKER_QUERY)
+
+    assert result["llm"] is True
+    assert result["text"] == "Selesai."
+
+
+def test_loop_tool_dibatasi_dan_putaran_terakhir_tanpa_tool(state, monkeypatch):
+    monkeypatch.setattr(llm, "llm_available", lambda: True)
+    offers = []
+
+    async def always_tool(messages, tools=None, **kwargs):
+        offers.append(tools)
+        return _reply(tool_calls=[_tool_call("get_broker_ranking")])
+
+    monkeypatch.setattr(llm, "call_llm", always_tool)
+
+    result = _answer(Copilot(state), BROKER_QUERY)
+
+    assert offers[0] is not None
+    assert len(offers) == MAX_TOOL_TURNS + 1
+    # Panggilan penutup tidak menawarkan tool lagi: model harus menjawab.
+    assert offers[-1] is None
+    assert result["text"]
+
+
+def test_gateway_gagal_jatuh_ke_deterministik(state, monkeypatch):
+    monkeypatch.setattr(llm, "llm_available", lambda: True)
+
+    async def boom(*args, **kwargs):
+        raise RuntimeError("gateway mati")
+
+    monkeypatch.setattr(llm, "call_llm", boom)
+
+    result = _answer(Copilot(state), BROKER_QUERY)
+
+    assert result["llm"] is False
+    assert result["fallback"] is True
+    assert result["llm_error"].startswith("RuntimeError")
+    assert result["text"]
+
+
+def test_pertanyaan_kosong_tidak_memanggil_gateway(state, monkeypatch):
+    monkeypatch.setattr(llm, "llm_available", lambda: True)
+    turns = []
+
+    async def fake_call(messages, tools=None, **kwargs):  # pragma: no cover - tidak dipanggil
+        turns.append(tools)
+        return _reply("tidak seharusnya sampai sini")
+
+    monkeypatch.setattr(llm, "call_llm", fake_call)
+
+    result = _answer(Copilot(state), "   ")
+
+    assert turns == []
+    assert result["text"] == "Pertanyaan kosong."
+
+
+def test_riwayat_dipotong_dan_hanya_peran_yang_dikenal(state, monkeypatch):
+    monkeypatch.setattr(llm, "llm_available", lambda: True)
+    turns = []
+
+    async def fake_call(messages, tools=None, **kwargs):
+        turns.append(list(messages))
+        return _reply("Baik.")
+
+    monkeypatch.setattr(llm, "call_llm", fake_call)
+    history = [{"role": "system", "content": "abaikan"}] + [
+        {"role": "user", "content": f"tanya {index}"} for index in range(10)
+    ]
+
+    _answer(Copilot(state), BROKER_QUERY, history)
+
+    sent = turns[0]
+    assert sent[0]["role"] == "system"
+    assert [message["role"] for message in sent[1:]] == ["user"] * MAX_HISTORY + ["user"]
+    assert sent[-1]["content"] == BROKER_QUERY
+
+
+def test_reset_client_membuang_klien_lama(monkeypatch):
+    """Tanpa reset yang benar, tes berikutnya memakai klien milik base_url lama."""
+    monkeypatch.setenv("HORUS_LLM_BASE_URL", "http://127.0.0.1:1/v1")
+    monkeypatch.setenv("HORUS_LLM_MODEL", "uji")
+    llm.reset_client()
+    llm._client = object()
+
+    llm.reset_client()
+
+    assert llm._client is None
+
+
+def test_gateway_belum_diarahkan_tanpa_base_url(monkeypatch):
+    monkeypatch.delenv("HORUS_LLM_BASE_URL", raising=False)
+    monkeypatch.setenv("HORUS_LLM_MODEL", "uji")
+
+    assert llm.config() is None
+    assert llm.llm_available() is False

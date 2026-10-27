@@ -187,25 +187,3 @@ def _alias_values(row) -> List[str]:
 def _contains_word(haystack: str, needle: str) -> bool:
     pattern = r"(?<![a-z0-9])" + re.escape(needle) + r"(?![a-z0-9])"
     return re.search(pattern, haystack) is not None
-
-
-def describe(intent: str) -> str:
-    return {
-        "greeting": "sapaan",
-        "casual": "obrolan singkat",
-        "overview": "ringkasan topologi",
-        "dossier": "profil entitas",
-        "path": "penelusuran jalur",
-        "broker": "peringkat broker",
-        "holes": "lubang struktural",
-        "sentiment": "analisis sentimen",
-        "whatif": "simulasi kontrafaktual",
-        "briefing": "memo eksekutif",
-        "topic": "jaringan topik",
-        "compare": "perbandingan epos",
-        "anomaly": "anomali bulanan",
-        "corpus": "penelusuran korpus",
-        "canvas": "kendali kanvas",
-        "glossary": "penjelasan istilah",
-        "unknown": "pertanyaan umum",
-    }.get(intent, intent)

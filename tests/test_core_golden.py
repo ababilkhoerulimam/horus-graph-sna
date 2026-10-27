@@ -162,7 +162,6 @@ def test_bipartit_sama(bipartite):
     assert summary["negative_edges"] == 110
     assert summary["npmi_min"] == -0.2173
     assert summary["npmi_max"] == 0.7219
-    assert bipartite.media_topics["source_id"].nunique() == 21
 
 
 def test_anomali_sama(anomaly):

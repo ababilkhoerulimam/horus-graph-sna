@@ -13,8 +13,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 
+from .._coerce import to_number
 from ..contract import schema
 from ..core.build import NetworkBundle
+from ..core.stance import stance_of
 from ..enhance.reporting import reporting_block
 from ..presentation import Presentation
 from .state import AppState
@@ -148,7 +150,7 @@ def _sentiment_block(network: NetworkBundle, entity_id: str) -> Optional[Dict[st
         "pos": pos,
         "neu": neu,
         "neg": neg,
-        "stance": round((pos - neg) / 100.0, 4),
+        "stance": stance_of(pos, neu, neg),
         "confidence": scores.get("confidence"),
         "method": scores.get("method"),
         "window_start": scores.get("window_start"),
@@ -369,12 +371,7 @@ def _bool(value: Any) -> bool:
 
 
 def _num(value: Any) -> Optional[float]:
-    if _missing(value):
-        return None
-    number = float(value)
-    if math.isnan(number) or math.isinf(number):
-        return None
-    return round(number, ROUND)
+    return to_number(value, ROUND)
 
 
 def _ratio(numerator: float, denominator: float) -> Optional[float]:

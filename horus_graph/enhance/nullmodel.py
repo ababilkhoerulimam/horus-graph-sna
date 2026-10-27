@@ -20,6 +20,7 @@ from typing import Any, Callable, Dict, Optional
 import networkx as nx
 import numpy as np
 
+from .._coerce import to_number
 from ..core import metrics
 from ..core.build import NetworkBundle
 from . import stats
@@ -146,12 +147,7 @@ def _nan_reduce(values: list, func: Callable[[np.ndarray], float]) -> Optional[f
 
 
 def _round(value: Optional[float]) -> Optional[float]:
-    if value is None:
-        return None
-    number = float(value)
-    if not np.isfinite(number):
-        return None
-    return round(number, 4)
+    return to_number(value, 4)
 
 
 def _empty(graph: nx.Graph) -> NullModelResult:

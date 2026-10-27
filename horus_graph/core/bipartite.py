@@ -5,7 +5,6 @@ Sisi aktor dihitung dari `mentions`, sisi topik dari `article_topics`; edge
 adalah artikel yang memuat keduanya. Entitas bertipe media dikecualikan dari
 sisi aktor: portal yang meliput hampir semua topik akan terlihat sebagai aktor
 paling "khas" di setiap topik, padahal itu artefak cakupan, bukan kedekatan.
-Media tetap dihitung di `media_topics` untuk lapisan Sankey.
 """
 
 from __future__ import annotations
@@ -29,7 +28,6 @@ class TopicActorBundle:
     topics: pd.DataFrame
     actors: pd.DataFrame
     edges: pd.DataFrame
-    media_topics: pd.DataFrame
     membership: Mapping[str, Tuple[str, ...]]
     total_articles: int
 
@@ -81,12 +79,10 @@ def build_bipartite(
 
     edges = _edge_table(n_ta, n_t, n_a, total)
     membership = _membership(edges, membership_top_n, membership_min_npmi)
-    media_topics = _media_topic_table(bundle, article_topics, excluded_ids)
     return TopicActorBundle(
         topics=topics,
         actors=actors,
         edges=edges,
-        media_topics=media_topics,
         membership=membership,
         total_articles=total,
     )
@@ -158,27 +154,3 @@ def _membership(
         )
         grouped[str(topic_id)] = tuple(ordered["entity_id"].head(top_n).astype(str))
     return grouped
-
-
-def _media_topic_table(
-    bundle: DataBundle, article_topics: pd.DataFrame, source_ids: set
-) -> pd.DataFrame:
-    """Artikel per (penerbit, topik) untuk penerbit yang ada di katalog entitas."""
-    if article_topics.empty or not source_ids:
-        return pd.DataFrame(columns=["source_id", "topic_id", "articles"])
-
-    sources = bundle.articles[["article_id", "source_id"]].astype(str)
-    sources = sources[sources["source_id"].isin(source_ids)]
-    if sources.empty:
-        return pd.DataFrame(columns=["source_id", "topic_id", "articles"])
-
-    joined = sources.merge(article_topics, on="article_id", how="inner")
-    counts = (
-        joined.groupby(["source_id", "topic_id"])["article_id"]
-        .nunique()
-        .rename("articles")
-        .reset_index()
-    )
-    return counts.sort_values(
-        ["source_id", "topic_id"], ignore_index=True
-    )

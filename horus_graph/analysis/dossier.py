@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Mapping, Optional
 
 from ..core.build import NetworkBundle
+from ..core.stance import stance_of
 from ..core.temporal import TemporalBundle
 from .resolve import resolve_entity
 
@@ -164,9 +165,7 @@ def _sentiment(
         }
     pos = _float(record.get("pos"))
     neg = _float(record.get("neg"))
-    stance = None
-    if pos is not None and neg is not None:
-        stance = round((pos - neg) / 100.0, 2)
+    stance = stance_of(pos, _float(record.get("neu")), neg)
     return {
         "status": "ready",
         "pos": pos,

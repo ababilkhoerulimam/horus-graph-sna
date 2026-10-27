@@ -8,10 +8,11 @@ angkanya tidak tersedia. UI dan laporan wajib membedakan keduanya.
 
 from __future__ import annotations
 
-import math
 from typing import Dict, Optional
 
 import networkx as nx
+
+from ..._coerce import to_float
 
 BETWEENNESS_METHOD = "freeman_betweenness_unweighted_normalized"
 CONSTRAINT_METHOD = "burt_constraint_weighted"
@@ -22,20 +23,16 @@ CLOSENESS_METHOD = "networkx_closeness_distance_weighted"
 BETWEENNESS_DECIMALS = 6
 
 
-def betweenness(graph: nx.Graph, samples: Optional[int] = None) -> Dict[str, float]:
+def betweenness(graph: nx.Graph) -> Dict[str, float]:
     """
     Freeman betweenness ternormalisasi.
 
     Bobot artikel sengaja diabaikan: sering muncul bersama bukan berarti jarak
-    jauh. `samples` memakai aproksimasi pivot acak untuk graf besar; hasilnya
-    tidak deterministik sehingga hanya dipakai di luar jalur golden test.
+    jauh. Aproksimasi pivot acak sudah dibuang — hasilnya tidak deterministik,
+    dan 77 simpul tidak butuh aproksimasi.
     """
     if graph.number_of_nodes() == 0:
         return {}
-    if samples is not None and samples < graph.number_of_nodes():
-        return nx.betweenness_centrality(
-            graph, k=samples, weight=None, normalized=True, seed=42
-        )
     return nx.betweenness_centrality(graph, weight=None, normalized=True)
 
 
@@ -92,9 +89,5 @@ def structural_hole_role(value: Optional[float]) -> Optional[str]:
 
 
 def _clean(value: Optional[float]) -> Optional[float]:
-    if value is None:
-        return None
-    number = float(value)
-    if math.isnan(number) or math.isinf(number):
-        return None
-    return number
+    return to_float(value)
+
