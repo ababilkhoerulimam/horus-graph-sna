@@ -280,6 +280,8 @@ Status: **selesai** — 10 butir dikerjakan; 254 tes lulus.
 
 Tujuan: boleh dipakai lebih dari satu orang dan lebih dari satu mesin.
 
+Status: **selesai** — 8 butir dikerjakan; 289 tes, ruff, dan mypy bersih.
+
 - [x] **3.1 Autentikasi minimum** — M
   - Berkas: `horus_graph/api/app.py`, `horus_graph/copilot/ws.py`, `horus_graph/cli.py`
   - Kerjakan: `HORUS_API_TOKEN` + dependency `Depends` di router dan handshake WS; tolak bind non-loopback bila token kosong; cek `Origin` pada WS.
