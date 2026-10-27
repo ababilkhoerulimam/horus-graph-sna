@@ -22,7 +22,6 @@ def entity_dossier(
     network: NetworkBundle,
     query: str,
     temporal: Optional[TemporalBundle] = None,
-    sentiment: Optional[Mapping[str, Mapping[str, Any]]] = None,
     neighbor_limit: int = 8,
 ) -> Dict[str, Any]:
     """Profil lengkap satu entitas; `KeyError` bila nama tidak bisa diresolusi."""
@@ -32,6 +31,7 @@ def entity_dossier(
 
     row = network.node_metrics.loc[entity_id]
     graph = network.graph
+    scores = network.sentiment.scores if network.sentiment else None
 
     return {
         "id": entity_id,
@@ -49,7 +49,7 @@ def entity_dossier(
         "neighbors": _neighbors(network, entity_id, neighbor_limit),
         "trajectory": _trajectory(temporal, entity_id),
         "exposure": _exposure(temporal, entity_id),
-        "sentiment": _sentiment(sentiment, entity_id),
+        "sentiment": _sentiment(scores, entity_id),
         "in_graph": graph.has_node(entity_id),
     }
 
@@ -147,15 +147,15 @@ def _articles_in(slice_, entity_id: str) -> int:
 
 
 def _sentiment(
-    sentiment: Optional[Mapping[str, Mapping[str, Any]]], entity_id: str
+    scores: Optional[Mapping[str, Mapping[str, Any]]], entity_id: str
 ) -> Dict[str, Any]:
-    if not sentiment:
+    if scores is None:
         return {
             "status": "awaiting_input",
             **{field: None for field in SENTIMENT_FIELDS},
             "stance": None,
         }
-    record = sentiment.get(entity_id)
+    record = scores.get(entity_id)
     if not record:
         return {
             "status": "missing",

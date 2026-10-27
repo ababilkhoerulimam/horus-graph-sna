@@ -39,6 +39,8 @@ def build_bundle(
     sources: Optional[Sequence[str]] = None,
     topics: Sequence[str] = (),
     article_topics: Iterable[Tuple[str, str]] = (),
+    transmission: Optional[pd.DataFrame] = None,
+    sentiment: Optional[pd.DataFrame] = None,
 ) -> DataBundle:
     """
     Bundle minimal yang memenuhi bentuk kontrak.
@@ -94,8 +96,8 @@ def build_bundle(
         article_topics=pd.DataFrame(
             list(article_topics), columns=["article_id", "topic_id"]
         ),
-        transmission=None,
-        sentiment=None,
+        transmission=transmission,
+        sentiment=sentiment,
     )
 
 

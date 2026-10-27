@@ -231,6 +231,19 @@ def test_kontrafaktual_sama_dengan_engine_lama(network):
     assert result["lost_sentiment_impact"] is None
 
 
+def test_lapisan_opsional_masih_shell(network):
+    assert network.transmission is None
+    assert network.sentiment is None
+    assert network.layers == {"transmission": "awaiting_input", "sentiment": "awaiting_input"}
+    provenance = network.provenance()["layers"]
+    assert provenance["transmission"] == {
+        "status": "awaiting_input",
+        "method": None,
+        "edges": 0,
+    }
+    assert provenance["sentiment"]["entities"] == 0
+
+
 def test_briefing_merangkum_angka_yang_sama(network, temporal, bipartite, anomaly):
     from horus_graph.analysis.briefing import executive_briefing
 

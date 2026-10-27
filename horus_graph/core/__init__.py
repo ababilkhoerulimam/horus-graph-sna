@@ -5,6 +5,7 @@ from .backbone import BackboneConfig, BackboneReport
 from .bipartite import TopicActorBundle, build_bipartite
 from .build import NetworkBundle, build_network
 from .cooccurrence import Cooccurrence, cooccurrence
+from .layers import SentimentLayer, TransmissionLayer, sentiment_layer, transmission_layer
 from .temporal import EpochSlice, TemporalBundle, build_temporal
 
 __all__ = [
@@ -15,12 +16,16 @@ __all__ = [
     "Cooccurrence",
     "EpochSlice",
     "NetworkBundle",
+    "SentimentLayer",
     "TemporalBundle",
     "TopicActorBundle",
+    "TransmissionLayer",
     "build_bipartite",
     "build_network",
     "build_temporal",
     "cooccurrence",
     "detect_anomalies",
     "monthly_counts",
+    "sentiment_layer",
+    "transmission_layer",
 ]

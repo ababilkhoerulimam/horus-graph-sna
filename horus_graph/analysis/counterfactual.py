@@ -64,9 +64,23 @@ def simulate_removal(network: NetworkBundle, target: str) -> Dict[str, Any]:
         "isolated_nodes": sorted(
             node for node, degree in simulated.degree() if degree == 0
         ),
-        "severed_causal_routes": 0,
-        "lost_sentiment_impact": None,
+        "severed_causal_routes": (
+            0 if network.transmission is None else network.transmission.severed_routes(entity_id)
+        ),
+        "lost_sentiment_impact": _lost_sentiment(network, entity_id),
     }
+
+
+def _lost_sentiment(network: NetworkBundle, entity_id: str) -> Optional[float]:
+    """Stance simpul yang hilang; `None` bila sentimennya belum terverifikasi."""
+    if network.sentiment is None:
+        return None
+    record = network.sentiment.scores.get(entity_id)
+    if not record:
+        return None
+    pos = float(record["pos"])
+    neg = float(record["neg"])
+    return round((pos - neg) / 100.0, 4)
 
 
 def _failure(reason: str, message: str, network: NetworkBundle) -> Dict[str, Any]:

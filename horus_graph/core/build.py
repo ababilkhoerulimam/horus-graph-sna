@@ -20,6 +20,7 @@ from ..io.bundle import DataBundle
 from . import metrics
 from .backbone import BackboneConfig, BackboneReport, select_edges
 from .cooccurrence import Cooccurrence, cooccurrence
+from .layers import SentimentLayer, TransmissionLayer, sentiment_layer, transmission_layer
 
 
 @dataclass(frozen=True)
@@ -31,6 +32,8 @@ class NetworkBundle:
     entities: pd.DataFrame
     domain: Domain
     layers: Mapping[str, str]
+    transmission: Optional[TransmissionLayer]
+    sentiment: Optional[SentimentLayer]
     total_articles: int
     communities: Mapping[str, int]
     node_metrics: pd.DataFrame
@@ -80,6 +83,18 @@ class NetworkBundle:
                 "pagerank": metrics.PAGERANK_METHOD,
                 "closeness": metrics.CLOSENESS_METHOD,
                 "community": metrics.COMMUNITY_METHOD,
+            },
+            "layers": {
+                "transmission": {
+                    "status": self.layers.get("transmission", "awaiting_input"),
+                    "method": None if self.transmission is None else self.transmission.method,
+                    "edges": 0 if self.transmission is None else self.transmission.n_edges,
+                },
+                "sentiment": {
+                    "status": self.layers.get("sentiment", "awaiting_input"),
+                    "method": None if self.sentiment is None else self.sentiment.method,
+                    "entities": 0 if self.sentiment is None else self.sentiment.n_entities,
+                },
             },
         }
 
@@ -133,6 +148,8 @@ def build_network(
             "transmission": bundle.layer_status("transmission"),
             "sentiment": bundle.layer_status("sentiment"),
         },
+        transmission=transmission_layer(bundle),
+        sentiment=sentiment_layer(bundle),
         total_articles=cooc.total_articles,
         communities=communities,
         node_metrics=node_metrics,

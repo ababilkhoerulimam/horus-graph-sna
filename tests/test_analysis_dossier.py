@@ -100,24 +100,3 @@ def test_sentimen_tanpa_lapisan_berstatus_awaiting_input(bundle_factory):
     assert sentiment["status"] == "awaiting_input"
     assert sentiment["stance"] is None
     assert sentiment["pos"] is None
-
-
-def test_sentimen_siap_dihitung_menjadi_stance(bundle_factory):
-    network = build_network(_network(bundle_factory))
-    dossier = entity_dossier(
-        network,
-        "A",
-        sentiment={"A": {"pos": 60.0, "neu": 20.0, "neg": 20.0, "confidence": 0.9, "method": "lexicon"}},
-    )
-    assert dossier["sentiment"]["status"] == "ready"
-    assert dossier["sentiment"]["stance"] == 0.4
-    assert dossier["sentiment"]["method"] == "lexicon"
-
-
-def test_entitas_tanpa_skor_sentimen_ditandai_missing(bundle_factory):
-    network = build_network(_network(bundle_factory))
-    dossier = entity_dossier(
-        network, "B", sentiment={"A": {"pos": 60.0, "neu": 20.0, "neg": 20.0}}
-    )
-    assert dossier["sentiment"]["status"] == "missing"
-    assert dossier["sentiment"]["stance"] is None

@@ -49,6 +49,66 @@ def top_brokers(
     ]
 
 
+def sentiment_ranking(
+    network: NetworkBundle,
+    kind: str = "negative",
+    entity_type: Optional[str] = None,
+    limit: int = 5,
+) -> Dict[str, Any]:
+    """
+    Peringkat entitas menurut persentase sentimen negatif atau positif.
+
+    Entitas tanpa skor terverifikasi tidak ikut diranking. Meranking mereka
+    sebagai 0% akan menyamakan "belum diukur" dengan "terukur netral".
+    """
+    if kind not in ("negative", "positive"):
+        raise ValueError("kind harus 'negative' atau 'positive'")
+
+    if network.sentiment is None:
+        return {
+            "status": "awaiting_input",
+            "kind": kind,
+            "evaluated": 0,
+            "ranking": [],
+        }
+
+    field = "neg" if kind == "negative" else "pos"
+    rows = []
+    for entity_id, record in network.sentiment.scores.items():
+        if entity_type and (network.type_of(entity_id) or "").lower() != entity_type.lower():
+            continue
+        pos = float(record["pos"])
+        neg = float(record["neg"])
+        total = pos + float(record["neu"]) + neg
+        rows.append(
+            {
+                "id": entity_id,
+                "label": network.label_of(entity_id),
+                "entity_type": network.type_of(entity_id),
+                "pos": pos,
+                "neu": float(record["neu"]),
+                "neg": neg,
+                "stance": round((pos - neg) / total, 3) if total else None,
+                "confidence": record.get("confidence"),
+                "method": record.get("method"),
+                "degree": int(network.node_metrics.at[entity_id, "degree"])
+                if entity_id in network.node_metrics.index
+                else 0,
+            }
+        )
+
+    rows.sort(key=lambda item: (-item[field], -item["degree"], item["id"]))
+    ranking = [
+        {"rank": rank, **item} for rank, item in enumerate(rows[: max(0, limit)], start=1)
+    ]
+    return {
+        "status": "ready",
+        "kind": kind,
+        "evaluated": len(rows),
+        "ranking": ranking,
+    }
+
+
 def structural_holes(
     network: NetworkBundle, mode: str = "high_autonomy", limit: int = 10
 ) -> Dict[str, Any]:

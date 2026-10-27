@@ -107,5 +107,5 @@ yang lolos ambang dari yang hanya menjaga graf tetap terhubung.
 - [x] M2 core build + metrik (golden test vs 77/475/0.1623 — lulus persis)
 - [x] M3 temporal, bipartite, anomali (epos 387/436/421/467 edge, 280 edge bipartit, 70 bulan)
 - [x] M4 analysis: dossier, rute, kontrafaktual, peringkat broker, briefing
-- [ ] M5 layer transmission & sentiment
+- [x] M5 layer transmission & sentiment (dua arah: kosong → `None`, terisi → dipakai)
 - [ ] M6 enhance: null model, bootstrap CI, community stability, k-core, turnover

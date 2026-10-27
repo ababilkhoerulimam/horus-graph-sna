@@ -14,7 +14,7 @@ from ..core.anomaly import AnomalyReport
 from ..core.bipartite import TopicActorBundle
 from ..core.build import NetworkBundle
 from ..core.temporal import TemporalBundle
-from .ranking import top_brokers
+from .ranking import sentiment_ranking, top_brokers
 
 
 def executive_briefing(
@@ -46,6 +46,7 @@ def executive_briefing(
         },
         "critical_broker": brokers[0] if brokers else None,
         "largest_community": _largest_community(network),
+        "threat_radar": sentiment_ranking(network, kind="negative", limit=3),
         "epochs": _epochs(temporal),
         "anomaly": _anomaly(anomaly),
         "topics": _topics(bipartite),
