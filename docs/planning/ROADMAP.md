@@ -294,9 +294,16 @@ Tujuan: boleh dipakai lebih dari satu orang dan lebih dari satu mesin.
     menyuntikkan header lewat pembungkus `fetch`. Diverifikasi di port 8141:
     tanpa token 401, dengan header/query 200, UI terisi penuh.
 
-- [ ] **3.2 Export** — M
+- [x] **3.2 Export** — M
   - Kerjakan: `horus-graph export --format graphml|csv|gexf` dan endpoint `/api/export/{format}`. Sertakan atribut metrik per simpul.
   - Terima: GraphML hasil export bisa dibuka di Gephi dengan 77 simpul dan atribut betweenness/constraint.
+  - Hasil: `horus_graph/export/formats.py` (pustaka standar, tanpa dependensi).
+    GraphML: 77 simpul, 475 sisi, 11 atribut simpul (termasuk `betweenness`,
+    `burt_constraint`, `effective_size`, `louvain_community`). GEXF 1.2: 77/475
+    dengan `<attvalues>` yang dibaca Gephi sebagai kolom. CSV: daftar sisi 475
+    baris. Nilai `NaN`/`None` tidak ditulis sama sekali, bukan `0`. Urutan
+    deterministik sehingga berkas bisa di-diff. Endpoint mengirim
+    `Content-Disposition: attachment`; format asing → 404.
 
 - [ ] **3.3 Snapshot berversi** — M
   - Kerjakan: `manifest.snapshot_id` = hash isi bundle; riwayat snapshot di `data/bundles/.index.json`; endpoint `/api/datasets` untuk daftar read-only.

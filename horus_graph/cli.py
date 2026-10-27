@@ -350,6 +350,22 @@ def _cmd_serve(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_export(args: argparse.Namespace) -> int:
+    from .api.state import get_state
+    from .export import formats
+
+    state = get_state(args.bundle)
+    body = formats.render(state.network, args.format)
+
+    if args.out == "-":
+        sys.stdout.write(body)
+        return 0
+
+    Path(args.out).write_text(body, encoding="utf-8")
+    print(f"Ditulis: {args.out} ({len(body)} bita)")
+    return 0
+
+
 def _cmd_export_legacy(args: argparse.Namespace) -> int:
     from .export.legacy import export_legacy_bundle
 
@@ -434,6 +450,21 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--port", type=int, default=8000)
     serve.add_argument("--reload", action="store_true")
     serve.set_defaults(func=_cmd_serve)
+
+    export_graph = sub.add_parser(
+        "export", help="Ekspor jaringan ke GraphML, GEXF, atau CSV"
+    )
+    export_graph.add_argument("bundle", help="Direktori bundle")
+    export_graph.add_argument(
+        "--format",
+        choices=["graphml", "gexf", "csv"],
+        default="graphml",
+        help="graphml/gexf memuat metrik simpul; csv berisi daftar sisi",
+    )
+    export_graph.add_argument(
+        "--out", default="-", help="Berkas tujuan; '-' menulis ke stdout"
+    )
+    export_graph.set_defaults(func=_cmd_export)
 
     export = sub.add_parser(
         "export-legacy", help="(migrasi) ekspor korpus horus-agent menjadi bundle"

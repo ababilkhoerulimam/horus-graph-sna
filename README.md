@@ -82,6 +82,8 @@ horus-graph counterfactual path/to/bundle "Nama Entitas"
 horus-graph briefing path/to/bundle
 horus-graph enhance path/to/bundle    # null model, bootstrap, topologi, perputaran, burst
 horus-graph enhance path/to/bundle --json --resamples 200 --bootstrap-resamples 200
+horus-graph export path/to/bundle --format graphml --out jaringan.graphml
+horus-graph export path/to/bundle --format csv --out sisi.csv
 
 horus-graph serve                     # API + visualizer di http://127.0.0.1:8000
 horus-graph serve --bundle path/to/bundle --port 8080

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 
 from ..analysis import (
     entity_dossier,
@@ -17,6 +17,7 @@ from ..analysis import (
 )
 from ..copilot.llm import llm_available
 from ..enhance.reporting import reporting_block
+from ..export import formats as export_formats
 from ..presentation import Presentation
 from . import queries, serializers
 from .auth import require_token
@@ -276,3 +277,23 @@ def topic_actor_network(
 @router.get("/api/temporal")
 def temporal(request: Request) -> Dict[str, Any]:
     return {"epochs": serializers.epoch_payloads(_state(request))}
+
+
+# --- ekspor ----------------------------------------------------------------
+
+
+@router.get("/api/export/{fmt}")
+def export_network(request: Request, fmt: str) -> Response:
+    """Unduh jaringan sebagai GraphML, GEXF, atau CSV."""
+    state = _state(request)
+    try:
+        body = export_formats.render(state.network, fmt)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    name = f"{state.bundle.manifest.dataset_id}.{export_formats.EXTENSIONS[fmt]}"
+    return Response(
+        content=body,
+        media_type=export_formats.CONTENT_TYPES[fmt],
+        headers={"Content-Disposition": f'attachment; filename="{name}"'},
+    )
