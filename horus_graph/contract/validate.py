@@ -222,9 +222,12 @@ def _check_sentiment(frame: pd.DataFrame, findings: List[Finding]) -> None:
 
 def _check_domain(domain: Domain, entities: pd.DataFrame, manifest: Manifest, findings: List[Finding]) -> None:
     ids = set(entities["entity_id"])
-    if domain.ego_id not in ids:
+    # ego_id kosong berarti dataset tanpa pusat (mis. sebaran titik panas),
+    # bukan pelanggaran: jaringan tetap sah tanpa simpul ego.
+    ego_id = (domain.ego_id or "").strip()
+    if ego_id and ego_id not in ids:
         findings.append(
-            _error("ego_not_in_entities", "domain", f"ego_id '{domain.ego_id}' tidak ada di entities")
+            _error("ego_not_in_entities", "domain", f"ego_id '{ego_id}' tidak ada di entities")
         )
 
     types = set(entities["entity_type"])

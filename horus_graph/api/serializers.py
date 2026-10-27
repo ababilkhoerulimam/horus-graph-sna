@@ -164,6 +164,8 @@ def epoch_payloads(state: AppState) -> List[Dict[str, Any]]:
                 "end_year": slice_.window.end_year,
                 "nodes": slice_.graph.number_of_nodes(),
                 "edges": slice_.graph.number_of_edges(),
+                # Daftar simpul aktif dipakai UI untuk meredupkan yang di luar epos.
+                "node_ids": sorted(str(node) for node in slice_.graph.nodes),
                 "density": slice_.density,
                 "articles": slice_.articles,
                 "isolated": list(slice_.isolated),
@@ -181,16 +183,19 @@ def topic_payloads(state: AppState) -> List[Dict[str, Any]]:
     frame = state.bundle.topics
     if frame.empty:
         return []
+    membership = state.bipartite.membership
     result = []
     for _, row in frame.iterrows():
+        topic_id = str(row["topic_id"])
         keywords = row.get("keywords")
         result.append(
             {
-                "id": str(row["topic_id"]),
+                "id": topic_id,
                 "label": str(row["label"]),
                 "keywords": [str(value) for value in keywords]
                 if isinstance(keywords, (list, tuple))
                 else [],
+                "members": list(membership.get(topic_id, ())),
             }
         )
     return result

@@ -53,6 +53,9 @@ def health(request: Request) -> Dict[str, Any]:
         "density": summary["density"],
         "contract_version": serializers.contract_version(),
         "build_seconds": state.build_seconds,
+        # Lapisan opsional. UI membaca ini sebelum mencoba terhubung, supaya
+        # tidak ada percobaan WebSocket ke endpoint yang belum ada.
+        "capabilities": {"copilot": False},
     }
 
 
@@ -103,6 +106,28 @@ def graph_overview(request: Request) -> Dict[str, Any]:
         "components": summary["components"],
         "isolated": summary["isolated"],
     }
+
+
+@router.get("/api/graph/key-events")
+def key_events(request: Request) -> List[Dict[str, Any]]:
+    """
+    Lonjakan volume bulanan sebagai penanda peristiwa pada timeline.
+
+    UI memakai ini untuk menaruh pin di slider; aktor terkait sengaja kosong
+    karena anomali dihitung dari korpus, bukan dari graf.
+    """
+    state = _state(request)
+    label = state.presentation.labels.get("articles", "artikel")
+    return [
+        {
+            "date": f"{spike['period']}-01",
+            "title": f"{spike['article_count']} {label}",
+            "description": f"z = {float(spike['z_score']):.2f} ({spike.get('severity', '')})",
+            "severity": spike.get("severity"),
+            "related_actors": [],
+        }
+        for spike in state.anomaly.spikes
+    ]
 
 
 @router.get("/api/graph/compare")

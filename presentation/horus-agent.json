@@ -1,0 +1,203 @@
+{
+  "title": "Analisis Jaringan: Dewa United FC",
+  "subtitle": "Peta wacana Dewa United FC di Liga 1 Indonesia, 2021-2026",
+  "ego": {
+    "id": "Dewa United FC",
+    "label": "Dewa United FC",
+    "role": null
+  },
+  "entity_types": [
+    {
+      "id": "Organization",
+      "label": "Organization",
+      "color": "#8B5CF6",
+      "role_template": null
+    },
+    {
+      "id": "Person",
+      "label": "Person",
+      "color": "#3B82F6",
+      "role_template": null
+    },
+    {
+      "id": "Competition",
+      "label": "Competition",
+      "color": "#F59E0B",
+      "role_template": null
+    },
+    {
+      "id": "Location",
+      "label": "Location",
+      "color": "#64748B",
+      "role_template": null
+    },
+    {
+      "id": "Source",
+      "label": "Source",
+      "color": "#EA580C",
+      "role_template": null
+    }
+  ],
+  "clusters": [
+    {
+      "id": "HUB_CLUB",
+      "label": "Ego Hub Inti",
+      "color": "#8B5CF6"
+    },
+    {
+      "id": "HUB_NORTH",
+      "label": "Sektor Skuad & Pelatih",
+      "color": "#3B82F6"
+    },
+    {
+      "id": "HUB_REGULATION",
+      "label": "HUB_REGULATION",
+      "color": "#F59E0B"
+    },
+    {
+      "id": "HUB_STADIUM",
+      "label": "HUB_STADIUM",
+      "color": "#64748B"
+    },
+    {
+      "id": "HUB_REGION",
+      "label": "HUB_REGION",
+      "color": "#64748B"
+    },
+    {
+      "id": "HUB_EAST",
+      "label": "Sektor Rivalitas Liga 1",
+      "color": "#2563EB"
+    },
+    {
+      "id": "HUB_WIRE",
+      "label": "Sektor Portal Media Massa",
+      "color": "#EA580C"
+    }
+  ],
+  "palette": {
+    "community": [],
+    "node": null,
+    "ego": null,
+    "edge": null
+  },
+  "orbit_tiers": [
+    "Pusat",
+    "TIER 1 · INNER CIRCLE (SQUAD & MANAGEMENT)",
+    "TIER 2 · OPERATIONAL (SPONSORS & ACADEMY)",
+    "TIER 3 · LIGA 1 AXIS (RIVALS & FEDERATION)",
+    "TIER 4 · PERIPHERY WIRE (MEDIA & RUMORS)"
+  ],
+  "epoch_narratives": {
+    "2021": "2021: Akuisisi Martapura FC & Tiket Promosi ke Kasta Tertinggi (Liga 2 ➔ Liga 1)",
+    "2022": "2022: Musim Debut Liga 1 & Groundbreaking Training Ground Banten",
+    "2023": "2023: Kepemimpinan Jan Olde Riekerink & Rekrutmen Pilar Timnas (Egy, Kambuaya)",
+    "2024": "2024: Lompatan Finis 5 Besar Liga 1 & Rekrutmen Asing Elit (Alex Martins, Sonny Stevens)",
+    "2025": "2025: Konsolidasi Galacticos & Transformasi Super League (Messidoro, Marukawa)",
+    "2026": "2026: Ekosistem Modern Dewa United FC Menuju Kompetisi Asia & Gelanggang Internasional"
+  },
+  "labels": {},
+  "wording": {
+    "empty_anomaly": "Belum ada anomali pada rentang ini.",
+    "empty_graph": "Belum ada simpul yang lolos ambang.",
+    "no_bundle": "Belum ada bundle data. Letakkan bundle pada data/bundles/ atau set variabel HORUS_BUNDLE.",
+    "boot_error": "Gagal memuat data jaringan.",
+    "awaiting_layer": "Lapisan ini belum tersedia.",
+    "orbit_core": "Pusat inti",
+    "causal_mediated": "MEDIASI AKTOR",
+    "causal_driver": "AKTOR PENGGERAK",
+    "causal_core": "POROS ORGANISASI",
+    "causal_core_role": "Wadah korporasi dan entitas klub yang digerakkan oleh para aktor kunci.",
+    "causal_anchor": "JANGKAR STRUKTURAL",
+    "causal_actor_placeholder": "Aktor",
+    "causal_target_placeholder": "Media / Stakeholder",
+    "chip_dossier": "Analisis profil intelijen dan peran jaringan {label}",
+    "chip_whatif": "Bagaimana jika {label} absen atau terputus dari jaringan?",
+    "chip_sentiment": "Bagaimana sentimen media dan isu terkini seputar {label}?",
+    "chip_summary": "Berikan ringkasan intelijen wacana dan topologi jaringan {centre}",
+    "chip_memo": "Buatkan memo intelijen eksekutif terkini",
+    "chip_broker": "Siapa aktor broker terpenting dalam jaringan?",
+    "chip_risk": "Siapa entitas dengan risiko krisis dan sentimen negatif tertinggi?",
+    "chip_map": "Bagaimana peta rivalitas dan relasi {centre} dengan klub-klub papan atas?",
+    "chip_greeting": "Silakan tanyakan taktik, berita transfer, atau analisis jaringan seputar {centre}."
+  },
+  "action_rules": {
+    "media": {
+      "badge": "SIMPUL SUMBER",
+      "title": "{label}",
+      "body": "{label} menyalurkan {articles} artikel ke jaringan; perannya sebagai kanal distribusi wacana, bukan aktor kebijakan."
+    },
+    "dependent": {
+      "badge": "DEPENDEN",
+      "title": "{label}",
+      "body": "Constraint tinggi: {label} bergantung pada satu jalur utama sehingga guncangan pada {centre} cepat menular."
+    },
+    "broker": {
+      "badge": "BROKER",
+      "title": "{label}",
+      "body": "Constraint rendah: {label} menjembatani klaster yang jarang terhubung dan menjadi titik masuk informasi."
+    },
+    "default": {
+      "badge": "SEIMBANG",
+      "title": "{label}",
+      "body": "{label} berada di antara broker dan dependen; pantau perubahan derajatnya antar-epos."
+    }
+  },
+  "sankey_columns": [],
+  "radius_scale": null,
+  "entity_descriptions": {
+    "Dewa United FC": "Subjek Utama: Klub sepak bola Liga 1 yang bermarkas di Tangerang & Banten.",
+    "Jan Olde Riekerink": "Pelatih Kepala berkebangsaan Belanda yang menukangi skuad Dewa United FC.",
+    "Egy Maulana Vikri": "Pemain bintang & penyerang sayap Timnas Indonesia andalan Dewa United FC.",
+    "Alex Martins": "Striker asing andalan & pencetak gol terbanyak (top scorer) Dewa United FC.",
+    "Ricky Kambuaya": "Gelandang pilar Timnas Indonesia & jenderal lini tengah Dewa United FC.",
+    "Sonny Stevens": "Kiper asing andalan Dewa United FC berkebangsaan Belanda.",
+    "Taisei Marukawa": "Gelandang serang kreatif asal Jepang yang direkrut Dewa United FC.",
+    "Hugo Gomes": "Gelandang serang asal Brasil pengatur ritme permainan Dewa United FC.",
+    "Alta Ballah": "Bek sayap lincah andalan pertahanan dan transisi serang Dewa United FC.",
+    "Septian Bagaskara": "Striker lokal andalan Dewa United FC sebagai opsi lini serang.",
+    "Dimitris Kolovos": "Gelandang serang asal Yunani yang memperkuat Dewa United FC.",
+    "Liga 1": "Kompetisi kasta tertinggi sepak bola profesional di Indonesia.",
+    "Super League": "Nomenklatur format baru pembahasan kompetisi liga nasional.",
+    "Indomilk Arena": "Stadion markas utama tempat Dewa United FC menjamu lawan di Tangerang.",
+    "Tangerang": "Kota basis teritorial tempat Dewa United FC bermarkas.",
+    "Banten": "Provinsi basis teritorial tempat berdirinya fasilitas Dewa United FC.",
+    "Jakarta": "Ibu kota / pusat gravitasi administratif PSSI, PT LIB, dan media nasional.",
+    "Banten International Stadium": "Stadion bertaraf internasional fasilitas sekunder di Provinsi Banten.",
+    "Piala Presiden": "Turnamen bergengsi pra-musim resmi arahan federasi.",
+    "PSSI": "Persatuan Sepak Bola Seluruh Indonesia / regulator tertinggi sepak bola.",
+    "PT LIB": "PT Liga Indonesia Baru / operator resmi pelaksana kompetisi Liga 1.",
+    "Stadion Gelora Bung Karno": "Stadion utama nasional tempat laga-laga akbar di Jakarta.",
+    "Persib Bandung": "Klub rival utama papan atas Liga 1 berbasis di Bandung, Jawa Barat.",
+    "Persija Jakarta": "Klub rival tradisional ibu kota Liga 1 berbasis di Jakarta.",
+    "Persebaya Surabaya": "Klub rival besar Liga 1 berbasis di Surabaya, Jawa Timur.",
+    "Arema FC": "Klub peserta Liga 1 berbasis di Malang, Jawa Timur.",
+    "Bali United": "Klub penantang papan atas Liga 1 berbasis di Gianyar, Bali.",
+    "Borneo FC": "Klub penantang papan atas Liga 1 berbasis di Samarinda, Kaltim.",
+    "Persis Solo": "Klub peserta Liga 1 berbasis di Solo / Surakarta, Jawa Tengah.",
+    "Madura United": "Klub peserta Liga 1 berbasis di Pulau Madura, Jawa Timur.",
+    "PSS Sleman": "Klub rival utama pembahasan wacana Liga 1 berbasis di Sleman, DIY.",
+    "Persita Tangerang": "Klub rival sekota Dewa United FC berbasis di Tangerang.",
+    "Bhayangkara FC": "Klub peserta Liga 1 yang sempat bermarkas sementara di Solo.",
+    "detik-com": "Portal berita nasional dengan atensi korpus terbesar.",
+    "antaranews-com": "Kantor berita kawat resmi nasional.",
+    "kompas-com": "Portal berita nasional rujukan umum.",
+    "tvonenews-com": "Portal berita televisi nasional peliput laga dan isu regulasi.",
+    "beritajatim-com": "Portal berita kawasan Jawa Timur peliput Arema & Persebaya.",
+    "harianjogja-com": "Media lokal kawasan DIY & Sleman.",
+    "okezone-com": "Portal berita sindikasi MNC Media Group.",
+    "viva-co-id": "Portal berita olahraga & nasional VIVA Group.",
+    "voi-id": "Portal berita arus utama nasional.",
+    "kumparan-com": "Platform media kolaboratif nasional.",
+    "jpnn-com": "Jawa Pos National Network, jaringan media cetak & online.",
+    "pikiran-rakyat-com": "Jaringan media Jawa Barat peliput Persib & Dewa United.",
+    "tempo-co": "Portal media investigasi & berita nasional.",
+    "metrotvnews-com": "Portal berita Metro Media Group.",
+    "idntimes-com": "Media digital generasi muda peliput isu olahraga nasional.",
+    "merahputih-com": "Media daring independen penyuplai isu olahraga.",
+    "inews-id": "Kanal berita MNC Media Group.",
+    "nusabali-com": "Portal berita regional Bali peliput Bali United & Dewa United.",
+    "republika-co-id": "Media nasional peliput isu keagamaan & publik.",
+    "cnnindonesia-com": "Kanal berita Transmedia peliput kompetisi Asia & Liga 1."
+  }
+}

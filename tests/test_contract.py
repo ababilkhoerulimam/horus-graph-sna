@@ -255,3 +255,23 @@ def test_ego_tidak_ada_di_entitas(tmp_path):
     frames["articles"]["source_id"] = "Media X"
     codes = _codes(validate_bundle(_write(tmp_path / "bundle", frames)))
     assert "ego_not_in_entities" in codes
+
+
+def test_ego_kosong_diterima_sebagai_tanpa_pusat(tmp_path):
+    """`ego_id` kosong = dataset tanpa simpul pusat, bukan pelanggaran."""
+    frames = _frames()
+    frames["entities"].loc[0, "entity_id"] = "Bukan Ego"
+    frames["mentions"].loc[frames["mentions"]["entity_id"] == "Ego FC", "entity_id"] = "Bukan Ego"
+    frames["articles"]["source_id"] = "Media X"
+
+    root = tmp_path / "bundle"
+    write_bundle(
+        root,
+        frames=frames,
+        domain=_domain().model_copy(update={"ego_id": ""}),
+        dataset_id="test",
+        date_range=DATE_RANGE,
+        generator="pytest",
+        generator_version="0",
+    )
+    assert "ego_not_in_entities" not in _codes(validate_bundle(root))

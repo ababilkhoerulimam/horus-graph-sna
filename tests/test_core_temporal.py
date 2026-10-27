@@ -76,10 +76,14 @@ def test_all_time_bisa_dimatikan(bundle_factory):
         temporal.by_id("all_time")
 
 
-def test_domain_tanpa_epos_ditolak(bundle_factory):
+def test_domain_tanpa_epos_menghasilkan_lapisan_kosong(bundle_factory):
+    """Tanpa jendela epos, lapisan temporal kosong — bundle tetap sah."""
     bundle = bundle_factory(["A", "B"], [("art000", "A", 1)], articles=2)
-    with pytest.raises(ValueError):
-        build_temporal(bundle)
+    temporal = build_temporal(bundle)
+    assert temporal.slices == ()
+    assert temporal.total_articles == 2
+    with pytest.raises(KeyError):
+        temporal.by_id("all_time")
 
 
 def test_epos_tanpa_edge_tetap_menghasilkan_slice_kosong(bundle_factory):

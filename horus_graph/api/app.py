@@ -17,7 +17,9 @@ from fastapi.staticfiles import StaticFiles
 from .. import __version__
 from .routes import router
 
-WEB_DIR = Path(__file__).resolve().parents[1] / "web"
+# Visualizer statis. `index.html` memakai path relatif (`css/`, `js/`), jadi
+# direktori `static` dipasang di akar, bukan `web/`.
+WEB_DIR = Path(__file__).resolve().parents[1] / "web" / "static"
 
 
 def create_app(bundle: Optional[Path | str] = None) -> FastAPI:
@@ -44,7 +46,21 @@ def run(
     port: int = 8000,
     reload: bool = False,
 ) -> None:
+    import time
+
     import uvicorn
+
+    from .state import BundleNotFound, get_state
+
+    # Bangun state sebelum server menerima permintaan: tanpa ini permintaan
+    # pertama menunggu puluhan detik sementara browser sudah menampilkan UI.
+    started = time.perf_counter()
+    try:
+        get_state(bundle)
+    except BundleNotFound as exc:
+        print(f"Peringatan: {exc}", flush=True)
+    else:
+        print(f"Bundle siap dalam {time.perf_counter() - started:.1f}s — {host}:{port}", flush=True)
 
     app = create_app(bundle)
     uvicorn.run(app, host=host, port=port, reload=reload)

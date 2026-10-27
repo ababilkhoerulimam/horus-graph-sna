@@ -205,3 +205,48 @@ def test_tanpa_bundle_mengembalikan_503(tmp_path):
 
     assert response.status_code == 503
     assert "Bundle" in response.json()["detail"]
+
+
+def test_bundle_tanpa_ego_tetap_menyajikan_graf(tmp_path, bundle_factory):
+    """Dataset tanpa pusat: ego null, graf tetap utuh, tanpa epos."""
+    rows = [(f"art{i:03d}", e, 1) for i in range(0, 40) for e in ("A", "B")]
+    rows += [(f"art{i:03d}", e, 1) for i in range(40, 80) for e in ("B", "C")]
+    bundle = bundle_factory(
+        ["A", "B", "C"],
+        rows,
+        articles=80,
+        ego="",
+        dates=["2023-06-01"] * 80,
+    )
+    root = tmp_path / "tanpa-ego"
+    write_bundle(
+        root,
+        frames={
+            "entities": _pad(bundle.entities, schema.ENTITIES),
+            "articles": _pad(bundle.articles, schema.ARTICLES),
+            "mentions": _pad(bundle.mentions, schema.MENTIONS),
+            "topics": _pad(bundle.topics, schema.TOPICS),
+            "article_topics": _pad(bundle.article_topics, schema.ARTICLE_TOPICS),
+        },
+        domain=bundle.domain,
+        dataset_id="tanpa-ego",
+        date_range=(date(2021, 1, 1), date(2026, 12, 31)),
+        generator="tests/noego",
+    )
+
+    client = TestClient(create_app(root))
+    payload = client.get("/api/bootstrap").json()
+
+    assert payload["presentation"]["ego"] is None
+    assert len(payload["graph"]["nodes"]) == 3
+    assert payload["epochs"] == []
+
+
+def test_key_events_memakai_lonjakan_bulanan(client):
+    events = client.get("/api/graph/key-events").json()
+
+    assert isinstance(events, list)
+    for event in events:
+        assert event["date"].endswith("-01")
+        assert event["related_actors"] == []
+        assert "z =" in event["description"]

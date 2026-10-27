@@ -76,7 +76,9 @@ def build_temporal(
 ) -> TemporalBundle:
     """Hitung satu subgraf per epos di `domain.epochs`, plus agregat all-time."""
     if not bundle.domain.epochs:
-        raise ValueError("domain.epochs kosong: tidak ada jendela untuk dihitung")
+        # Dataset tanpa jendela epos tetap sah: lapisan temporal kosong, bukan
+        # alasan menolak seluruh bundle.
+        return TemporalBundle(slices=(), total_articles=len(bundle.articles), year_span=(0, 0))
 
     config = config or BackboneConfig(rescue_isolated=False)
     years = article_years(bundle)

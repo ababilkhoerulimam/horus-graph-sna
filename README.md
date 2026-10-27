@@ -53,9 +53,19 @@ default netral (`Simpul`, `Sisi`, `Kepadatan`, ...).
 
 `ego` boleh kosong. Dataset tanpa satu simpul pusat (kebakaran lahan, misalnya)
 cukup mengosongkan `domain.ego_id`; engine mengembalikan `ego: null` dan
-visualizer memakai fallback derajat tertinggi.
+visualizer memakai cabang tanpa pusat — tidak ada cincin nol, tidak ada
+"jarak dari pusat", dan rantai sebab-akibat ditampilkan tanpa simpul tengah.
 
 Fork = taruh bundle baru, jalankan. Tidak ada kode yang perlu disunting.
+
+Metadata tampilan boleh ditulis sebagai berkas JSON dan dipakai ulang saat
+mengekspor: `presentation/horus-agent.json` adalah contoh lengkap (judul,
+deskripsi entitas, aturan tindakan, istilah). Ekspor dengan berkas itu:
+
+```bash
+horus-graph export-legacy <repo-lama> data/bundles/<nama> \
+  --presentation presentation/horus-agent.json
+```
 
 ## Pakai
 
@@ -207,4 +217,5 @@ bukan enam berkas terpisah.
 - [x] M6 enhance: null model, bootstrap CI, community stability, k-core, turnover
 - [x] M7 kontrak presentasi v1.1: kolom opsional entitas + `manifest.presentation`
 - [x] M8 API: `/api/bootstrap` dan seluruh endpoint analisis
-- [ ] M9 visualizer: port HTML, cabut seluruh hardcode domain
+- [x] M9 visualizer: port HTML, cabut seluruh hardcode domain
+- [ ] M10 copilot opsional: `[llm]` extra, prompt dibangun dari `presentation`
