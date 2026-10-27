@@ -346,6 +346,8 @@ def _cmd_export_legacy(args: argparse.Namespace) -> int:
         out=Path(args.out),
         limit=args.limit,
         progress=args.progress,
+        presentation=Path(args.presentation) if args.presentation else None,
+        auto_presentation=args.auto_presentation,
     )
     print(json.dumps(result, indent=2, ensure_ascii=False))
     return 0
@@ -419,6 +421,14 @@ def build_parser() -> argparse.ArgumentParser:
     export.add_argument("--out", required=True, help="Direktori bundle tujuan")
     export.add_argument("--limit", type=int, default=None, help="Batasi jumlah artikel")
     export.add_argument("--progress", action="store_true")
+    export.add_argument(
+        "--presentation", default=None, help="Berkas JSON metadata tampilan"
+    )
+    export.add_argument(
+        "--auto-presentation",
+        action="store_true",
+        help="Ekstrak metadata tampilan dari visualizer repo lama",
+    )
     export.set_defaults(func=_cmd_export_legacy)
 
     return parser

@@ -11,7 +11,7 @@ import pandas as pd
 import pyarrow.parquet as pq
 
 from ..contract import schema
-from ..contract.models import Domain, Manifest
+from ..contract.models import Domain, Manifest, Presentation
 from ..contract.validate import Finding, validate_bundle
 
 
@@ -46,6 +46,11 @@ class DataBundle:
     @property
     def has_sentiment(self) -> bool:
         return self.sentiment is not None and not self.sentiment.empty
+
+    @property
+    def presentation(self) -> Optional[Presentation]:
+        """Metadata tampilan mentah; default netral diterapkan `resolve_presentation`."""
+        return self.manifest.presentation
 
     def layer_status(self, layer: str) -> str:
         if layer == "transmission":

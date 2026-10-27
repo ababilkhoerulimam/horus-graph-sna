@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pyarrow as pa
 
-CONTRACT_VERSION = "1.0.0"
+CONTRACT_VERSION = "1.1.0"
 CONTRACT_MAJOR = 1
 
 ENTITIES = pa.schema(
@@ -23,6 +23,23 @@ ENTITIES = pa.schema(
         pa.field("first_seen", pa.string(), nullable=True),
     ]
 )
+
+# Kolom presentasi (v1.1). Semuanya opsional: bundle 1.0 tetap sah, dan engine
+# memakai default netral bila kolomnya tidak ada. Dipisahkan dari ENTITIES
+# supaya `missing_columns()` tidak pernah menuntutnya.
+ENTITIES_OPTIONAL = pa.schema(
+    [
+        pa.field("description", pa.string(), nullable=True),
+        pa.field("cluster", pa.string(), nullable=True),
+        pa.field("color", pa.string(), nullable=True),
+        pa.field("tier", pa.int64(), nullable=True),
+        pa.field("ring_level", pa.int64(), nullable=True),
+        pa.field("sector", pa.string(), nullable=True),
+        pa.field("is_anchor", pa.bool_(), nullable=True),
+    ]
+)
+
+OPTIONAL_COLUMNS = {"entities": ENTITIES_OPTIONAL}
 
 ARTICLES = pa.schema(
     [

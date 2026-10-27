@@ -28,6 +28,11 @@ import pandas as pd
 
 from ..contract.models import Domain, Epoch
 from ..io.writer import write_bundle
+from .legacy_presentation import (
+    extract_from_legacy_repo,
+    load_presentation_file,
+    split_payload,
+)
 
 MATCHER_VERSION = "entitymatcher-v1"
 GENERATOR = "horus-agent/export-legacy"
@@ -71,7 +76,16 @@ def domain_from_legacy(domain: Any) -> Domain:
     )
 
 
-def entities_frame(domain: Any) -> pd.DataFrame:
+def entities_frame(
+    domain: Any, descriptions: Optional[Dict[str, str]] = None
+) -> pd.DataFrame:
+    """
+    Tabel entitas termasuk kolom presentasi opsional (v1.1).
+
+    `description` datang dari berkas presentasi; atribut tampilan lain sudah
+    tersedia di `config/domain.yaml` lama.
+    """
+    descriptions = descriptions or {}
     return pd.DataFrame(
         {
             "entity_id": [entity.id for entity in domain.entities],
@@ -79,8 +93,29 @@ def entities_frame(domain: Any) -> pd.DataFrame:
             "label": [entity.label for entity in domain.entities],
             "aliases": [list(entity.aliases) for entity in domain.entities],
             "first_seen": [None] * len(domain.entities),
+            "description": [
+                descriptions.get(entity.id) for entity in domain.entities
+            ],
+            "cluster": [getattr(entity, "cluster", None) for entity in domain.entities],
+            "color": [getattr(entity, "color", None) for entity in domain.entities],
+            "tier": [getattr(entity, "tier", None) for entity in domain.entities],
+            "ring_level": [
+                getattr(entity, "ring_level", None) for entity in domain.entities
+            ],
+            "sector": [getattr(entity, "sector", None) for entity in domain.entities],
+            # Label selalu tampil untuk dua tingkat teratas; UI memakai `tier`
+            # bila kolom ini kosong.
+            "is_anchor": [
+                _tier(entity) is not None and _tier(entity) <= 1
+                for entity in domain.entities
+            ],
         }
     )
+
+
+def _tier(entity: Any) -> Optional[int]:
+    value = getattr(entity, "tier", None)
+    return int(value) if value is not None else None
 
 
 def topics_frame(domain: Any) -> pd.DataFrame:
@@ -183,11 +218,27 @@ def export_legacy_bundle(
     out: Path | str,
     limit: Optional[int] = None,
     progress: bool = False,
+    presentation: Optional[Path | str] = None,
+    auto_presentation: bool = False,
 ) -> Dict[str, Any]:
-    """Ekspor korpus repo lama ke bundle. `limit` hanya untuk uji cepat."""
+    """
+    Ekspor korpus repo lama ke bundle. `limit` hanya untuk uji cepat.
+
+    Metadata tampilan diambil dari `presentation` (berkas JSON) atau, bila
+    `auto_presentation`, diekstrak dari visualizer lama. Tanpa keduanya, bundle
+    ditulis tanpa presentasi dan engine memakai default netral.
+    """
     context = _legacy_context(Path(repo))
     domain = context.domain
     year_span = tuple(domain.year_span)
+
+    payload: Dict[str, Any] = {}
+    if presentation is not None:
+        payload = load_presentation_file(presentation)
+    elif auto_presentation:
+        payload = extract_from_legacy_repo(Path(repo), domain)
+
+    meta, descriptions = split_payload(payload) if payload else (None, {})
 
     iterator = context.reader.iter_articles(year_range=year_span, require_date=True)
     if limit:
@@ -196,8 +247,14 @@ def export_legacy_bundle(
     frames = build_frames(
         iterator, context.entity_matcher, context.topic_matcher, progress=progress
     )
-    frames["entities"] = entities_frame(domain)
+    frames["entities"] = entities_frame(domain, descriptions)
     frames["topics"] = topics_frame(domain)
+
+    extra: Dict[str, Any] = {
+        "population": {"year_span": list(year_span), "require_date": True, "limit": limit}
+    }
+    if meta is not None:
+        extra["presentation"] = meta
 
     manifest = write_bundle(
         out,
@@ -209,10 +266,12 @@ def export_legacy_bundle(
         generator_version="1",
         generator_git_sha=context.git_sha,
         dictionary_version="domain.yaml@1",
-        extra={"population": {"year_span": list(year_span), "require_date": True, "limit": limit}},
+        extra=extra,
     )
     return {
         "bundle": str(out),
         "counts": manifest.counts,
         "layers": manifest.layers,
+        "presentation": meta is not None,
+        "described_entities": len(descriptions),
     }

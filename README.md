@@ -5,16 +5,18 @@ data: ia menerima **bundle** (parquet + manifest) yang dihasilkan pipeline di
 luar repo ini, lalu menghitung jaringan dan metriknya.
 
 ```
-pipeline (Kaggle)  →  bundle/  →  horus_graph  →  aplikasi (horus-agent)
+pipeline (Kaggle)  →  bundle/  →  horus_graph  →  aplikasi
 ```
 
-## Kontrak bundle v1
+## Kontrak bundle v1.1
 
 ```
 bundle/
-  manifest.json                  # versi kontrak, snapshot, counts, sha256, status layer
-  domain.json                    # ego, liga, epos, tipe entitas
+  manifest.json                  # versi kontrak, snapshot, counts, sha256, status layer, presentation
+  domain.json                    # ego, epos, tipe entitas
   entities.parquet               # entity_id, entity_type, label, aliases, first_seen
+                                 # + opsional: description, cluster, color, tier,
+                                 #   ring_level, sector, is_anchor
   articles.parquet               # article_id, source_id, published_at (UTC), url_hash, ...
   mentions.parquet               # article_id, entity_id, count, confidence, matcher_version
   topics.parquet                 # topic_id, label, keywords
@@ -25,6 +27,35 @@ bundle/
 
 Tidak ada tabel edge: edge ko-okurensi dihitung engine dari `mentions`, sehingga
 hanya ada satu sumber kebenaran.
+
+### Metadata tampilan (`manifest.presentation`)
+
+Seluruh judul, warna, label, dan narasi berasal dari sini — repo ini tidak
+memuat nama domain apa pun. Semua field opsional; yang tidak diisi jatuh ke
+default netral (`Simpul`, `Sisi`, `Kepadatan`, ...).
+
+```json
+{
+  "title": "...", "subtitle": "...",
+  "ego": {"id": "...", "label": "...", "role": "..."},
+  "entity_types": [{"id": "Person", "label": "...", "color": "#..."}],
+  "clusters": [{"id": "HUB_A", "label": "...", "color": "#..."}],
+  "palette": {"community": ["#..."], "node": "#...", "ego": "#..."},
+  "orbit_tiers": ["PUSAT", "LUAR"],
+  "epoch_narratives": {"2021": "..."},
+  "labels": {"node": "Aktor"},
+  "wording": {"no_bundle": "..."},
+  "action_rules": {"broker": {"title": "...", "body": "{label} ..."}},
+  "sankey_columns": ["Sumber", "Isu", "Aktor"],
+  "radius_scale": {"min": 11, "max": 47}
+}
+```
+
+`ego` boleh kosong. Dataset tanpa satu simpul pusat (kebakaran lahan, misalnya)
+cukup mengosongkan `domain.ego_id`; engine mengembalikan `ego: null` dan
+visualizer memakai fallback derajat tertinggi.
+
+Fork = taruh bundle baru, jalankan. Tidak ada kode yang perlu disunting.
 
 ## Pakai
 
@@ -145,3 +176,6 @@ presisi tanggal, dan resolusi p-value.
 - [x] M4 analysis: dossier, rute, kontrafaktual, peringkat broker, briefing
 - [x] M5 layer transmission & sentiment (dua arah: kosong → `None`, terisi → dipakai)
 - [x] M6 enhance: null model, bootstrap CI, community stability, k-core, turnover
+- [x] M7 kontrak presentasi v1.1: kolom opsional entitas + `manifest.presentation`
+- [ ] M8 API: `/api/bootstrap` dan endpoint analisis
+- [ ] M9 visualizer: port HTML, cabut seluruh hardcode domain

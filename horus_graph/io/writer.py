@@ -17,12 +17,39 @@ from ..contract.models import Domain, Manifest
 
 
 def _to_arrow(frame: pd.DataFrame, target: pa.Schema, table: str) -> pa.Table:
-    """Susun ulang kolom sesuai skema kontrak; kolom tambahan dibuang."""
+    """
+    Susun ulang kolom sesuai skema kontrak.
+
+    Kolom wajib harus ada; kolom presentasi opsional (v1.1) ikut ditulis bila
+    frame membawanya, dan kolom asing lainnya dibuang.
+    """
     missing = [field.name for field in target if field.name not in frame.columns]
     if missing:
         raise ValueError(f"{table}: kolom wajib hilang {missing}")
-    ordered = frame[[field.name for field in target]]
-    return pa.Table.from_pandas(ordered, schema=target, preserve_index=False)
+
+    fields = list(target)
+    ordered = frame[[field.name for field in target]].copy()
+
+    for field in schema.OPTIONAL_COLUMNS.get(table, pa.schema([])):
+        if field.name not in frame.columns:
+            continue
+        fields.append(field)
+        ordered[field.name] = _coerce(frame[field.name], field)
+
+    return pa.Table.from_pandas(
+        ordered, schema=pa.schema(fields), preserve_index=False
+    )
+
+
+def _coerce(series: pd.Series, field: pa.Field) -> pd.Series:
+    """Samakan dtype pandas agar kolom opsional boleh berisi null."""
+    if pa.types.is_string(field.type):
+        return series.astype("string")
+    if pa.types.is_integer(field.type):
+        return pd.to_numeric(series, errors="coerce").astype("Int64")
+    if pa.types.is_boolean(field.type):
+        return series.astype("boolean")
+    return series
 
 
 def _sha256(path: Path) -> str:

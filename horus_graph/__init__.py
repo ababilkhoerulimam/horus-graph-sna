@@ -2,6 +2,7 @@
 
 from .contract import CONTRACT_VERSION, validate_bundle
 from .io import BundleInvalid, DataBundle, load_bundle, write_bundle
+from .presentation import Presentation, resolve_presentation
 
 __version__ = "0.1.0"
 
@@ -9,7 +10,9 @@ __all__ = [
     "CONTRACT_VERSION",
     "BundleInvalid",
     "DataBundle",
+    "Presentation",
     "load_bundle",
+    "resolve_presentation",
     "validate_bundle",
     "write_bundle",
     "__version__",
