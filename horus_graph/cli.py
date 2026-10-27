@@ -54,6 +54,44 @@ def _cmd_info(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_build(args: argparse.Namespace) -> int:
+    from .core.backbone import BackboneConfig
+    from .core.build import build_network
+
+    bundle = load_bundle(Path(args.bundle))
+    config = BackboneConfig(min_support=args.min_support, min_npmi=args.min_npmi)
+    network = build_network(bundle, config)
+
+    report = {
+        "summary": dict(network.summary),
+        "backbone": network.backbone.as_dict(),
+        "provenance": network.provenance(),
+    }
+    if args.json:
+        print(json.dumps(report, indent=2, ensure_ascii=False))
+        return 0
+
+    summary = network.summary
+    print(
+        f"Simpul {summary['nodes']} | Edge {summary['edges']} | "
+        f"Densitas {summary['density']} | Modularitas {summary['communities']['modularity']}"
+    )
+    print(
+        f"Komunitas {summary['communities']['count']} {summary['communities']['sizes']} | "
+        f"Transitivitas {summary['transitivity']} | Diameter {summary['diameter']}"
+    )
+    backbone = network.backbone
+    print(
+        f"Backbone: {backbone.candidate_pairs} kandidat, {backbone.above_threshold} lolos ambang, "
+        f"{backbone.added_for_support} diselamatkan, {len(backbone.still_isolated)} tetap terisolasi"
+    )
+    if args.top:
+        frame = network.node_metrics.sort_values("betweenness", ascending=False)
+        columns = ["degree", "betweenness", "pagerank", "burt_constraint", "louvain_community"]
+        print(frame.head(args.top)[columns].to_string())
+    return 0
+
+
 def _cmd_export_legacy(args: argparse.Namespace) -> int:
     from .export.legacy import export_legacy_bundle
 
@@ -79,6 +117,14 @@ def build_parser() -> argparse.ArgumentParser:
     info = sub.add_parser("info", help="Ringkasan isi bundle")
     info.add_argument("bundle")
     info.set_defaults(func=_cmd_info)
+
+    build = sub.add_parser("build", help="Bangun jaringan co-occurrence dan hitung metrik")
+    build.add_argument("bundle")
+    build.add_argument("--min-support", type=int, default=3)
+    build.add_argument("--min-npmi", type=float, default=0.2)
+    build.add_argument("--top", type=int, default=0, help="Tampilkan N simpul betweenness tertinggi")
+    build.add_argument("--json", action="store_true")
+    build.set_defaults(func=_cmd_build)
 
     export = sub.add_parser(
         "export-legacy", help="(migrasi) ekspor korpus horus-agent menjadi bundle"

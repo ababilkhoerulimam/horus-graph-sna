@@ -1,0 +1,161 @@
+"""
+Perakitan jaringan dari bundle: co-occurrence -> backbone -> metrik.
+
+Tidak ada IO di modul ini. Semua masukan datang dari `DataBundle`, semua
+keluaran berupa objek immutable, sehingga pemanggil bisa menyimpan hasilnya ke
+format apa pun (artefak UI, parquet, API) tanpa engine ikut tahu.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any, Dict, Mapping, Optional, Tuple
+
+import networkx as nx
+import numpy as np
+import pandas as pd
+
+from ..io.bundle import DataBundle
+from . import metrics
+from .backbone import BackboneConfig, BackboneReport, select_edges
+from .cooccurrence import Cooccurrence, cooccurrence
+
+
+@dataclass(frozen=True)
+class NetworkBundle:
+    """Jaringan yang sudah dibangun beserta semua angka turunannya."""
+
+    graph: nx.Graph
+    entity_ids: Tuple[str, ...]
+    total_articles: int
+    communities: Mapping[str, int]
+    node_metrics: pd.DataFrame
+    summary: Mapping[str, Any]
+    backbone: BackboneReport
+    cooccurrence: Cooccurrence
+
+    @property
+    def edge_count(self) -> int:
+        return self.graph.number_of_edges()
+
+    def provenance(self) -> Dict[str, Any]:
+        """Asal setiap angka, supaya laporan bisa diaudit tanpa membaca kode."""
+        return {
+            "population": {
+                "total_articles": self.total_articles,
+                "entities": len(self.entity_ids),
+                "cooccurrence_pairs": self.cooccurrence.pair_count,
+                "dropped_mentions": self.cooccurrence.unknown_mentions,
+                "source": "bundle.articles / bundle.mentions",
+            },
+            "association": {
+                "method": "npmi_bouma2009",
+                "denominator": "seluruh artikel bertanggal di bundle",
+                "presence": "biner per (article_id, entity_id)",
+            },
+            "backbone": self.backbone.as_dict(),
+            "metrics": {
+                "betweenness": metrics.BETWEENNESS_METHOD,
+                "constraint": metrics.CONSTRAINT_METHOD,
+                "effective_size": metrics.EFFECTIVE_SIZE_METHOD,
+                "pagerank": metrics.PAGERANK_METHOD,
+                "closeness": metrics.CLOSENESS_METHOD,
+                "community": metrics.COMMUNITY_METHOD,
+            },
+        }
+
+
+def build_network(
+    bundle: DataBundle,
+    config: BackboneConfig = BackboneConfig(),
+    betweenness_samples: Optional[int] = None,
+) -> NetworkBundle:
+    """Bangun jaringan dari `mentions` dan hitung seluruh metrik simpul."""
+    cooc = cooccurrence(bundle)
+    selected, rescued, report = select_edges(cooc, config)
+
+    graph = nx.Graph()
+    graph.add_nodes_from(cooc.entity_ids)
+    for position, is_rescued in zip(selected, rescued):
+        u = cooc.entity_ids[int(cooc.pair_u[position])]
+        v = cooc.entity_ids[int(cooc.pair_v[position])]
+        graph.add_edge(
+            u,
+            v,
+            weight=int(cooc.support[position]),
+            npmi=float(cooc.npmi[position]),
+            rescued=bool(is_rescued),
+        )
+
+    betweenness_map = metrics.betweenness(graph, samples=betweenness_samples)
+    closeness_map = metrics.closeness(graph)
+    constraint_map = metrics.constraint(graph)
+    effective_map = metrics.effective_size(graph)
+    pagerank_map = metrics.pagerank(graph)
+    communities = metrics.louvain(graph)
+
+    node_metrics = _node_frame(
+        graph,
+        cooc,
+        communities,
+        betweenness=betweenness_map,
+        closeness=closeness_map,
+        constraint=constraint_map,
+        effective_size=effective_map,
+        pagerank=pagerank_map,
+    )
+
+    return NetworkBundle(
+        graph=graph,
+        entity_ids=cooc.entity_ids,
+        total_articles=cooc.total_articles,
+        communities=communities,
+        node_metrics=node_metrics,
+        summary=metrics.summary(graph, communities),
+        backbone=report,
+        cooccurrence=cooc,
+    )
+
+
+def _node_frame(
+    graph: nx.Graph,
+    cooc: Cooccurrence,
+    communities: Mapping[str, int],
+    *,
+    betweenness: Mapping[str, float],
+    closeness: Mapping[str, Optional[float]],
+    constraint: Mapping[str, Optional[float]],
+    effective_size: Mapping[str, Optional[float]],
+    pagerank: Mapping[str, Optional[float]],
+) -> pd.DataFrame:
+    """Satu baris per entitas; kolom `None` berarti tidak tersedia, bukan nol."""
+    rows = []
+    for index, entity_id in enumerate(cooc.entity_ids):
+        burt = constraint.get(entity_id)
+        rows.append(
+            {
+                "entity_id": entity_id,
+                "articles": int(cooc.node_articles[index]),
+                "degree": int(graph.degree(entity_id)),
+                "pagerank": _round(pagerank.get(entity_id), 5),
+                "betweenness": round(float(betweenness.get(entity_id, 0.0)), 6),
+                "closeness": _round(closeness.get(entity_id), 4),
+                "burt_constraint": _round(burt, 4),
+                "effective_size": _round(effective_size.get(entity_id), 2),
+                "structural_hole_role": metrics.structural_hole_role(
+                    None if burt is None else round(float(burt), 4)
+                ),
+                "louvain_community": int(communities.get(entity_id, 1)),
+            }
+        )
+    frame = pd.DataFrame(rows)
+    return frame.set_index("entity_id")
+
+
+def _round(value: Optional[float], digits: int) -> Optional[float]:
+    if value is None:
+        return None
+    number = float(value)
+    if np.isnan(number) or np.isinf(number):
+        return None
+    return round(number, digits)

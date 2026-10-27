@@ -31,14 +31,38 @@ hanya ada satu sumber kebenaran.
 ```bash
 horus-graph validate path/to/bundle    # 0 error berarti patuh
 horus-graph info path/to/bundle        # ringkasan counts + status layer
+horus-graph build path/to/bundle       # bangun jaringan + metrik
+horus-graph build path/to/bundle --json --top 10
 ```
 
 ```python
 from horus_graph import load_bundle
+from horus_graph.core import build_network
 
 bundle = load_bundle("path/to/bundle")
 print(bundle.counts(), bundle.layer_status("transmission"))
+
+network = build_network(bundle)          # BackboneConfig(min_support=3, min_npmi=0.2)
+print(network.summary)                   # densitas, modularitas, komponen
+print(network.node_metrics.head())       # degree, betweenness, constraint, komunitas
+print(network.provenance())              # metode + populasi di balik setiap angka
 ```
+
+## Pipeline komputasi
+
+```
+mentions ──► incidensi biner (artikel × entitas, sparse)
+         ──► BᵀB = co-occurrence
+         ──► NPMI (denominator = seluruh artikel bertanggal)
+         ──► ambang support/NPMI + penyelamatan konektivitas
+         ──► graf berbobot ──► sentralitas + Louvain
+```
+
+`count` pada `mentions` tidak dipakai sebagai bobot: satu artikel yang menyebut
+nama sepuluh kali tetap satu kejadian, kalau tidak NPMI naik tanpa asosiasi
+yang lebih nyata. Edge hasil penyelamatan ditandai `rescued=True` dan dihitung
+terpisah di `backbone.added_for_support`, jadi pembaca bisa membedakan edge
+yang lolos ambang dari yang hanya menjaga graf tetap terhubung.
 
 ## Prinsip
 
@@ -53,7 +77,7 @@ print(bundle.counts(), bundle.layer_status("transmission"))
 
 - [x] M0 kontrak: skema, model, validator, loader/writer, CLI
 - [x] M1 exporter korpus lama → bundle (27.407 artikel, 191.087 mention, 2,5 MB)
-- [ ] M2 core build + metrik (golden test vs 77/475/0.1623)
+- [x] M2 core build + metrik (golden test vs 77/475/0.1623 — lulus persis)
 - [ ] M3 temporal, bipartite, anomali
 - [ ] M4 analysis: dossier, path, what-if, briefing
 - [ ] M5 layer transmission & sentiment
