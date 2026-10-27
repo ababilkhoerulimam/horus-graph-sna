@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional
 
 from ..api.state import AppState
 from . import fallback, intent as intent_mod, llm, tools
+from .specs import tool_specs
 from .prompt import build_persona, centre_label, example_lines
 
 logger = logging.getLogger("horus_graph.copilot")
@@ -109,12 +110,12 @@ class Copilot:
                 messages.append({"role": item["role"], "content": item["content"]})
         messages.append({"role": "user", "content": query})
 
-        specs = tools.tool_specs(self.state) if intent_mod.needs_tools(intent) else None
+        active_specs = tool_specs(self.state) if intent_mod.needs_tools(intent) else None
         command: Optional[Dict[str, Any]] = None
         called: List[str] = []
 
         for turn in range(MAX_TOOL_TURNS):
-            active = specs if turn < MAX_TOOL_TURNS - 1 else None
+            active = active_specs if turn < MAX_TOOL_TURNS - 1 else None
             response = await llm.call_llm(messages, tools=active)
             message = response.choices[0].message
 

@@ -24,7 +24,7 @@ from horus_graph.core.anomaly import detect_anomalies
 from horus_graph.core.bipartite import build_bipartite
 from horus_graph.core.build import build_network
 from horus_graph.core.temporal import build_temporal
-from horus_graph.copilot import fallback, intent as intent_mod, tools
+from horus_graph.copilot import fallback, intent as intent_mod, specs, tools
 from horus_graph.io import write_bundle
 from horus_graph.presentation import resolve_presentation
 
@@ -116,8 +116,8 @@ def test_health_menyatakan_copilot_dan_llm(client):
 
 
 def test_ada_dua_puluh_tool(state):
-    specs = tools.tool_specs(state)
-    names = [item["function"]["name"] for item in specs]
+    schemas = specs.tool_specs(state)
+    names = [item["function"]["name"] for item in schemas]
 
     assert len(names) == 20
     assert len(set(names)) == 20
@@ -125,15 +125,15 @@ def test_ada_dua_puluh_tool(state):
 
 
 def test_deskripsi_tool_memakai_entitas_dari_bundle(state):
-    specs = {item["function"]["name"]: item["function"] for item in tools.tool_specs(state)}
-    dossier = specs["get_entity_dossier"]["parameters"]["properties"]["entity_name"]["description"]
+    schemas = {item["function"]["name"]: item["function"] for item in specs.tool_specs(state)}
+    dossier = schemas["get_entity_dossier"]["parameters"]["properties"]["entity_name"]["description"]
 
     assert "'Alpha'" in dossier
     assert "dewa" not in dossier.lower()
 
 
 def test_setiap_tool_punya_parameter_bertipe(state):
-    for item in tools.tool_specs(state):
+    for item in specs.tool_specs(state):
         function = item["function"]
         assert function["description"]
         parameters = function["parameters"]
