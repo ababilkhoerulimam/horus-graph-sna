@@ -15,6 +15,7 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 
+from ..contract.models import Domain
 from ..io.bundle import DataBundle
 from . import metrics
 from .backbone import BackboneConfig, BackboneReport, select_edges
@@ -27,6 +28,9 @@ class NetworkBundle:
 
     graph: nx.Graph
     entity_ids: Tuple[str, ...]
+    entities: pd.DataFrame
+    domain: Domain
+    layers: Mapping[str, str]
     total_articles: int
     communities: Mapping[str, int]
     node_metrics: pd.DataFrame
@@ -37,6 +41,21 @@ class NetworkBundle:
     @property
     def edge_count(self) -> int:
         return self.graph.number_of_edges()
+
+    def label_of(self, entity_id: str) -> str:
+        """Label tampilan; jatuh ke id bila entitas tidak ada di katalog."""
+        if entity_id in self.entities.index:
+            label = self.entities.at[entity_id, "label"]
+            if isinstance(label, str) and label.strip():
+                return label
+        return entity_id
+
+    def type_of(self, entity_id: str) -> Optional[str]:
+        if entity_id in self.entities.index:
+            value = self.entities.at[entity_id, "entity_type"]
+            if isinstance(value, str):
+                return value
+        return None
 
     def provenance(self) -> Dict[str, Any]:
         """Asal setiap angka, supaya laporan bisa diaudit tanpa membaca kode."""
@@ -108,6 +127,12 @@ def build_network(
     return NetworkBundle(
         graph=graph,
         entity_ids=cooc.entity_ids,
+        entities=_entity_frame(bundle),
+        domain=bundle.domain,
+        layers={
+            "transmission": bundle.layer_status("transmission"),
+            "sentiment": bundle.layer_status("sentiment"),
+        },
         total_articles=cooc.total_articles,
         communities=communities,
         node_metrics=node_metrics,
@@ -115,6 +140,13 @@ def build_network(
         backbone=report,
         cooccurrence=cooc,
     )
+
+
+def _entity_frame(bundle: DataBundle) -> pd.DataFrame:
+    """Katalog entitas yang dipakai analisis untuk label dan tipe."""
+    frame = bundle.entities[["entity_id", "label", "entity_type"]].copy()
+    frame["entity_id"] = frame["entity_id"].astype(str)
+    return frame.drop_duplicates("entity_id").set_index("entity_id")
 
 
 def _node_frame(

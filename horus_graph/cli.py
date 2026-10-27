@@ -140,6 +140,110 @@ def _cmd_build(args: argparse.Namespace) -> int:
     return 0
 
 
+def _analysis_context(args: argparse.Namespace):
+    """Bundle + jaringan + irisan epos, dipakai bersama perintah analisis."""
+    from .core.build import build_network
+    from .core.temporal import build_temporal
+
+    bundle = load_bundle(Path(args.bundle))
+    network = build_network(bundle)
+    temporal = build_temporal(bundle)
+    return bundle, network, temporal
+
+
+def _cmd_dossier(args: argparse.Namespace) -> int:
+    from .analysis.dossier import entity_dossier
+
+    _, network, temporal = _analysis_context(args)
+    print(
+        json.dumps(
+            entity_dossier(network, args.entity, temporal=temporal),
+            indent=2,
+            ensure_ascii=False,
+        )
+    )
+    return 0
+
+
+def _cmd_path(args: argparse.Namespace) -> int:
+    from .analysis.paths import trace_path
+
+    _, network, _ = _analysis_context(args)
+    result = trace_path(network, args.origin, args.target)
+    if not args.json:
+        if not result["success"]:
+            print(f"Gagal: {result['message']}")
+            return 1
+        print(" -> ".join(result["path"]))
+        print(
+            f"{result['total_hops']} langkah, bobot total {result['total_weight']}, "
+            f"NPMI rata-rata {result['average_npmi']}"
+        )
+        if result["alternative_path"]:
+            print("Alternatif: " + " -> ".join(result["alternative_path"]))
+        return 0
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+    return 0
+
+
+def _cmd_counterfactual(args: argparse.Namespace) -> int:
+    from .analysis.counterfactual import simulate_removal
+
+    _, network, _ = _analysis_context(args)
+    result = simulate_removal(network, args.entity)
+    if not args.json:
+        if not result["success"]:
+            print(f"Ditolak: {result['message']}")
+            return 1
+        print(
+            f"Hapus {result['removed']['label']}: "
+            f"densitas {result['baseline']['density']} -> {result['post']['density']} "
+            f"(delta {result['delta_density']}), {result['lost_edges']} edge hilang"
+        )
+        for item in result["absorbing_brokers"]:
+            print(
+                f"  penyerap: {item['label']} +{item['delta_betweenness']:.4f} "
+                f"({item['pct_shift'] if item['pct_shift'] is not None else '-'}%)"
+            )
+        return 0
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+    return 0
+
+
+def _cmd_briefing(args: argparse.Namespace) -> int:
+    from .analysis.briefing import executive_briefing
+    from .core.anomaly import detect_anomalies
+    from .core.bipartite import build_bipartite
+
+    bundle, network, temporal = _analysis_context(args)
+    briefing = executive_briefing(
+        network,
+        temporal=temporal,
+        anomaly=detect_anomalies(bundle),
+        bipartite=build_bipartite(bundle),
+    )
+    if args.json:
+        print(json.dumps(briefing, indent=2, ensure_ascii=False))
+        return 0
+
+    macro = briefing["macro"]
+    print(f"{briefing['dataset']['label']}: {macro['nodes']} simpul, {macro['edges']} edge")
+    print(
+        f"Densitas {macro['density']} | Modularitas {macro['modularity']} | "
+        f"{macro['communities']} komunitas {macro['community_sizes']}"
+    )
+    broker = briefing["critical_broker"]
+    if broker:
+        print(f"Broker kritis: {broker['label']} (betweenness {broker['betweenness']})")
+    for spike in briefing["anomaly"]["spikes"]:
+        print(
+            f"  lonjakan {spike['period']}: {spike['article_count']} artikel "
+            f"(z {spike['z_score']}, {spike['severity']})"
+        )
+    print(f"Lapisan: transmission={briefing['layers']['transmission']}, sentiment={briefing['layers']['sentiment']}")
+    return 0
+
+
 def _cmd_export_legacy(args: argparse.Namespace) -> int:
     from .export.legacy import export_legacy_bundle
 
@@ -174,6 +278,31 @@ def build_parser() -> argparse.ArgumentParser:
     build.add_argument("--all", action="store_true", help="Ikut hitung temporal, bipartit, anomali")
     build.add_argument("--json", action="store_true")
     build.set_defaults(func=_cmd_build)
+
+    dossier = sub.add_parser("dossier", help="Profil satu entitas")
+    dossier.add_argument("bundle")
+    dossier.add_argument("entity")
+    dossier.set_defaults(func=_cmd_dossier)
+
+    path = sub.add_parser("path", help="Rute terkuat antara dua entitas")
+    path.add_argument("bundle")
+    path.add_argument("origin")
+    path.add_argument("target")
+    path.add_argument("--json", action="store_true")
+    path.set_defaults(func=_cmd_path)
+
+    counterfactual = sub.add_parser(
+        "counterfactual", help="Simulasi penghapusan satu simpul"
+    )
+    counterfactual.add_argument("bundle")
+    counterfactual.add_argument("entity")
+    counterfactual.add_argument("--json", action="store_true")
+    counterfactual.set_defaults(func=_cmd_counterfactual)
+
+    briefing = sub.add_parser("briefing", help="Ringkasan eksekutif")
+    briefing.add_argument("bundle")
+    briefing.add_argument("--json", action="store_true")
+    briefing.set_defaults(func=_cmd_briefing)
 
     export = sub.add_parser(
         "export-legacy", help="(migrasi) ekspor korpus horus-agent menjadi bundle"

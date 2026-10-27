@@ -34,11 +34,19 @@ horus-graph info path/to/bundle        # ringkasan counts + status layer
 horus-graph build path/to/bundle       # bangun jaringan + metrik
 horus-graph build path/to/bundle --all # + irisan epos, bipartit, anomali
 horus-graph build path/to/bundle --json --top 10
+
+horus-graph dossier path/to/bundle "Nama Entitas"
+horus-graph path path/to/bundle "Asal" "Tujuan"
+horus-graph counterfactual path/to/bundle "Nama Entitas"
+horus-graph briefing path/to/bundle
 ```
 
 ```python
 from horus_graph import load_bundle
 from horus_graph.core import build_bipartite, build_network, build_temporal, detect_anomalies
+from horus_graph.analysis import (
+    entity_dossier, executive_briefing, simulate_removal, trace_path,
+)
 
 bundle = load_bundle("path/to/bundle")
 print(bundle.counts(), bundle.layer_status("transmission"))
@@ -49,14 +57,18 @@ print(network.node_metrics.head())       # degree, betweenness, constraint, komu
 print(network.provenance())              # metode + populasi di balik setiap angka
 
 temporal = build_temporal(bundle)        # satu subgraf per epos + all_time
-print(temporal.by_id("epoch_1").density)
-
 bipartite = build_bipartite(bundle)      # topik x aktor, media dikecualikan
-print(bipartite.summary())
-
 anomaly = detect_anomalies(bundle)       # robust z per bulan
-print(anomaly.spikes)
+
+print(entity_dossier(network, "Nama Entitas", temporal=temporal))
+print(trace_path(network, "Asal", "Tujuan"))
+print(simulate_removal(network, "Nama Entitas"))
+print(executive_briefing(network, temporal, anomaly, bipartite))
 ```
+
+Fungsi analisis mengembalikan dict siap-JSON, bukan model respons. Engine
+menjamin angka dan statusnya; penyusunan kalimat ada di lapisan aplikasi karena
+itu urusan bahasa dan konteks domain.
 
 ## Pipeline komputasi
 
@@ -94,6 +106,6 @@ yang lolos ambang dari yang hanya menjaga graf tetap terhubung.
 - [x] M1 exporter korpus lama → bundle (27.407 artikel, 191.087 mention, 2,5 MB)
 - [x] M2 core build + metrik (golden test vs 77/475/0.1623 — lulus persis)
 - [x] M3 temporal, bipartite, anomali (epos 387/436/421/467 edge, 280 edge bipartit, 70 bulan)
-- [ ] M4 analysis: dossier, path, what-if, briefing
+- [x] M4 analysis: dossier, rute, kontrafaktual, peringkat broker, briefing
 - [ ] M5 layer transmission & sentiment
 - [ ] M6 enhance: null model, bootstrap CI, community stability, k-core, turnover

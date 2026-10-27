@@ -174,3 +174,71 @@ def test_anomali_sama(anomaly):
         ("2021-12", 274, 5.02),
         ("2023-07", 897, 4.83),
     ]
+
+
+def test_dossier_sama(network, temporal):
+    from horus_graph.analysis.dossier import entity_dossier
+
+    dossier = entity_dossier(network, "Egy Maulana Vikri", temporal=temporal)
+    assert dossier["degree"] == 22
+    assert dossier["betweenness"] == pytest.approx(0.032489)
+    assert dossier["burt_constraint"] == pytest.approx(0.1861)
+    assert dossier["effective_size"] == pytest.approx(15.25)
+    assert dossier["articles"] == 2954
+    assert dossier["neighbors"][0] == {
+        "id": "Ricky Kambuaya",
+        "label": "Ricky Kambuaya",
+        "entity_type": "Person",
+        "weight": 1394,
+        "npmi": 0.5898,
+        "rescued": False,
+    }
+    assert [point["degree"] for point in dossier["trajectory"]] == [7, 22, 18]
+    assert dossier["sentiment"]["status"] == "awaiting_input"
+
+
+def test_rute_sama_dengan_engine_lama(network):
+    from horus_graph.analysis.paths import trace_path
+
+    result = trace_path(network, "Jan Olde Riekerink", "Persib Bandung")
+    assert result["path"] == [
+        "Jan Olde Riekerink",
+        "Risto Mitrevski",
+        "Liga 1",
+        "Persib Bandung",
+    ]
+    assert result["alternative_path"] == [
+        "Jan Olde Riekerink",
+        "Indomilk Arena",
+        "Persita Tangerang",
+        "Persib Bandung",
+    ]
+    assert result["critical_broker"] == "Risto Mitrevski"
+    assert result["has_hawkes"] is False
+    assert result["product_alpha"] is None
+
+
+def test_kontrafaktual_sama_dengan_engine_lama(network):
+    from horus_graph.analysis.counterfactual import simulate_removal
+
+    result = simulate_removal(network, "Egy Maulana Vikri")
+    assert result["baseline"] == {"nodes": 77, "edges": 475, "density": 0.1623}
+    assert result["post"] == {"nodes": 76, "edges": 453, "density": 0.1589}
+    assert result["delta_density"] == pytest.approx(-0.0034)
+    assert result["lost_edges"] == 22
+    assert len(result["absorbing_brokers"]) == 5
+    assert result["severed_causal_routes"] == 0
+    assert result["lost_sentiment_impact"] is None
+
+
+def test_briefing_merangkum_angka_yang_sama(network, temporal, bipartite, anomaly):
+    from horus_graph.analysis.briefing import executive_briefing
+
+    briefing = executive_briefing(network, temporal, anomaly, bipartite)
+    assert briefing["macro"]["nodes"] == 77
+    assert briefing["macro"]["edges"] == 475
+    assert briefing["critical_broker"]["id"] == "Liga 1"
+    assert briefing["largest_community"] == {"community": 1, "size": 33}
+    assert len(briefing["epochs"]) == 4
+    assert briefing["topics"]["edges"] == 280
+    assert briefing["layers"]["transmission"] == "awaiting_input"
