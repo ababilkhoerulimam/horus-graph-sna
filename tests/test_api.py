@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 from pathlib import Path
+import time
 
 import pandas as pd
 import pyarrow as pa
@@ -283,14 +284,28 @@ def test_topik_dan_temporal(client):
     assert len(epochs) == 3  # e1, e2, all_time
 
 
-def test_enhance_mengembalikan_blok_inferensi(client):
-    payload = client.get(
-        "/api/enhance", params={"resamples": 10, "bootstrap_resamples": 10}
-    ).json()
+def test_tidak_ada_endpoint_yang_menahan_permintaan(client):
+    """
+    Analisis berat hanya lewat CLI.
 
-    assert payload["null_model"]["method"] == "degree_preserving_double_edge_swap"
-    assert "topology" in payload
-    assert "bursts" in payload
+    `/api/enhance` pernah menjalankan null model dan bootstrap di dalam satu GET
+    (22 detik pada setelan bawaan, 346 detik pada `resamples=1000`) tanpa satu
+    pun pemakai. Batas di bawah longgar; yang dijaga adalah kelasnya: endpoint
+    yang menghitung ulang seluruh korpus.
+    """
+    batas = 1.0
+    for path in (
+        "/api/health",
+        "/api/bootstrap",
+        "/api/provenance",
+        "/api/temporal",
+        "/api/topics/actor-network",
+        "/api/analysis/counterfactual?entity=A",
+    ):
+        mulai = time.perf_counter()
+        assert client.get(path).status_code == 200, path
+        lama = time.perf_counter() - mulai
+        assert lama < batas, f"{path} menahan permintaan {lama:.2f} detik"
 
 
 def test_tanpa_bundle_mengembalikan_503(tmp_path):

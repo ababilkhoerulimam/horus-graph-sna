@@ -79,10 +79,27 @@ menghitung ulang pekerjaan yang sudah ada.
   - Terima: `time horus-graph serve` < 2 detik pada bundle golden; angka identik dengan sebelumnya (77/475/0,1623/0,3872); golden test tetap lulus.
   - Catatan: butir terbesar di roadmap. Kalau ditunda, 1.3 dan 1.4 tetap jalan.
 
-- [ ] **1.3 `/api/enhance` keluar dari jalur request** — M
+- [x] **1.3 `/api/enhance` keluar dari jalur request** — M
   - Berkas: `horus_graph/api/routes.py:263-286`
   - Kerjakan: pindahkan ke artefak build (ikut 1.2) atau jadikan `POST` + cache per `(bundle, resamples, bootstrap_resamples, seed)`. Turunkan default `resamples` 100 → 20.
   - Terima: GET `/api/enhance` tidak ada lagi, atau balas < 100 ms dari cache. Tidak ada request yang menahan threadpool > 1 detik.
+  - Hasil: **endpoint dihapus**, bukan di-cache. Alasannya terukur:
+    - Tidak ada pemakai. `grep -rn "api/enhance"` hanya menemukan tesnya sendiri;
+      UI mengambil semuanya lewat `/api/bootstrap`.
+    - Biayanya bukan cache miss sekali, tapi biaya per setelan. null model
+      4,8 s pada `resamples=20` dan 16,8 s pada `resamples=100`; bootstrap 3,2 s.
+      Cache per `(resamples, bootstrap_resamples, seed)` berarti setiap nilai
+      baru yang dicoba pengguna membayar penuh lagi.
+    - Sampler sudah di lantai: dari ~240 ms per resample, 136 ms adalah
+      `nx.double_edge_swap` (4.750 swap). Mempercepatnya berarti menulis ulang
+      sampler, bukan menggeser endpoint.
+  - Kemampuan tidak hilang: `horus-graph enhance --json` mengeluarkan blok yang
+    sama (null model, bootstrap, topologi, perputaran, burst), dan
+    `reporting_block(..., null=, bootstrap=)` sudah siap menempelkannya ke
+    provenance bila kelak ada artefak. Bila UI nanti butuh, bentuknya job +
+    polling, bukan GET sinkron.
+  - Pagar baru: `test_tidak_ada_endpoint_yang_menahan_permintaan` mengukur enam
+    endpoint baca dan gagal bila ada yang lewat 1 detik.
 
 - [x] **1.4 Baca parquet sekali** — S
   - Berkas: `horus_graph/io/bundle.py`, `horus_graph/contract/validate.py`
@@ -131,9 +148,8 @@ menghitung ulang pekerjaan yang sudah ada.
 **Selesai fase 1 bila:** kedelapan butir hijau dan tidak ada endpoint yang
 menghitung ulang pekerjaan yang sudah ada.
 
-Status: **6 dari 8 selesai** — 233 tes lulus. Sisa 1.2 (artefak pra-hitung) dan
-1.3 (`/api/enhance` keluar dari jalur request); keduanya bersinggungan sehingga
-dikerjakan berurutan.
+Status: **7 dari 8 selesai** — 235 tes lulus. Sisa 1.2 (artefak pra-hitung),
+butir terbesar dan satu-satunya yang menyentuh cold start.
 
 ---
 

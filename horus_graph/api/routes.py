@@ -15,13 +15,6 @@ from ..analysis import (
     trace_path,
 )
 from ..copilot.llm import llm_available
-from ..enhance import (
-    bootstrap_network,
-    degree_preserving_null,
-    detect_bursts,
-    epoch_turnover,
-    topology_profile,
-)
 from ..enhance.reporting import reporting_block
 from ..presentation import Presentation
 from . import queries, serializers
@@ -257,35 +250,9 @@ def topic_actor_network(
     return queries.topic_actor_network(_state(request), topic=topic, min_npmi=min_npmi)
 
 
-# --- temporal & enhance ----------------------------------------------------
+# --- temporal --------------------------------------------------------------
 
 
 @router.get("/api/temporal")
 def temporal(request: Request) -> Dict[str, Any]:
     return {"epochs": serializers.epoch_payloads(_state(request))}
-
-
-@router.get("/api/enhance")
-def enhance(
-    request: Request,
-    resamples: int = Query(default=100, ge=10, le=1000),
-    bootstrap_resamples: int = Query(default=50, ge=10, le=500),
-    seed: int = 42,
-) -> Dict[str, Any]:
-    state = _state(request)
-    network = state.network
-    null = degree_preserving_null(network, resamples=resamples, seed=seed)
-    boot = bootstrap_network(network, resamples=bootstrap_resamples, seed=seed)
-    return {
-        "null_model": null.as_dict(),
-        "bootstrap": {
-            "ari": boot.ari,
-            "betweenness": boot.betweenness.reset_index().to_dict(orient="records"),
-            "resamples": boot.resamples,
-        },
-        "topology": topology_profile(network).as_dict(),
-        "turnover": {
-            "transitions": epoch_turnover(state.temporal).to_dict(orient="records"),
-        },
-        "bursts": detect_bursts(state.bundle).as_dict(),
-    }

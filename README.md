@@ -191,11 +191,17 @@ angka tidak mungkin berbeda antar tampilan.
 | `GET /api/analysis/brokers`, `/holes`, `/briefing` | peringkat dan ringkasan |
 | `GET /api/edges/evidence?source=&target=` | artikel yang menyebut kedua entitas |
 | `GET /api/topics/actor-network` | bipartit topik-aktor |
-| `GET /api/temporal`, `/api/enhance`, `/api/provenance` | epos, inferensi, asal angka |
+| `GET /api/temporal`, `/api/provenance` | epos dan asal angka |
 | `GET /api/health`, `/api/dataset/status` | status proses dan kapabilitas (`copilot`, `llm`) |
 
 Tidak ada endpoint passthrough artefak JSON: UI membaca `/api/bootstrap` sekali,
 bukan enam berkas terpisah.
+
+Inferensi statistik (null model, bootstrap, topologi, perputaran epos, burst)
+tidak punya endpoint HTTP. Pekerjaan itu memakan 22 detik pada setelan bawaan
+dan 346 detik pada `resamples=1000`, jadi tempatnya di `horus-graph enhance`
+yang mengeluarkan JSON siap tempel, bukan di dalam satu GET yang bisa dipanggil
+siapa pun tanpa kuota.
 
 ## Copilot (M10)
 
