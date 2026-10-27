@@ -1,0 +1,33 @@
+[project]
+name = "horus-graph"
+version = "0.1.0"
+description = "Modular, domain-agnostic SNA engine: reads a data bundle, computes multilayer network metrics"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas>=2.2",
+    "pyarrow>=16.0",
+    "numpy>=1.26",
+    "scipy>=1.13",
+    "networkx>=3.3",
+    "pydantic>=2.8",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["horus_graph"]
+
+[project.scripts]
+horus-graph = "horus_graph.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = [".git", ".venv"]
