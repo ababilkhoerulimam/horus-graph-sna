@@ -293,9 +293,17 @@ Tujuan: boleh dipakai lebih dari satu orang dan lebih dari satu mesin.
   - Kerjakan: `manifest.snapshot_id` = hash isi bundle; riwayat snapshot di `data/bundles/.index.json`; endpoint `/api/datasets` untuk daftar read-only.
   - Terima: dua bundle berbeda tampil sebagai dua snapshot; `/api/health` menyebut `snapshot_id`.
 
-- [ ] **3.4 Observability** — S
+- [x] **3.4 Observability** — S
   - Kerjakan: structured log (JSON) + request id middleware; ganti `print()` di `app.py:65-67`; endpoint `/metrics` (Prometheus text) berisi durasi request dan status.
   - Terima: setiap log punya `request_id`; `/metrics` mengembalikan `http_request_duration_seconds`.
+  - Hasil: `horus_graph/api/observability.py`. `RequestContextMiddleware` (ASGI murni,
+    tanpa task tambahan) meneruskan atau membuat `x-request-id`, mengembalikannya ke
+    klien, dan mencatat satu baris per permintaan. `_JsonFormatter` +
+    `_RequestIdFilter` dipasang ke root dan ke logger uvicorn lewat
+    `configure_logging()`; `uvicorn.run(..., log_config=None)` supaya dictConfig
+    uvicorn tidak menimpa handler JSON. `/metrics` menyajikan
+    `horus_http_requests_total` dan `horus_http_request_duration_seconds`
+    (11 bucket) tanpa `prometheus_client`. Dua `print()` di `run()` diganti logger.
 
 - [ ] **3.5 Packaging & CI** — M
   - Kerjakan: `Dockerfile` multi-stage, `.github/workflows/ci.yml` (ruff + mypy + pytest), `[tool.ruff]`/`[tool.mypy]` di `pyproject.toml`, `Makefile` dengan `check`.
@@ -305,15 +313,27 @@ Tujuan: boleh dipakai lebih dari satu orang dan lebih dari satu mesin.
   - Kerjakan: `response_model` untuk endpoint yang bentuknya stabil; dokumentasikan endpoint yang sengaja `Dict`.
   - Terima: `/openapi.json` memuat skema untuk minimal 10 endpoint.
 
-- [ ] **3.7 Batas & higiene error** — S
+- [x] **3.7 Batas & higiene error** — S
   - Berkas: `routes.py:38,69,194,202`
   - Kerjakan: `Query(le=100)` pada semua `limit`; 503 mengembalikan pesan generik + log internal; `/api/dataset/status` hanya nama folder.
   - Terima: `?limit=999999` ditolak 422; respons error tidak memuat path absolut.
+  - Hasil: `limit` pada brokers/holes `Query(ge=1, le=100)`, `min_npmi` `ge=-1, le=1`;
+    `?limit=999999`, `?limit=0`, `?min_npmi=5` → 422. Kegagalan muat bundle:
+    `logger.exception` di server, klien menerima satu kalimat tetap. `root` hanya
+    nama folder, dan `BundleNotFound` tidak lagi menyebut path absolut.
 
-- [ ] **3.8 XSS ditutup** — S
+- [x] **3.8 XSS ditutup** — S
   - Berkas: `copilot_ui.js:390-392`, `:199,252`
   - Kerjakan: `textContent` untuk judul sesi; sanitizer (DOMPurify atau allowlist) sebelum `innerHTML` hasil `marked`; CSP tanpa `unsafe-inline`.
   - Terima: sesi berjudul `<img src=x onerror=alert(1)>` tampil sebagai teks.
+  - Hasil: `sanitizeHtml()` allowlist tag/atribut (tanpa dependensi baru) menyaring
+    keluaran `marked` sebelum token KaTeX diganti HTML; `href` di luar
+    `http`/`mailto`/`#`/`/` dibuang dan tautan diberi `rel="noopener noreferrer"`.
+    `fallbackRegexMarkdown` meng-escape masukan lebih dulu. Daftar sesi dibangun
+    dari simpul teks. Dijaga `tests/test_frontend_security.py`.
+  - Sisa: CSP belum dipasang. `index.html` memakai atribut `style=` dan skrip
+    inline di ratusan tempat, jadi CSP butuh refactor tersendiri; yang ditutup di
+    butir ini adalah jalur datanya, bukan kebijakan dokumennya.
 
 ---
 

@@ -398,3 +398,54 @@ def test_galat_muat_bundle_tidak_membocorkan_path(client, monkeypatch, tmp_path)
     detail = response.json()["detail"]
     assert str(tmp_path) not in detail
     assert "manifest.json" not in detail
+
+
+def test_setiap_respons_membawa_request_id(client):
+    response = client.get("/api/health")
+
+    assert response.headers.get("x-request-id")
+
+
+def test_request_id_dari_klien_dipakai_ulang(client):
+    """Id yang dikirim proxy diteruskan, tapi dibersihkan dulu."""
+    response = client.get("/api/health", headers={"x-request-id": "trace-123"})
+    assert response.headers["x-request-id"] == "trace-123"
+
+    aneh = client.get("/api/health", headers={"x-request-id": "a b\tc;d"})
+    assert aneh.headers["x-request-id"] == "abcd"
+
+
+def test_metrics_menyajikan_format_prometheus(client):
+    from horus_graph.api import observability
+
+    observability.reset_metrics()
+    client.get("/api/health")
+
+    text = client.get("/metrics").text
+    assert 'horus_http_requests_total{method="GET",status="200"}' in text
+    assert "horus_http_request_duration_seconds_bucket" in text
+    assert 'le="+Inf"' in text
+    # Permintaan /metrics sendiri dicatat setelah respons terkirim, jadi
+    # hitungan yang terlihat hanya permintaan sebelumnya.
+    assert "horus_http_request_duration_seconds_count 1" in text
+
+
+def test_log_json_membawa_request_id():
+    import json
+    import logging
+
+    from horus_graph.api import observability
+
+    token = observability.request_id_var.set("req-abc")
+    try:
+        record = logging.LogRecord(
+            "horus_graph.api", logging.INFO, __file__, 1, "halo", None, None
+        )
+        observability._RequestIdFilter().filter(record)
+        payload = json.loads(observability._JsonFormatter().format(record))
+    finally:
+        observability.request_id_var.reset(token)
+
+    assert payload["request_id"] == "req-abc"
+    assert payload["msg"] == "halo"
+    assert payload["level"] == "INFO"
