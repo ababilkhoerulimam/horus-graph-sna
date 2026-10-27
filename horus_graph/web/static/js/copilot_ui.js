@@ -183,8 +183,71 @@
     }
   }
 
+  /**
+   * Allowlist HTML. `marked` meneruskan HTML mentah dari model, dan isi pesan
+   * datang dari pengguna, jadi tidak ada string yang boleh menyentuh
+   * `innerHTML` sebelum lewat sini.
+   *
+   * Tanpa pustaka luar: yang dibutuhkan hanya daftar tag dan atribut, dan
+   * daftar itu lebih mudah diperiksa daripada satu dependensi tambahan.
+   */
+  const ALLOWED_TAGS = new Set([
+    "P", "BR", "HR", "STRONG", "EM", "B", "I", "U", "S", "DEL", "SUP", "SUB",
+    "CODE", "PRE", "BLOCKQUOTE", "UL", "OL", "LI", "SPAN", "DIV",
+    "H1", "H2", "H3", "H4", "H5", "H6",
+    "TABLE", "THEAD", "TBODY", "TR", "TH", "TD", "A",
+  ]);
+  const ALLOWED_ATTRS = new Set(["href", "title", "class", "colspan", "rowspan", "align"]);
+  const SAFE_HREF = /^(https?:|mailto:|#|\/)/i;
+
+  function sanitizeHtml(html) {
+    const doc = new DOMParser().parseFromString(String(html || ""), "text/html");
+    const queue = [doc.body];
+    while (queue.length) {
+      const node = queue.pop();
+      for (const child of Array.from(node.childNodes)) {
+        if (child.nodeType === Node.TEXT_NODE) continue;
+        if (child.nodeType !== Node.ELEMENT_NODE) {
+          child.remove();
+          continue;
+        }
+        if (!ALLOWED_TAGS.has(child.tagName)) {
+          // Elemen terlarang dibuang, isinya disaring ulang di induknya.
+          const parent = child.parentNode;
+          while (child.firstChild) parent.insertBefore(child.firstChild, child);
+          parent.removeChild(child);
+          queue.push(parent);
+          continue;
+        }
+        for (const attr of Array.from(child.attributes)) {
+          const name = attr.name.toLowerCase();
+          if (!ALLOWED_ATTRS.has(name)) {
+            child.removeAttribute(attr.name);
+          } else if (name === "href" && !SAFE_HREF.test(attr.value.trim())) {
+            child.removeAttribute("href");
+          }
+        }
+        if (child.tagName === "A" && child.hasAttribute("href")) {
+          child.setAttribute("rel", "noopener noreferrer");
+          child.setAttribute("target", "_blank");
+        }
+        queue.push(child);
+      }
+    }
+    return doc.body.innerHTML;
+  }
+
+  function escapeHtml(text) {
+    return String(text)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
   function fallbackRegexMarkdown(txt) {
-    return txt
+    // Escape dulu: tag di bawah ini satu-satunya HTML yang boleh lahir di sini.
+    return escapeHtml(txt)
       .replace(/^### (.*$)/gim, '<h3>$1</h3>')
       .replace(/^## (.*$)/gim, '<h2>$1</h2>')
       .replace(/^# (.*$)/gim, '<h1>$1</h1>')
@@ -248,7 +311,12 @@
       htmlOutput = fallbackRegexMarkdown(processed);
     }
 
-    // D. Detokenisasi dan Render KaTeX
+    // D. Saring sebelum KaTeX masuk. Rumus dirender KaTeX dengan `trust: false`,
+    // jadi keluarannya tidak membawa HTML dari masukan; yang perlu disaring
+    // adalah HTML hasil markdown.
+    htmlOutput = sanitizeHtml(htmlOutput);
+
+    // E. Detokenisasi dan Render KaTeX
     htmlOutput = htmlOutput.replace(/@@KATEX_TOKEN_(\d+)@@/g, function (match, idxStr) {
       const idx = parseInt(idxStr, 10);
       if (idx >= 0 && idx < mathTokens.length) {
@@ -431,22 +499,34 @@
       sessions.forEach(s => {
         const item = document.createElement("div");
         item.className = "session-item" + (s.id === activeSessionId ? " active" : "");
-        item.innerHTML = `
-          <div class="session-item-info">
-            <div class="session-item-title">${s.title || "Percakapan"}</div>
-            <div class="session-item-date">${(s.updated_at || "").substring(0, 10)}</div>
-          </div>
-          <button class="session-item-del" title="Hapus sesi ini">✕</button>
-        `;
-        const infoEl = item.querySelector(".session-item-info");
-        if (infoEl) infoEl.addEventListener("click", () => switchSession(s.id));
-        const delEl = item.querySelector(".session-item-del");
-        if (delEl) {
-          delEl.addEventListener("click", (e) => {
-            e.stopPropagation();
-            deleteSession(s.id);
-          });
-        }
+
+        // Judul sesi berasal dari pesan pengguna: simpul teks, bukan innerHTML.
+        const infoEl = document.createElement("div");
+        infoEl.className = "session-item-info";
+        const titleEl = document.createElement("div");
+        titleEl.className = "session-item-title";
+        titleEl.textContent = s.title || "Percakapan";
+        const dateEl = document.createElement("div");
+        dateEl.className = "session-item-date";
+        dateEl.textContent = (s.updated_at || "").substring(0, 10);
+        infoEl.appendChild(titleEl);
+        infoEl.appendChild(dateEl);
+
+        const delEl = document.createElement("button");
+        delEl.className = "session-item-del";
+        delEl.type = "button";
+        delEl.title = "Hapus sesi ini";
+        delEl.setAttribute("aria-label", "Hapus sesi ini");
+        delEl.textContent = "✕";
+
+        item.appendChild(infoEl);
+        item.appendChild(delEl);
+
+        infoEl.addEventListener("click", () => switchSession(s.id));
+        delEl.addEventListener("click", (e) => {
+          e.stopPropagation();
+          deleteSession(s.id);
+        });
         sessionsListEl.appendChild(item);
       });
     } catch (e) {
