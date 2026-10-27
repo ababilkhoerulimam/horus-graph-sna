@@ -187,3 +187,37 @@ def test_satu_kontrol_waktu_di_bilah():
     # Pin peristiwa harus di luar bilah, kalau tidak tahunnya terbaca sebagai
     # deret kontrol waktu kedua.
     assert "timeline-key-event-pins" not in bar
+
+
+def test_drawer_copilot_adalah_dialog():
+    markup = _index()
+    drawer = re.search(r'<div[^>]*id="copilot-drawer"[^>]*>', markup)
+
+    assert drawer is not None
+    tag = drawer.group(0)
+    assert 'role="dialog"' in tag
+    assert 'aria-modal="true"' in tag
+    assert 'aria-labelledby="copilot-title"' in tag
+    assert 'id="copilot-title"' in markup
+
+
+def test_drawer_menahan_fokus_dan_bisa_ditutup_escape():
+    script = (STATIC / "js" / "copilot_ui.js").read_text(encoding="utf-8")
+
+    assert 'event.key === "Escape"' in script
+    # Fokus harus kembali ke tombol pembuka, bukan jatuh ke <body>.
+    assert "toggleBtnEl.focus()" in script
+    # Tab di ujung daftar harus berputar, bukan keluar dari dialog.
+    assert "focusableItems" in script
+    assert 'event.key !== "Tab"' in script
+
+
+def test_simpul_graf_bisa_dijangkau_keyboard():
+    markup = _index()
+
+    assert '.attr("role", "button")' in markup
+    assert '.attr("aria-label", d => nodeAriaLabel(d))' in markup
+    # Roving tabindex: satu simpul di urutan Tab, sisanya lewat panah.
+    assert '.attr("tabindex", (d, index) => (index === 0 ? 0 : -1))' in markup
+    assert "function nodeAriaLabel(" in markup
+    assert '<button type="button" class="sb-entity-row"' in markup

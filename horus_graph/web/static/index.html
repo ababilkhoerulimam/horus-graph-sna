@@ -1895,6 +1895,14 @@
       display: none;
     }
 
+    /* Cincin fokus untuk simpul yang dijangkau keyboard. Tanpa ini, fokus
+       berpindah tanpa jejak yang terlihat. */
+    .node-item:focus { outline: none; }
+    .node-item:focus-visible circle.main-circle {
+      stroke: #F8FAFC;
+      stroke-width: 3.5;
+    }
+
     .sb-entity-row {
       display: grid;
       grid-template-columns: minmax(0, 1fr) 36px;
@@ -1907,6 +1915,11 @@
       transition: all 0.15s;
       color: #CBD5E1 !important;
       background: rgba(255, 255, 255, 0.03);
+      /* reset bawaan <button> agar tampilannya sama dengan baris sebelumnya */
+      width: 100%;
+      border: none;
+      font-family: inherit;
+      text-align: left;
     }
 
     .sb-entity-row:hover {
@@ -2607,10 +2620,10 @@
       </div>
 
       <!-- AI Copilot Drawer -->
-      <div class="copilot-drawer" id="copilot-drawer">
+      <div class="copilot-drawer" id="copilot-drawer" role="dialog" aria-modal="true" aria-labelledby="copilot-title" tabindex="-1">
         <div class="copilot-header">
           <div class="copilot-title-wrap">
-            <div class="copilot-title">
+            <div class="copilot-title" id="copilot-title">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>
               SNA AI Copilot
             </div>
@@ -3947,6 +3960,30 @@
     }
 
     let nodeG = null;
+
+    // Nama aksesibel satu simpul. Derajat hanya disebut kalau memang diukur;
+    // angka karangan di sini akan terbaca sebagai hasil analisis oleh pembaca
+    // layar, sama buruknya dengan angka karangan di layar.
+    function nodeAriaLabel(d) {
+      const label = d.display_label || d.label || d.id;
+      const type = d.entity_type || d.type || null;
+      const degree = Number.isFinite(d.degree) ? d.degree
+        : (d.metrics && Number.isFinite(d.metrics.degree) ? d.metrics.degree : null);
+      const parts = [label];
+      if (type) parts.push(type);
+      if (degree !== null) parts.push("derajat " + degree);
+      return parts.join(", ");
+    }
+
+    function focusGraphNode(node) {
+      if (!nodeG || !node) return;
+      nodeG.attr("tabindex", -1);
+      const target = nodeG.filter(d => d.id === node.id);
+      target.attr("tabindex", 0);
+      const el = target.node();
+      if (el && typeof el.focus === "function") el.focus();
+    }
+
     function buildNodeLayer() {
       nodeG = nodeLayer.selectAll("g.node-item")
       .data(allData.nodes, d => d.id)
@@ -3954,6 +3991,31 @@
       .attr("class", "node-item")
       .attr("transform", d => `translate(${d.x.toFixed(1)},${d.y.toFixed(1)})`)
       .style("cursor", "pointer")
+      // Satu simpul saja yang masuk urutan Tab; panah memindahkan fokus di
+      // antara simpul. Dengan tabindex=0 untuk semua, pengguna keyboard harus
+      // melewati 77 perhentian sebelum bisa keluar dari kanvas.
+      .attr("tabindex", (d, index) => (index === 0 ? 0 : -1))
+      .attr("role", "button")
+      .attr("aria-label", d => nodeAriaLabel(d))
+      .on("focus", function() {
+        nodeG.attr("tabindex", -1);
+        d3.select(this).attr("tabindex", 0);
+      })
+      .on("keydown", function(event, d) {
+        if (event.key === "Enter" || event.key === " " || event.key === "Spacebar") {
+          event.preventDefault();
+          event.stopPropagation();
+          selectAndInspectNode(d);
+          return;
+        }
+        const step = (event.key === "ArrowRight" || event.key === "ArrowDown") ? 1
+          : (event.key === "ArrowLeft" || event.key === "ArrowUp") ? -1 : 0;
+        if (!step) return;
+        const nodes = allData.nodes;
+        if (!nodes.length) return;
+        event.preventDefault();
+        focusGraphNode(nodes[(nodes.indexOf(d) + step + nodes.length) % nodes.length]);
+      })
       .on("click", (event, d) => {
         if (event.defaultPrevented) return;
         event.stopPropagation();
@@ -5966,7 +6028,7 @@
           <div class="sb-acc-body${open ? '' : ' collapsed'}">${displayItems.map(n => {
             const name = n.display_label || n.label || n.id;
             const degree = degMap[n.id] || 0;
-            return `<div class="sb-entity-row" data-id="${n.id}" title="Klik untuk fokus graph"><span class="sb-entity-name" title="${name}">${name}</span><span class="sb-entity-deg" title="Degree pada graph aktif">${degree}</span></div>`;
+            return `<button type="button" class="sb-entity-row" data-id="${n.id}" title="Klik untuk fokus graph"><span class="sb-entity-name" title="${name}">${name}</span><span class="sb-entity-deg" title="Degree pada graph aktif">${degree}</span></button>`;
           }).join("")}${isLimited ? `<div class="sb-entity-more" data-type="${cat.type}">+${items.length - entityDisplayLimit} lainnya (klik Semua)</div>` : ''}</div></div>`;
       };
 

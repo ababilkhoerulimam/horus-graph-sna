@@ -113,12 +113,56 @@
     }
   }
 
-  function closeCopilotDrawer() {
+  // Elemen yang bisa dijangkau Tab di dalam dialog. `display:none` pada drawer
+  // yang tertutup sudah mengeluarkannya dari urutan fokus, jadi daftar ini hanya
+  // dibutuhkan saat drawer terbuka.
+  const FOCUSABLE = [
+    "a[href]",
+    "button:not([disabled])",
+    "input:not([disabled])",
+    "select:not([disabled])",
+    "textarea:not([disabled])",
+    "[tabindex]:not([tabindex='-1'])",
+  ].join(",");
+
+  function focusableItems() {
+    if (!drawerEl) return [];
+    return Array.from(drawerEl.querySelectorAll(FOCUSABLE)).filter(
+      el => el.offsetWidth > 0 || el.offsetHeight > 0 || el === document.activeElement
+    );
+  }
+
+  function closeCopilotDrawer(restoreFocus = true) {
     if (!drawerEl) return;
+    const wasOpen = drawerEl.classList.contains("open");
     drawerEl.classList.remove("open");
     document.body.classList.remove("copilot-open");
     if (toggleBtnEl) toggleBtnEl.classList.remove("active");
     if (sessionsPanel) sessionsPanel.style.display = "none";
+    // Fokus tidak boleh jatuh ke <body> setelah dialog ditutup: pengguna
+    // keyboard kehilangan tempatnya dan harus mulai dari awal dokumen.
+    if (wasOpen && restoreFocus && toggleBtnEl) toggleBtnEl.focus();
+  }
+
+  function handleDrawerKeydown(event) {
+    if (!drawerEl || !drawerEl.classList.contains("open")) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeCopilotDrawer();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const items = focusableItems();
+    if (!items.length) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   }
 
   function toggleCopilotDrawer() {
@@ -423,7 +467,10 @@
   }
 
   // Event Listeners
-  if (closeBtnEl) closeBtnEl.addEventListener("click", closeCopilotDrawer);
+  if (closeBtnEl) closeBtnEl.addEventListener("click", () => closeCopilotDrawer());
+  // Di level dokumen supaya Esc tetap bekerja walau fokus ada di tombol
+  // pembuka atau di luar drawer.
+  document.addEventListener("keydown", handleDrawerKeydown);
   if (toggleBtnEl) toggleBtnEl.addEventListener("click", toggleCopilotDrawer);
 
   if (btnNewSession) btnNewSession.addEventListener("click", createNewSession);
