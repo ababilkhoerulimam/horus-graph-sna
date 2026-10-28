@@ -213,3 +213,14 @@ def test_blok_dengan_rich_club_memakai_hasil_yang_dihitung():
 
     assert block["rich_club"]["status"] == "ready"
     assert block["rich_club"]["normalized"] is False
+
+
+def test_koefisien_mentah_tidak_dikirim_tanpa_pembanding():
+    """Tanpa null model, kurva mentah naik secara konstruksi — bukan bukti."""
+    import networkx as nx
+
+    result = motifs.rich_club(nx.barbell_graph(4, 1), normalize=False, min_nodes=2)
+
+    payload = result.as_dict()
+    assert payload["normalized"] is False
+    assert "coefficients" not in payload

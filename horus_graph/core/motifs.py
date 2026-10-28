@@ -128,24 +128,30 @@ class RichClub:
         return {"degree": degree, "ratio": round(float(values[degree]), 4)}
 
     def as_dict(self) -> Dict[str, Any]:
-        return {
+        payload: Dict[str, Any] = {
             "status": self.status,
             "method": RICH_CLUB_METHOD,
             "normalized": self.normalized,
             "replicates": self.replicates,
             "swaps_per_edge": self.swaps_per_edge,
-            "coefficients": [
-                {"degree": degree, "coefficient": round(float(value), 4)}
-                for degree, value in sorted(self.coefficients.items())
-            ],
             "ratio": [
                 {"degree": degree, "ratio": None if value is None else round(float(value), 4)}
                 for degree, value in sorted(self.ratio.items())
             ],
-            "truncated_degrees": self.truncated,
+            # Nol berarti "tidak ada ambang yang dipotong", bukan "belum diukur".
+            "truncated_degrees": self.truncated if self.status == "ready" else None,
             "peak": self.peak,
             "reason": self.reason,
         }
+        # Koefisien mentah hanya bermakna sebagai pembanding. Tanpa null model
+        # ia naik secara konstruksi bersama derajat, dan angka seperti itu
+        # terbaca sebagai bukti klub orang kaya padahal bukan.
+        if self.normalized:
+            payload["coefficients"] = [
+                {"degree": degree, "coefficient": round(float(value), 4)}
+                for degree, value in sorted(self.coefficients.items())
+            ]
+        return payload
 
 
 def triad_census(graph: nx.Graph) -> TriadCensus:

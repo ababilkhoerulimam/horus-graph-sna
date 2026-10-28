@@ -98,6 +98,10 @@ def motif_block(state: AppState) -> Dict[str, Any]:
     stored = (state.motifs or {}).get("motifs") or {}
     club = stored.get("rich_club")
     if isinstance(club, dict) and club.get("status") == "ready":
+        # Artefak lama bisa memuat koefisien mentah dari sebelum penyaringan
+        # ini ada; jangan teruskan bentuk yang sudah tidak dikirim engine.
+        if club.get("normalized") is not True:
+            club = {key: value for key, value in club.items() if key != "coefficients"}
         block["rich_club"] = club
     return block
 
