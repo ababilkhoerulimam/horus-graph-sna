@@ -28,14 +28,44 @@ def canvas_js() -> str:
     return (STATIC / "js" / "graph_canvas.js").read_text(encoding="utf-8")
 
 
-def test_berkas_kanvas_dimuat_sebelum_skrip_utama(markup: str) -> None:
-    """Dimuat sesudah skrip utama berarti `HorusCanvas` belum ada saat dipakai."""
-    tag = markup.find('src="js/graph_canvas.js"')
-    main = markup.find("let allData = { nodes: [], links: [], metadata: {} }")
+def test_berkas_kanvas_dimuat_sebelum_skrip_utama() -> None:
+    """
+    Dimuat sesudah skrip utama berarti HorusCanvas belum ada saat dipakai.
 
-    assert tag != -1
-    assert main != -1
-    assert tag < main
+    Urutan tag dibaca dari index.html, bukan dari sumber gabungan: di sumber
+    gabungan, skrip utama selalu ditempel belakangan, jadi tesnya tidak mungkin
+    gagal dan tidak menjaga apa pun.
+    """
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    kanvas = html.find('src="js/graph_canvas.js"')
+    utama = html.find('src="js/app_01.js"')
+
+    assert kanvas != -1 and utama != -1
+    assert kanvas < utama
+
+
+def test_kanvas_setara_untuk_filter_cari_dan_fit(markup: str, canvas_js: str) -> None:
+    """
+    Di jalur kanvas tidak ada elemen per simpul, jadi setiap fungsi yang
+    memanggil nodeG menjadi no-op tanpa error. Jalur setaranya harus ada.
+    """
+    for name in ("function setActive(", "function setQuery(", "function fit(", "function coverage("):
+        assert name in canvas_js, f"kanvas tidak punya {name}"
+
+    # Satu antarmuka untuk dua renderer, dan pemanggil memakai antarmuka itu.
+    assert "const graphView = {" in markup
+    assert "HorusCanvas.setActive(ids)" in markup
+    assert "graphView.setActive(" in markup
+    assert "graphView.setQuery(" in markup
+    assert "graphView.fit()" in markup
+    assert "graphView.refresh()" in markup
+
+
+def test_kanvas_di_fit_saat_mount(canvas_js: str) -> None:
+    """Skala 1:1 pada 10.000 simpul hanya menampilkan sekitar 7% luas graf."""
+    badan = canvas_js[canvas_js.find("function mount(") :][:1600]
+
+    assert "fit();" in badan
 
 
 def test_ambang_kanvas_eksplisit(canvas_js: str) -> None:

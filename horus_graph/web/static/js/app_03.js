@@ -616,12 +616,14 @@
       lockedNode = null;
       deactivateNodes();
       document.getElementById("node-drawer").style.display = "none";
-      svg.transition().duration(400).call(resetGraphView);
+      if (graphView.canvas) graphView.fit();
+      else svg.transition().duration(400).call(resetGraphView);
     });
 
     // Dock Controls
     document.getElementById("btn-fit").addEventListener("click", () => {
-      svg.transition().duration(400).call(resetGraphView);
+      if (graphView.canvas) graphView.fit();
+      else svg.transition().duration(400).call(resetGraphView);
     });
 
     document.getElementById("btn-in").addEventListener("click", () => {

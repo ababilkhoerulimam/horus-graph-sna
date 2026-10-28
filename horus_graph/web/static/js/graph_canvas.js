@@ -40,7 +40,12 @@
     k: 1,
     tx: 0,
     ty: 0,
-    frame: 0
+    frame: 0,
+    behavior: null,
+    // Simpul yang lolos filter. null berarti semua aktif; ini pembeda yang
+    // penting, karena Set kosong berarti "tidak ada yang lolos".
+    activeIds: null,
+    query: ""
   };
 
   function handles(count) {
@@ -98,6 +103,9 @@
     resize();
     bindZoom(canvas);
     bindPointer(canvas);
+    // Tanpa fit, skala 1:1 pada 10.000 simpul hanya menampilkan sekitar 7%
+    // luas graf: kanvas tampak kosong padahal isinya ada.
+    fit();
     draw();
 
     window.addEventListener("resize", resize);
@@ -126,6 +134,7 @@
         state.ty = event.transform.y;
         draw();
       });
+    state.behavior = behavior;
     d3.select(canvas).call(behavior);
   }
 
@@ -177,6 +186,87 @@
     draw();
   }
 
+  /**
+   * Bingkai seluruh graf di dalam viewport.
+   *
+   * Diukur dari kotak pembatas simpul, bukan dari viewBox SVG: kanvas tidak
+   * punya viewBox, dan memakai skala tetap membuat graf besar tampil sebagai
+   * titik-titik di tengah layar.
+   */
+  function fit(paddingPx = 48) {
+    if (!state.nodes.length || !state.width) return;
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const node of state.nodes) {
+      const r = node.node_radius || 6;
+      minX = Math.min(minX, node.x - r);
+      maxX = Math.max(maxX, node.x + r);
+      minY = Math.min(minY, node.y - r);
+      maxY = Math.max(maxY, node.y + r);
+    }
+    const spanX = Math.max(1, maxX - minX);
+    const spanY = Math.max(1, maxY - minY);
+    const usableW = Math.max(1, state.width - (paddingPx * 2));
+    const usableH = Math.max(1, state.height - (paddingPx * 2));
+    const k = Math.max(0.05, Math.min(8, Math.min(usableW / spanX, usableH / spanY)));
+    state.k = k;
+    state.tx = -((minX + maxX) / 2) * k;
+    state.ty = -((minY + maxY) / 2) * k;
+    // Transform d3 ikut disetel, kalau tidak zoom berikutnya melompat balik ke
+    // posisi lama: dua sumber kebenaran untuk satu angka.
+    if (state.behavior && typeof d3 !== "undefined") {
+      d3.select(state.canvas).call(
+        state.behavior.transform,
+        d3.zoomIdentity.translate(state.tx, state.ty).scale(k)
+      );
+    }
+    draw();
+  }
+
+  /** Simpul yang lolos filter; null berarti semua. */
+  function setActive(ids) {
+    if (ids === null || ids === undefined) {
+      state.activeIds = null;
+    } else {
+      state.activeIds = new Set(Array.from(ids, value => (typeof value === "object" ? value.id : value)));
+    }
+    draw();
+  }
+
+  /** Pencarian teks: simpul yang tidak cocok diredupkan, bukan dihilangkan. */
+  function setQuery(text) {
+    state.query = String(text || "").trim().toLowerCase();
+    draw();
+  }
+
+  /** Gambar ulang setelah radius atau warna simpul berubah di luar kanvas. */
+  function refresh() {
+    draw();
+  }
+
+  /**
+   * Porsi simpul yang jatuh di dalam viewport. Dipakai pengukur, bukan UI:
+   * kanvas yang tidak di-fit tetap "bekerja" tapi hanya menampilkan sepetak.
+   */
+  function coverage() {
+    if (!state.nodes.length || !state.width) return 0;
+    let inside = 0;
+    for (const node of state.nodes) {
+      const sx = (node.x * state.k) + state.tx + (state.width / 2);
+      const sy = (node.y * state.k) + state.ty + (state.height / 2);
+      if (sx >= 0 && sx <= state.width && sy >= 0 && sy <= state.height) inside += 1;
+    }
+    return inside / state.nodes.length;
+  }
+
+  function _visible(node) {
+    if (state.query) {
+      const label = String(node.display_label || node.label || node.id || "").toLowerCase();
+      if (!label.includes(state.query)) return false;
+    }
+    if (state.activeIds && !state.activeIds.has(node.id)) return false;
+    return true;
+  }
+
   function draw() {
     const ctx = state.ctx;
     if (!ctx) return;
@@ -196,6 +286,9 @@
         const target = edge.target;
         if (!source || !target) continue;
         if (source.x === undefined || target.x === undefined) continue;
+        // Sisi hanya digambar bila kedua ujungnya lolos filter; sisi ke simpul
+        // yang diredupkan akan terbaca sebagai koneksi yang masih hidup.
+        if (!_visible(source) || !_visible(target)) continue;
         ctx.moveTo(source.x, source.y);
         ctx.lineTo(target.x, target.y);
       }
@@ -205,11 +298,14 @@
     const radiusScale = Math.min(1, Math.max(0.35, k));
     for (const node of state.nodes) {
       const radius = Math.max(1.5, Math.min(22, (node.node_radius || 6) * radiusScale));
+      // Redup, bukan hilang: pembaca masih perlu melihat di mana sisanya berada.
+      ctx.globalAlpha = _visible(node) ? 1 : 0.06;
       ctx.beginPath();
       ctx.fillStyle = node.color || "#94A3B8";
       ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
       ctx.fill();
     }
+    ctx.globalAlpha = 1;
 
     if (k >= LABEL_MIN_ZOOM) {
       ctx.fillStyle = "#E2E8F0";
@@ -217,6 +313,7 @@
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
       for (const node of state.labels) {
+        if (!_visible(node)) continue;
         const label = node.display_label || node.label || node.id;
         if (!label) continue;
         ctx.fillText(label, node.x, node.y + ((node.node_radius || 6) * radiusScale) + 3);
@@ -231,6 +328,11 @@
     mount: mount,
     setEdges: setEdges,
     setView: setView,
+    setActive: setActive,
+    setQuery: setQuery,
+    fit: fit,
+    refresh: refresh,
+    coverage: coverage,
     draw: draw,
     get active() {
       return state.active;

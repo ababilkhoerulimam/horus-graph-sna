@@ -374,6 +374,8 @@
           .attr("stroke", isDriver ? "#38BDF8" : "#FFFFFF")
           .attr("stroke-width", isDriver ? 3.5 : 2.0);
       });
+      // Di jalur kanvas seleksi nodeG kosong, jadi redupkan lewat renderer-nya.
+      graphView.setActive(currentActiveNodeSet);
     }
 
     function updateMinimapUnified() {
@@ -398,12 +400,8 @@
       // Filter sidebar accordion
       renderSidebarEntities(q);
 
-      // Filter graph canvas nodes
-      if (!query) {
-        nodeG.classed("dimmed", false);
-      } else {
-        nodeG.classed("dimmed", n => !(n.display_label || n.label || n.id).toLowerCase().includes(query));
-      }
+      // Filter graph canvas nodes, lewat satu antarmuka untuk dua renderer.
+      graphView.setQuery(query);
     }
 
     if (sbSearchInput) {

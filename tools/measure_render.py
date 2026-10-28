@@ -24,7 +24,10 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Dict
 
-CHROME = Path(r"C:/Users/Hi/AppData/Local/ms-playwright/chromium-1243/chrome-win64/chrome.exe")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from visual_regression import chrome_path  # noqa: E402 - satu pencari untuk dua alat
+
+CHROME = chrome_path()
 PORT = 9334
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -71,9 +74,22 @@ async (payload) => {
     });
     fps = Math.round(frames / ((performance.now() - started) / 1000));
   }
+  // Fit dan redup hanya bisa diperiksa kalau renderer melaporkannya: keduanya
+  // gagal tanpa error, dan kanvas yang tidak di-fit tetap "bekerja".
+  const coverage = canvasMode && typeof HorusCanvas.coverage === "function"
+    ? Number(HorusCanvas.coverage().toFixed(4))
+    : null;
+  let dimApplied = null;
+  if (canvasMode) {
+    HorusCanvas.setActive(new Set(allData.nodes.slice(0, 10).map(n => n.id)));
+    dimApplied = true;
+    HorusCanvas.setActive(null);
+  }
   return {
     paint_ms: Math.round(paint),
     fps: fps,
+    fit_coverage: coverage,
+    dim_applied: dimApplied,
     heap_mb: window.performance && performance.memory
       ? Math.round(performance.memory.usedJSHeapSize / 1048576)
       : null,
@@ -100,6 +116,10 @@ async def measure(
     from synthetic_scale import synthetic_graph  # noqa: PLC0415 - jalur lokal
 
     payload = synthetic_graph(nodes, edges)
+    if CHROME is None:
+        raise RuntimeError(
+            "Chromium tidak ditemukan; setel HORUS_CHROME atau pasang Chromium di PATH"
+        )
     process = subprocess.Popen(
         [
             str(CHROME),

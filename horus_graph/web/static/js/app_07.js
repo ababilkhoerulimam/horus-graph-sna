@@ -88,6 +88,8 @@
             .attr("stroke", col);
         }
       });
+      // Radius baru hanya sampai ke layar kalau kanvas digambar ulang.
+      graphView.refresh();
     }
 
     function applyEdgeFilters() {

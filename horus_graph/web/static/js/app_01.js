@@ -627,6 +627,47 @@
     function resetGraphView(selection = svg) {
       return selection.call(zoom.transform, getCloseFitTransform());
     }
+
+    // Satu antarmuka untuk dua renderer. Tanpa ini setiap pemanggil harus
+    // bercabang sendiri, dan pemanggil ketujuh akan lupa — persis cara filter
+    // dan tombol Fit menjadi no-op senyap di jalur kanvas.
+    const graphView = {
+      get canvas() {
+        return !!(window.HorusCanvas && HorusCanvas.active);
+      },
+      setActive(ids) {
+        if (this.canvas) {
+          HorusCanvas.setActive(ids);
+          return;
+        }
+        const allowed = (ids === null || ids === undefined)
+          ? null
+          : new Set(Array.from(ids, value => (typeof value === "object" ? value.id : value)));
+        nodeG.classed("dimmed", n => (allowed ? !allowed.has(n.id) : false));
+      },
+      setQuery(text) {
+        const q = String(text || "").trim().toLowerCase();
+        if (this.canvas) {
+          HorusCanvas.setQuery(q);
+          return;
+        }
+        if (!q) {
+          nodeG.classed("dimmed", false);
+          return;
+        }
+        nodeG.classed("dimmed", n => !(n.display_label || n.label || n.id).toLowerCase().includes(q));
+      },
+      fit() {
+        if (this.canvas) {
+          HorusCanvas.fit();
+          return;
+        }
+        resetGraphView();
+      },
+      refresh() {
+        if (this.canvas) HorusCanvas.refresh();
+      }
+    };
     requestAnimationFrame(() => resetGraphView());
 
     // Layers in order

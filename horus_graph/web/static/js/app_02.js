@@ -534,6 +534,8 @@
       // 1. Isolate Nodes: connected nodes stay 100% lit; non-connected drop to 0.08 shadow silhouette
       nodeG.classed("dimmed", n => !neighborIds.has(n.id));
       nodeG.classed("active", n => n.id === centerNode.id);
+      // Jalur kanvas tidak punya elemen per simpul; redupkan lewat renderer.
+      graphView.setActive(neighborIds);
 
       // 2. Isolate Edges: Causal Direction Split (Cyan Outgoing vs Amber Incoming)!
       activeLayer.selectAll("g.edge-item")
