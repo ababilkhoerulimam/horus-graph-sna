@@ -199,6 +199,19 @@ def test_rich_club_menunggu_masukan_tanpa_artefak(client):
     assert "coefficients" not in club
 
 
+def test_bootstrap_membawa_urutan_sentralitas(client):
+    """Dua epos di bundle uji: tiap simpul punya dua titik, bukan satu ringkasan."""
+    payload = client.get("/api/bootstrap").json()
+    block = payload["graph"]["sequence"]
+
+    assert block["status"] == "ready"
+    assert block["windows"] == ["e1", "e2"]
+    node = next(row for row in block["series"] if row["id"] == "A")
+    # Larik sejajar dengan urutan `windows`, bukan daftar objek per jendela.
+    assert len(node["degree_rank"]) == len(block["windows"]) == 2
+    assert block["rank_agreement"][0]["left"] == "e1"
+
+
 def test_difusi_mengembalikan_sebaran_bukan_satu_angka(client):
     """Rantai A-B-C-D dengan peluang 1: setiap jalankan menyentuh empat simpul."""
     payload = client.get(

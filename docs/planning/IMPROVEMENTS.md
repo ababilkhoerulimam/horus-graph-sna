@@ -461,7 +461,7 @@ memindahkan renderer yang isinya masih akan berubah di V0–V1.
   - Tes: `tests/test_auth.py` — matriks peran; `tests/test_sessions.py` —
     persistensi lintas instance.
 
-- [ ] **V2.4 SNA tambahan** — L
+- [x] **V2.4 SNA tambahan** — L
   - Berkas: `core/metrics/community.py`, baru `core/diffusion.py`,
     `core/motifs.py`, `api/queries.py`
   - Kerjakan, berurutan sesuai nilai: (a) consensus clustering lewat matriks
@@ -482,7 +482,7 @@ memindahkan renderer yang isinya masih akan berubah di V0–V1.
   - [x] **(a) Consensus clustering + stabilitas per simpul**
   - [x] (b) Triad census + rich-club
   - [x] (c) Difusi independent cascade + threshold
-  - [ ] (d) Graph sequence + sentralitas dinamis
+  - [x] (d) Graph sequence + sentralitas dinamis
 
   **Status (a): selesai.**
 
@@ -649,6 +649,54 @@ memindahkan renderer yang isinya masih akan berubah di V0–V1.
   `tests/test_api.py` menjaga endpoint: sebaran berjumlah 1, penyebar tak
   dikenal → 422, `runs` di bawah batas → 422, dan penyebar kosong →
   `awaiting_input`. Suite: 480 → 497.
+
+  **Status (d): selesai.**
+
+  **Di mana.** `core/sequence.py` (`build_sequence`), dihitung sekali saat
+  `load_state` dan dikirim sebagai `graph.sequence` di `/api/bootstrap`.
+
+  **Apa yang diukur.** Seri peringkat per simpul melintasi jendela epos, plus
+  ringkasan gerak. Pada bundle emas (3 jendela, 76 simpul): kesepakatan
+  peringkat antara epos 1 dan 2 hanya 0,3879 pada 59 simpul bersama, dan
+  0,3966 antara epos 2 dan 3 pada 62 simpul bersama. Artinya urutan broker
+  berubah hampir sebanyak ia bertahan — temuan yang tidak muncul dari
+  perbandingan dua epos saja. Lima penggerak terbesar: RANS Nusantara FC
+  turun 58 peringkat, Persis Solo dan tempo-co turun 52, Karim Rossi turun 46,
+  Stadion Gelora Bung Karno naik 44. Dewa United FC: peringkat 1 di epos 1,
+  32 di epos 2, dan tidak muncul di epos 3 — karena itu `rank_shift`-nya
+  `null`, bukan angka.
+
+  **Biaya.** 16,9 KB pada payload bootstrap (27,9 KB setelah gzip, masih di
+  bawah batas 30 KB dari V1.1). Dihitung sekali saat bundle dimuat, bukan per
+  permintaan.
+
+  **Enam keputusan yang menyimpang dari rencana:**
+
+  1. **Peringkat, bukan nilai mentah.** Jumlah simpul dan kerapatan tiap
+     jendela berbeda, jadi betweenness antar epos tidak sebanding. Peringkat
+     juga tidak sepenuhnya sebanding, tetapi ia setidaknya menjawab urutan.
+  2. **Agregat all-time bukan jendela.** Ia gabungan seluruh tahun; memasukkannya
+     membuat setiap simpul terlihat "bertahan" di satu jendela yang bukan
+     jendela.
+  3. **Simpul yang tidak muncul diberi `null`, bukan 0.** Nol berarti "diukur,
+     hasilnya nol"; `null` berarti "tidak ada di jendela itu". `rank_shift`
+     juga `null` bila salah satu ujungnya hilang — simpul yang baru muncul di
+     jendela terakhir tidak punya arah.
+  4. **Larik sejajar, bukan daftar objek per titik.** Bentuk objek per jendela
+     menambah ~25 KB payload tanpa menambah informasi; larik sejajar memotong
+     blok dari 35 KB ke 16,9 KB.
+  5. **Korelasi peringkat tidak selalu dilaporkan.** Di bawah tiga simpul
+     bersama, atau bila salah satu sisi tidak punya variasi, nilainya `null` —
+     angka dari dua simpul akan terbaca sebagai temuan.
+  6. **Dihitung saat state dimuat, bukan per permintaan.** Peringkat atas
+     beberapa jendela tidak berubah selama bundle tidak berubah.
+
+  **Tes.** `tests/test_core_sequence.py` (9) memakai jendela yang peringkatnya
+  bisa dihitung tangan: pertukaran peringkat, gerak terurut, simpul yang hilang
+  (`null`, bukan nol), all-time yang tidak dihitung sebagai jendela, seri
+  dipecah oleh id saat nilai sama, kurang dari dua jendela, dan korelasi yang
+  tidak dilaporkan untuk dua simpul. Satu tes di `tests/test_api.py` menjaga
+  blok bootstrap. Suite: 497 → 507.
 
 **Selesai V2 bila:** satu bundle 10 ribu simpul terbuka dalam 2 detik, dua
 pengguna dengan peran berbeda bisa bekerja tanpa saling menimpa, dan setiap

@@ -19,6 +19,7 @@ from ..analysis import motifs as motif_artifact
 from ..core.anomaly import AnomalyReport, detect_anomalies
 from ..core.bipartite import TopicActorBundle, build_bipartite
 from ..core.build import NetworkBundle, build_network
+from ..core.sequence import build_sequence
 from ..core.temporal import TemporalBundle, build_temporal
 from ..io.bundle import DataBundle, load_bundle
 from ..presentation import Presentation, resolve_presentation
@@ -44,6 +45,9 @@ class AppState:
     # Artefak rich-club, bila sudah dihitung di luar server. Dibaca sekali saat
     # bundle dimuat: ini langkah build, bukan kerja per permintaan.
     motifs: Optional[Dict[str, Any]] = None
+    # Seri sentralitas lintas jendela epos. Dihitung sekali saat muat: peringkat
+    # atas beberapa jendela tidak berubah selama bundle tidak berubah.
+    sequence: Optional[Dict[str, Any]] = None
 
 
 def resolve_bundle_path(explicit: Optional[Path | str] = None) -> Optional[Path]:
@@ -81,16 +85,18 @@ def load_state(path: str) -> AppState:
     started = time.perf_counter()
     root = Path(path)
     bundle = load_bundle(root)
+    temporal = build_temporal(bundle)
     state = AppState(
         root=root,
         bundle=bundle,
         presentation=resolve_presentation(bundle),
         network=build_network(bundle),
-        temporal=build_temporal(bundle),
+        temporal=temporal,
         bipartite=build_bipartite(bundle),
         anomaly=detect_anomalies(bundle),
         build_seconds=round(time.perf_counter() - started, 3),
         motifs=motif_artifact.read_artifact(root),
+        sequence=build_sequence(temporal),
     )
     return state
 

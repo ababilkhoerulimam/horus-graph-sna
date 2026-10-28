@@ -17,6 +17,7 @@ from .._coerce import to_number
 from ..contract import schema
 from ..core.build import NetworkBundle
 from ..core.motifs import motif_block as assemble_motifs
+from ..core.sequence import build_sequence as sequence_block
 from ..core.stance import stance_of
 from ..enhance.reporting import reporting_block
 from ..presentation import Presentation
@@ -71,6 +72,10 @@ def bootstrap_payload(state: AppState) -> Dict[str, Any]:
             # Sensus triad selalu segar dari build; rich-club hanya bila
             # artefaknya ada, karena pembanding acaknya tidak dijalankan server.
             "motifs": motif_block(state),
+            # Seri sentralitas lintas jendela; peringkat hanya berlaku di dalam
+            # jendelanya sendiri, jadi tidak ada angka mentah yang dibandingkan
+            # antar epos.
+            "sequence": state.sequence or sequence_block(state.temporal),
         },
         "epochs": epoch_payloads(state),
         "topics": topic_payloads(state),
