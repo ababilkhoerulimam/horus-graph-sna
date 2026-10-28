@@ -260,11 +260,9 @@
     // -------------------------------------------------------------
     // Render Nodes (True Circle Nodes with Hover Capsule Expansion)
     // -------------------------------------------------------------
-    // Core anchors that always show subtle label plate underneath to eliminate clutter
-    // Label yang selalu tampil ditentukan entities.is_anchor.
-    function isAnchorNode(d) {
-      return !!(d && d.is_anchor);
-    }
+    // Label yang selalu tampil ditentukan peringkat, bukan is_anchor: anchor
+    // adalah penanda data, dan dataset yang semua simpulnya anchor akan
+    // membanjiri kanvas kalau penanda itu dipakai sebagai gerbang.
 
     let nodeG = null;
 
@@ -348,7 +346,6 @@
     nodeG.each(function(d) {
       const el = d3.select(this);
       const isSun = d.id === EGO_ID;
-      const isAnchor = isAnchorNode(d);
       const displayLabel = d.display_label || d.label;
       const nodeColor = d.color || "#8A99AE";
 
@@ -405,7 +402,7 @@
       // Sisanya menunggu hover. Batasnya proporsional terhadap jumlah simpul
       // supaya graf 12 simpul tidak dipenuhi label dan graf 1.000 simpul tidak
       // kehilangan konteks.
-      if (isSun || isAnchor || d.label_priority <= labelBudget()) {
+      if (isSun || d.label_priority <= labelBudget()) {
         const labelLen = displayLabel.length;
         const charWidth = isSun ? 6.8 : 6.0;
         const platePad = isSun ? 16 : 12;

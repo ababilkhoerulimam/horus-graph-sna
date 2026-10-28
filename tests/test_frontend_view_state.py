@@ -62,6 +62,10 @@ def test_setiap_metrik_ukuran_menunjuk_ke_peringkat(markup: str) -> None:
 def test_label_dibatasi_oleh_peringkat(markup: str) -> None:
     assert "function labelBudget(" in markup
     assert "label_priority <= labelBudget()" in markup
+    # is_anchor adalah penanda data, bukan gerbang label: kalau ia ikut menentukan,
+    # dataset yang semua simpulnya anchor membanjiri kanvas melewati anggaran.
+    assert "isAnchorNode" not in markup
+    assert "isAnchor ||" not in markup
     # Label yang bertabrakan disembunyikan, bukan ditumpuk.
     assert "function applyLabelBudget(" in markup
     assert "getBoundingClientRect()" in _badan(markup, "applyLabelBudget", 1200)
