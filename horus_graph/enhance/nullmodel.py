@@ -15,17 +15,25 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import networkx as nx
 import numpy as np
+from scipy import sparse
 
 from .._coerce import to_number
 from ..core import metrics
+from ..core.backbone import select_edges
 from ..core.build import NetworkBundle
+from ..core.cooccurrence import from_incidence, graph_from_cooccurrence
 from . import stats
 
+# Dua pertanyaan, dua null:
+# - `topology_null`: apakah susunan tepi proyeksi wajar, dengan derajat tetap?
+# - `association_null`: apakah NPMI sebesar ini wajar, dengan margin insidensi
+#   (artikel dan entitas) tetap?
 METRICS = ("modularity", "transitivity", "assortativity")
+ASSOCIATION_METRICS = ("edges", "density", "modularity", "transitivity", "assortativity")
 
 
 @dataclass(frozen=True)
@@ -38,6 +46,8 @@ class NullModelResult:
     resamples: int
     seed: int
     swaps_per_edge: int
+    method: str = "degree_preserving_double_edge_swap"
+    sweeps: int = 0
 
     def as_dict(self) -> Dict[str, Any]:
         return {
@@ -49,7 +59,8 @@ class NullModelResult:
             "resamples": self.resamples,
             "seed": self.seed,
             "swaps_per_edge": self.swaps_per_edge,
-            "method": "degree_preserving_double_edge_swap",
+            "sweeps": self.sweeps,
+            "method": self.method,
         }
 
 
@@ -161,7 +172,14 @@ def _round(value: Optional[float]) -> Optional[float]:
     return to_number(value, 4)
 
 
-def _empty(resamples: int, seed: int, swaps_per_edge: int) -> NullModelResult:
+def _empty(
+    resamples: int,
+    seed: int,
+    swaps_per_edge: int,
+    names: Tuple[str, ...] = METRICS,
+    method: str = "degree_preserving_double_edge_swap",
+    sweeps: int = 0,
+) -> NullModelResult:
     """
     Tidak ada yang bisa diuji.
 
@@ -171,12 +189,140 @@ def _empty(resamples: int, seed: int, swaps_per_edge: int) -> NullModelResult:
     pernah dipakai.
     """
     return NullModelResult(
-        observed={name: None for name in METRICS},
-        null_mean={name: None for name in METRICS},
-        null_sd={name: None for name in METRICS},
-        z={name: None for name in METRICS},
-        p_value={name: None for name in METRICS},
+        observed={name: None for name in names},
+        null_mean={name: None for name in names},
+        null_sd={name: None for name in names},
+        z={name: None for name in names},
+        p_value={name: None for name in names},
         resamples=0,
         seed=seed,
         swaps_per_edge=swaps_per_edge,
+        method=method,
+        sweeps=sweeps,
     )
+
+
+def association_null(
+    network: NetworkBundle,
+    resamples: int = 200,
+    seed: int = 42,
+    sweeps: int = 5,
+) -> NullModelResult:
+    """
+    Null untuk NPMI: acak matriks insidensi, bukan proyeksi.
+
+    NPMI didefinisikan pada margin insidensi (`support/total` versus
+    `node_articles/total`), jadi hanya null yang menjaga derajat artikel dan
+    entitas yang membuat sebaran NPMI sebanding dengan nilai teramati. Setiap
+    draw menjalankan pipeline seleksi yang sama dengan graf nyata, termasuk
+    gerbang q bila aktif.
+    """
+    cooc = network.cooccurrence
+    matrix = cooc.counting_matrix
+    if matrix.shape[0] < 2 or cooc.pair_count == 0:
+        return _empty(
+            resamples,
+            seed,
+            0,
+            ASSOCIATION_METRICS,
+            "bipartite_incidence_permutation",
+            sweeps,
+        )
+
+    graph = network.graph
+    observed = {
+        "edges": float(graph.number_of_edges()),
+        "density": metrics.density(graph.number_of_edges(), graph.number_of_nodes()),
+        "modularity": _modularity(graph),
+        "transitivity": _transitivity(graph),
+        "assortativity": _assortativity(graph),
+    }
+
+    config = network.backbone.config()
+    rng = np.random.default_rng(seed)
+    draws: Dict[str, list] = {name: [] for name in ASSOCIATION_METRICS}
+    for _ in range(resamples):
+        permuted = _curveball(matrix, rng, sweeps)
+        null_cooc = from_incidence(permuted, cooc.entity_ids, total=int(permuted.shape[0]))
+        selected, _, _ = select_edges(null_cooc, config)
+        null_graph = graph_from_cooccurrence(null_cooc, selected)
+        edges = null_graph.number_of_edges()
+        draws["edges"].append(float(edges))
+        draws["density"].append(metrics.density(edges, null_graph.number_of_nodes()))
+        draws["modularity"].append(_modularity(null_graph))
+        draws["transitivity"].append(_transitivity(null_graph))
+        draws["assortativity"].append(_assortativity(null_graph))
+
+    return NullModelResult(
+        observed={name: _round(observed[name]) for name in ASSOCIATION_METRICS},
+        null_mean={
+            name: _round(_nan_reduce(draws[name], np.nanmean)) for name in ASSOCIATION_METRICS
+        },
+        null_sd={
+            name: _round(_nan_reduce(draws[name], lambda data: np.nanstd(data, ddof=1)))
+            for name in ASSOCIATION_METRICS
+        },
+        z={name: _round(stats.z_score(observed[name], draws[name])) for name in ASSOCIATION_METRICS},
+        p_value={name: _p_value(observed[name], draws[name]) for name in ASSOCIATION_METRICS},
+        resamples=resamples,
+        seed=seed,
+        swaps_per_edge=0,
+        method="bipartite_incidence_permutation",
+        sweeps=sweeps,
+    )
+
+
+def _curveball(
+    matrix: sparse.csr_matrix, rng: np.random.Generator, sweeps: int
+) -> sparse.csr_matrix:
+    """
+    Curveball: tukar isi dua baris pada gabungan kolomnya.
+
+    Kedua margin terjaga persis — jumlah artikel per entitas dan jumlah entitas
+    per artikel tidak berubah — sehingga perbedaan hasil hanya berasal dari
+    susunan keanggotaan, bukan dari derajat yang ikut bergeser.
+    """
+    row_count = int(matrix.shape[0])
+    rows = [
+        set(matrix.indices[matrix.indptr[i] : matrix.indptr[i + 1]].tolist())
+        for i in range(row_count)
+    ]
+    trades = max(1, row_count * max(1, sweeps))
+    for _ in range(trades):
+        first = int(rng.integers(0, row_count))
+        second = int(rng.integers(0, row_count))
+        if first == second:
+            continue
+        # Hanya kolom yang berbeda yang boleh ditukar; kolom bersama tetap di
+        # kedua baris. Menukar seluruh gabungan akan menghapus kolom bersama
+        # dari baris kedua dan menggeser marginnya.
+        first_set = rows[first]
+        second_set = rows[second]
+        common = first_set & second_set
+        pool = sorted((first_set | second_set) - common)
+        keep = len(first_set) - len(common)
+        if len(pool) < 2 or keep == 0 or keep == len(pool):
+            continue
+        shuffled = [int(value) for value in rng.permutation(np.asarray(pool))]
+        rows[first] = common | set(shuffled[:keep])
+        rows[second] = common | set(shuffled[keep:])
+
+    indices: List[int] = []
+    indptr = [0]
+    for row in rows:
+        indices.extend(sorted(row))
+        indptr.append(len(indices))
+    return sparse.csr_matrix(
+        (
+            np.ones(len(indices), dtype=np.float64),
+            np.asarray(indices, dtype=np.int32),
+            np.asarray(indptr, dtype=np.int32),
+        ),
+        shape=matrix.shape,
+    )
+
+
+# Nama lama: pertanyaan "apakah susunan tepi proyeksi wajar" tetap sah, dan
+# artefak yang sudah ditulis memakai nama ini.
+topology_null = degree_preserving_null
+

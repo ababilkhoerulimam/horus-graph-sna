@@ -3,9 +3,16 @@
 from __future__ import annotations
 
 import networkx as nx
+import numpy as np
+from scipy import sparse
 
 from horus_graph.core import build_network
-from horus_graph.enhance.nullmodel import degree_preserving_null
+from horus_graph.enhance.nullmodel import (
+    ASSOCIATION_METRICS,
+    _curveball,
+    association_null,
+    degree_preserving_null,
+)
 
 
 def _cliques(bundle_factory):
@@ -61,3 +68,87 @@ def test_dict_hasil_memuat_metode(bundle_factory):
     assert payload["method"] == "degree_preserving_double_edge_swap"
     assert set(payload["observed"]) == {"modularity", "transitivity", "assortativity"}
     assert payload["null_mean"]["transitivity"] >= 0
+
+
+# --- null asosiasi (insidensi) -------------------------------------------
+
+
+def test_curveball_menjaga_kedua_margin() -> None:
+    matrix = sparse.csr_matrix(
+        np.array(
+            [
+                [1, 1, 0, 1],
+                [0, 1, 1, 1],
+                [1, 0, 1, 0],
+                [1, 1, 1, 1],
+            ],
+            dtype=float,
+        )
+    )
+    rng = np.random.default_rng(5)
+
+    for _ in range(5):
+        permuted = _curveball(matrix, rng, sweeps=3)
+        assert np.array_equal(
+            np.asarray(permuted.sum(axis=0)).ravel(),
+            np.asarray(matrix.sum(axis=0)).ravel(),
+        )
+        assert np.array_equal(
+            np.asarray(permuted.sum(axis=1)).ravel(),
+            np.asarray(matrix.sum(axis=1)).ravel(),
+        )
+
+
+def test_null_asosiasi_melaporkan_metode_dan_sweeps(bundle_factory) -> None:
+    network = _cliques(bundle_factory)
+
+    result = association_null(network, resamples=10, seed=7, sweeps=3)
+
+    assert result.method == "bipartite_incidence_permutation"
+    assert result.sweeps == 3
+    assert result.resamples == 10
+    assert set(result.observed) == set(ASSOCIATION_METRICS)
+
+
+def test_null_asosiasi_deterministik_dengan_seed_sama(bundle_factory) -> None:
+    network = _cliques(bundle_factory)
+
+    first = association_null(network, resamples=10, seed=3)
+    second = association_null(network, resamples=10, seed=3)
+
+    assert first.null_mean == second.null_mean
+
+
+def test_dua_klik_lebih_termodel_dari_null_asosiasi(bundle_factory) -> None:
+    network = _cliques(bundle_factory)
+
+    result = association_null(network, resamples=20, seed=7)
+
+    assert result.observed["modularity"] > result.null_mean["modularity"]
+    assert result.p_value["modularity"] < 0.15
+
+
+def test_pengacakan_insidensi_justru_membuat_proyeksi_lebih_padat(bundle_factory) -> None:
+    """
+    Dua klik terpisah: tidak ada pasangan lintas klik sama sekali.
+
+    Setelah margin diacak, entitas tersebar antarartikel sehingga banyak
+    pasangan lintas klik mendapat support cukup dan lolos ambang. Karena itu
+    jumlah sisi bukan statistik yang tepat untuk null ini — modularitas yang
+    membedakan struktur nyata dari sebaran acak.
+    """
+    network = _cliques(bundle_factory)
+
+    result = association_null(network, resamples=20, seed=7)
+
+    assert result.observed["edges"] < result.null_mean["edges"]
+
+
+def test_null_asosiasi_tanpa_pasangan_tidak_mengarang_p_value(bundle_factory) -> None:
+    bundle = bundle_factory(["A", "B"], [("art000", "A", 1)], articles=5)
+
+    result = association_null(build_network(bundle), resamples=10, seed=7)
+
+    assert result.resamples == 0
+    assert result.method == "bipartite_incidence_permutation"
+    assert all(value is None for value in result.p_value.values())
