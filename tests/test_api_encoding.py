@@ -124,3 +124,24 @@ def test_payload_simpul_membawa_blok_ukuran(bundle_factory) -> None:
         assert 0.0 <= node["size_rank"] <= 1.0
         assert node["label_priority"] >= 1
     assert {node["radius_tier"] for node in nodes} == set(range(1, TIERS + 1))
+
+def test_prominence_berbeda_dari_degree() -> None:
+    """
+    Kalau kedua metrik selalu sama, pilihan di toolbar tidak punya arti dan
+    kartu topik-aktor tidak berubah saat metrik diganti.
+    """
+    block = encode(
+        _metrics(
+            ramai=(1, 90, 0.0, 1.0),
+            populer=(40, 40, 0.0, 4.0),
+            jembatan=(2, 2, 0.40, 2.0),
+        )
+    )
+
+    selisih = {
+        name: abs(item["size_rank"] - item["rank_degree"])
+        for name, item in block.items()
+    }
+    assert max(selisih.values()) > 0.0
+    assert selisih["ramai"] > 0.0
+    assert selisih["jembatan"] > 0.0

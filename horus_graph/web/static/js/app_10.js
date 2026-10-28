@@ -369,7 +369,7 @@
       params.set("m", currentMode);
       if (currentTopic && currentTopic !== "ALL") params.set("t", currentTopic);
       if (currentColorMode !== "type") params.set("c", currentColorMode);
-      if (currentSizingMetric !== "volume") params.set("k", currentSizingMetric);
+      if (currentSizingMetric !== "prominence") params.set("k", currentSizingMetric);
       if (currentMinWeight !== VIEW_DEFAULTS.weight) params.set("w", String(currentMinWeight));
       if (currentMinNpmi !== VIEW_DEFAULTS.npmi) params.set("n", String(currentMinNpmi));
       // `y` adalah tahun yang sedang dilihat, bukan batas rentang dataset:

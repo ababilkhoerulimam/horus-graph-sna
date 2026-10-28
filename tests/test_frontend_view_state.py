@@ -108,3 +108,26 @@ def test_token_tidak_menghapus_hash_saat_dibersihkan(markup: str) -> None:
     ]
     assert baris, "replaceState untuk token tidak ditemukan"
     assert any("location.hash" in line for line in baris)
+
+def test_metrik_prominence_menjadi_bawaan(markup: str) -> None:
+    """`size_rank` adalah satu-satunya ringkasan komposit; ia harus terbaca."""
+    blok = markup[markup.find("const SIZE_RANK_FIELDS") : markup.find("const SIZE_RANK_FIELDS") + 400]
+    assert 'prominence: "size_rank"' in blok
+    assert 'currentSizingMetric = "prominence"' in markup
+    # Pilihan yang sama harus ada di menu, kalau tidak metriknya tak bisa dipilih.
+    assert 'data-sizing-metric="prominence"' in markup
+
+
+def test_kartu_aktor_mengikuti_metrik_ukuran(markup: str) -> None:
+    """
+    Tinggi kartu yang tetap membuat pilihan metrik tidak berpengaruh sama
+    sekali: mode topik-aktor tampak sama untuk degree dan prominence.
+    """
+    badan = _badan(markup, "cardHeight", 400)
+    assert "minH + (maxH - minH) * rank" in badan
+
+    # Kartu aktor di kedua jalur (sankey dan kolom kanan) membaca peringkat,
+    # bukan tinggi literal.
+    assert "height: cardHeight(n," in markup
+    assert "actorCardH(d)" in markup
+    assert '.attr("height", 26)' not in markup

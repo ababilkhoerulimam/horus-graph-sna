@@ -1,6 +1,6 @@
     // -------------------------------------------------------------
     let currentColorMode = "type"; // "type" | "louvain" | "sentiment"
-    let currentSizingMetric = "volume"; // "volume" | "degree" | "betweenness" | "burt" | "uniform"
+    let currentSizingMetric = "prominence"; // "prominence" | "volume" | "degree" | "betweenness" | "burt" | "uniform"
 
     // Palet komunitas berasal dari presentation.palette.
     function communityColors() {
@@ -46,7 +46,11 @@
     // "peringkat yang mana", bukan "bagaimana menormalkan".
     const RADIUS_MIN = 6.0;
     const RADIUS_MAX = 26.0;
+    // `prominence` adalah ringkasan komposit yang sudah dihitung engine
+    // (degree + volume + betweenness berbobot); metrik lain adalah komponen
+    // tunggal. Semuanya peringkat 0..1, jadi skalanya tetap satu.
     const SIZE_RANK_FIELDS = {
+      prominence: "size_rank",
       degree: "rank_degree",
       betweenness: "rank_betweenness",
       burt: "rank_burt",
@@ -54,14 +58,38 @@
       uniform: null
     };
 
-    function sizeRank(d) {
+    // Peringkat yang benar-benar dikirim, atau null bila payload lama / metrik
+    // uniform. Pemanggil yang butuh "tidak ada data" memakai ini; yang butuh
+    // skala memakai sizeRank di bawah.
+    function sizeRankOrNull(d) {
       const field = SIZE_RANK_FIELDS[currentSizingMetric];
       if (!field) return null;
       const value = d[field];
+      if (typeof value !== "number" || !Number.isFinite(value)) return null;
+      return Math.max(0.0, Math.min(1.0, value));
+    }
+
+    function sizeRank(d) {
+      if (!SIZE_RANK_FIELDS[currentSizingMetric]) return null;
       // Peringkat yang tidak dikirim diperlakukan sebagai "paling kecil",
       // bukan rata-rata: mengarang posisi tengah menyembunyikan data hilang.
-      if (typeof value !== "number" || !Number.isFinite(value)) return 0.0;
-      return Math.max(0.0, Math.min(1.0, value));
+      const rank = sizeRankOrNull(d);
+      if (rank === null) return 0.0;
+      return rank;
+    }
+
+    // Tinggi kartu memakai peringkat yang sama dengan radius simpul, jadi
+    // kartu besar benar-benar berarti simpul besar. Lebar tetap: lebar
+    // menggeser jangkar ribbon, tinggi tidak.
+    const CARD_MIN_H = 34.0;
+    const CARD_MAX_H = 64.0;
+
+    function cardHeight(d, fallback, minH = CARD_MIN_H, maxH = CARD_MAX_H) {
+      const rank = sizeRankOrNull(d);
+      // Tanpa peringkat (payload lama, metrik uniform) kartu tetap seperti
+      // semula, bukan mengecil seragam karena field yang tidak ada.
+      if (rank === null) return fallback;
+      return minH + (maxH - minH) * rank;
     }
 
     function computeNodeRadius(d) {
@@ -372,8 +400,8 @@
           sizeMenu.querySelectorAll(".dropdown-item").forEach(i => i.classList.remove("active"));
           item.classList.add("active");
           currentSizingMetric = item.dataset.sizingMetric;
-          const labelMap = { volume: "Volume", degree: "Degree", betweenness: "Betweenness", burt: "Burt ES", uniform: "Uniform" };
-          if (sizeLabel) sizeLabel.textContent = `Ukuran: ${labelMap[currentSizingMetric] || 'Volume'}`;
+          const labelMap = { prominence: "Prominence", volume: "Volume", degree: "Degree", betweenness: "Betweenness", burt: "Burt ES", uniform: "Uniform" };
+          if (sizeLabel) sizeLabel.textContent = `Ukuran: ${labelMap[currentSizingMetric] || 'Prominence'}`;
           sizeMenu.classList.remove("show", "open");
           refreshNodeStyles();
         });

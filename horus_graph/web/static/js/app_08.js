@@ -32,7 +32,7 @@
               x: colX[0],
               y: mediaStartY + i * mediaYSpacing,
               width: 200,
-              height: 42,
+              height: cardHeight(n, 42),
               data: n
             });
           });
@@ -46,7 +46,7 @@
               x: colX[1],
               y: topicStartY + i * topicYSpacing,
               width: 260,
-              height: 52,
+              height: cardHeight(n, 52),
               data: n
             });
           });
@@ -60,7 +60,7 @@
               x: colX[2],
               y: actorStartY + i * actorYSpacing,
               width: 220,
-              height: 38,
+              height: cardHeight(n, 38),
               data: n
             });
           });
@@ -353,9 +353,16 @@
             if (realNode) selectAndInspectNode(realNode);
           });
 
+        // Kartu aktor memakai peringkat simpul aslinya dari nodeMap, jadi
+        // metrik ukuran yang dipilih di toolbar juga berlaku di mode ini.
+        // Rentang 20..32 karena baris aktor hanya berjarak 36 piksel.
+        const actorRankSource = (d) => nodeMap.get(d.id) || d;
+        const actorCardH = (d) => cardHeight(actorRankSource(d), 26, 20, 32);
         actorNodes.append("rect")
-          .attr("x", -60).attr("y", -13)
-          .attr("width", 170).attr("height", 26)
+          .attr("x", -60)
+          .attr("y", d => -actorCardH(d) / 2)
+          .attr("width", 170)
+          .attr("height", d => actorCardH(d))
           .attr("rx", 4)
           .attr("fill", "rgba(15, 23, 42, 0.85)")
           .attr("stroke", d => d.color || "#8A99AE")
