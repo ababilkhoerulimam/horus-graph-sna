@@ -439,9 +439,9 @@ memindahkan renderer yang isinya masih akan berubah di V0–V1.
   - Tes: `tests/fixtures/synthetic_scale.py` (deterministik) + skrip Chromium
     headless yang mengukur waktu paint dan frame.
 
-- [ ] **V2.2 Pecah frontend + regresi visual** — L
+- [x] **V2.2 Pecah frontend + regresi visual** — L
 
-  **Status: hampir selesai — ukuran berkas terpenuhi, regresi visual belum.**
+  **Status: selesai — ukuran berkas dan regresi visual terpenuhi.**
 
   `index.html` 8.726 → 909 baris (batas 1.500). CSS di `css/app.css` (2.269),
   skrip di sepuluh berkas `js/app_01.js`..`app_10.js` yang dimuat berurutan;
@@ -459,10 +459,32 @@ memindahkan renderer yang isinya masih akan berubah di V0–V1.
   Diverifikasi: 77 simpul tetap SVG (77 `g.node-item`, tanpa error konsol),
   10.000 simpul tetap kanvas (220 fps, 30 MB), dan 535 tes hijau.
 
-  **Yang belum: regresi visual 3 mode x 3 lebar.** Skrip pembandingnya belum
-  ada, dan `Pillow` tidak terpasang di lingkungan ini — perbandingan piksel
-  harus ditulis sendiri atau menambah dependensi, dan itu keputusan tersendiri,
-  bukan sesuatu yang pantas diselipkan di akhir refactor.
+  **Regresi visual: `tools/visual_regression.py`.** Sembilan bidikan (3 mode x
+  3 lebar: 1024/1280/1600, tinggi 950) dibandingkan dengan baseline di
+  `.shots/baseline/`. `Pillow` tidak dipakai: PNG 8-bit non-interlaced
+  didekode dengan `zlib` + `struct`, dan 30 tes di
+  `tests/test_visual_regression.py` menguji kelima tipe filter — salah
+  menerapkan filter akan membuat setiap perbandingan mengembalikan "sama" dan
+  gerbangnya berubah jadi karet stempel.
+
+  Dua angka toleransi, keduanya diukur bukan dipilih: piksel dianggap berbeda
+  bila satu kanal melewati 2, dan bidikan gagal bila lebih dari 120 piksel
+  berbeda — anggaran absolut, bukan porsi, karena porsi melonggar seiring lebar
+  bidikan sementara cacat yang dikejar berukuran tetap. `--calibrate` menangkap tiap bidikan dua kali pada kode yang
+  tidak berubah; selisih-diri terburuk 0,0015% (18 piksel dari 1.216.000), 6,7
+  kali di bawah anggaran. Gerbangnya diuji dengan merusak: `--accent-blue`
+  diganti `#38BDF8` → `#FF2D95` membuat `actor_network_1600` berbeda 0,1649%
+  dan `narrative_temporal_1024` 0,2458%, keduanya gagal seperti seharusnya,
+  lalu warnanya dikembalikan.
+
+  Dua batas yang belum ditutup, ditulis supaya tidak dikira tertutup. Baseline
+  tidak masuk git: tangkapan layar bergantung pada font dan versi Chromium
+  mesin ini, jadi gerbang ini membandingkan "mesin ini, sebelum vs sesudah",
+  bukan antar mesin. Bingkai tiap bidikan dihitung skrip, bukan oleh aplikasi:
+  `resetGraphView` memakai viewBox 4600x3800 sebagai skala sehingga selalu
+  mengembalikan identitas, dan mode 02 tidak membingkai ulang lapisan
+  bipartitnya saat mode berganti — itu cacat produk yang belum diperbaiki,
+  bukan sesuatu yang ditutupi skrip.
 
 
   - Berkas: `index.html` (7.792 baris), `web/static/js/*`

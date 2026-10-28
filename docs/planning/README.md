@@ -43,4 +43,4 @@ commit tetap jadi kebenaran akhir; dokumen di sini menjelaskan **mengapa** dan
 | 2 | UX + aksesibilitas | 10 | 10 |
 | 3 | Lapisan enterprise | 8 | 8 |
 | — | Pemangkasan (cut list) | 7 | 7 |
-| V | Visualisasi & SNA kelas enterprise | 12 | 11 |
+| V | Visualisasi & SNA kelas enterprise | 12 | 12 |
