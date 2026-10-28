@@ -40,6 +40,7 @@ _requests: Dict[Tuple[str, int], int] = {}
 _duration_sum = 0.0
 _duration_count = 0
 _bucket_counts: List[int] = [0] * len(BUCKETS)
+_audit_failures = 0
 
 
 def current_request_id() -> str:
@@ -48,13 +49,26 @@ def current_request_id() -> str:
 
 def reset_metrics() -> None:
     """Kosongkan penghitung. Dipakai tes supaya angka tidak menumpuk."""
-    global _duration_sum, _duration_count
+    global _duration_sum, _duration_count, _audit_failures
     with _lock:
+        _audit_failures = 0
         _requests.clear()
         _duration_sum = 0.0
         _duration_count = 0
         for index in range(len(_bucket_counts)):
             _bucket_counts[index] = 0
+
+
+def record_audit_failure() -> None:
+    """Satu baris audit gagal ditulis. Naik terus; tidak pernah turun sendiri."""
+    global _audit_failures
+    with _lock:
+        _audit_failures += 1
+
+
+def audit_failures() -> int:
+    with _lock:
+        return _audit_failures
 
 
 def record(method: str, status: int, duration: float) -> None:
@@ -97,6 +111,11 @@ def metrics_text() -> str:
     lines.append(f'horus_http_request_duration_seconds_bucket{{le="+Inf"}} {total}')
     lines.append(f"horus_http_request_duration_seconds_sum {total_sum:.6f}")
     lines.append(f"horus_http_request_duration_seconds_count {total}")
+    lines += [
+        "# HELP horus_audit_write_failures_total Baris audit yang gagal ditulis.",
+        "# TYPE horus_audit_write_failures_total counter",
+        f"horus_audit_write_failures_total {audit_failures()}",
+    ]
     return "\n".join(lines) + "\n"
 
 

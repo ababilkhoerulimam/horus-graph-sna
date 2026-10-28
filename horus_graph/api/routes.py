@@ -44,13 +44,19 @@ def _identity(request: Request) -> Identity:
     return who if isinstance(who, Identity) else identity(request)
 
 
-def _audit(request: Request, state: AppState, action: str, detail: Optional[Dict[str, Any]] = None) -> None:
+def _audit(
+    request: Request, state: AppState, action: str, detail: Optional[Dict[str, Any]] = None
+) -> bool:
     """
     Catat satu tindakan. Aktornya diambil dari state yang diisi `require_token`,
     bukan dari parameter, supaya jejaknya tidak bisa dipalsukan pemanggil.
+
+    Kembalian False berarti jejaknya tidak tertulis. Pemanggil yang hanya
+    membaca atau idempoten tetap menjawab berhasil dengan penanda; pemanggil
+    yang tidak bisa diulang tanpa efek ganda memanggil ini lebih dulu.
     """
     who = _identity(request)
-    audit.record(
+    return audit.record(
         audit.audit_path(),
         actor=who.actor,
         role=who.role,
@@ -58,6 +64,11 @@ def _audit(request: Request, state: AppState, action: str, detail: Optional[Dict
         snapshot=_snapshot_key(state),
         detail=detail,
     )
+
+
+def _audit_headers(written: bool) -> Dict[str, str]:
+    """Penanda bahwa jejak audit tidak tertulis, tanpa mengubah isi respons."""
+    return {} if written else {"X-Audit-Status": "failed"}
 
 
 def _state(request: Request) -> AppState:
@@ -122,9 +133,10 @@ def dataset_status(request: Request) -> Dict[str, Any]:
 
 
 @router.get("/api/bootstrap")
-def bootstrap(request: Request) -> Dict[str, Any]:
+def bootstrap(request: Request, response: Response) -> Dict[str, Any]:
     state = _state(request)
-    _audit(request, state, "view.bootstrap")
+    for name, value in _audit_headers(_audit(request, state, "view.bootstrap")).items():
+        response.headers[name] = value
     return serializers.bootstrap_payload(state)
 
 
@@ -455,13 +467,11 @@ def export_network(request: Request, fmt: str) -> Response:
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-    _audit(request, state, f"export.{fmt}", {"bytes": len(body)})
+    written = _audit(request, state, f"export.{fmt}", {"bytes": len(body)})
     name = f"{state.bundle.manifest.dataset_id}.{export_formats.EXTENSIONS[fmt]}"
-    return Response(
-        content=body,
-        media_type=export_formats.CONTENT_TYPES[fmt],
-        headers={"Content-Disposition": f'attachment; filename="{name}"'},
-    )
+    headers = {"Content-Disposition": f'attachment; filename="{name}"'}
+    headers.update(_audit_headers(written))
+    return Response(content=body, media_type=export_formats.CONTENT_TYPES[fmt], headers=headers)
 
 
 # --- anotasi ---------------------------------------------------------------
@@ -498,19 +508,28 @@ def list_annotations(request: Request) -> Dict[str, Any]:
 
 
 @router.post("/api/annotations", dependencies=[Depends(rate_limited("annotations"))])
-def create_annotation(request: Request, payload: AnnotationRequest) -> Dict[str, Any]:
+def create_annotation(
+    request: Request, payload: AnnotationRequest, response: Response
+) -> Dict[str, Any]:
+    """
+    Menyimpan catatan bersifat idempoten: id-nya diturunkan dari isi, jadi
+    mengulang permintaan yang sama tidak menambah baris. Karena itu audit
+    ditulis sesudahnya, dan kegagalannya tidak membatalkan simpanan.
+    """
     state = _state(request)
     key = _snapshot_key(state)
     try:
         record = annotation_store.add(key, payload.target_type, payload.target_id, payload.text)
     except annotation_store.AnnotationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    _audit(
+    written = _audit(
         request,
         state,
         "annotation.create",
         {"annotation_id": record.id, "target_type": payload.target_type},
     )
+    for name, value in _audit_headers(written).items():
+        response.headers[name] = value
     return {"status": "saved", "snapshot_id": key, "annotation": record.as_dict()}
 
 
@@ -526,9 +545,20 @@ def delete_annotation(
     """
     state = _state(request)
     key = _snapshot_key(state)
-    if not annotation_store.remove(key, annotation_id):
+    existing = [item for item in annotation_store.load(key) if item.id == annotation_id]
+    if not existing:
         raise HTTPException(status_code=404, detail="Catatan tidak ditemukan.")
-    _audit(request, state, "annotation.delete", {"annotation_id": annotation_id, "role": who.role})
+    # Penghapusan tidak bisa diulang tanpa efek ganda: mengulang setelah 500
+    # menghasilkan 404, dan pembaca menyimpulkan catatannya tidak pernah ada.
+    # Karena itu jejaknya ditulis lebih dulu, dan kegagalannya membatalkan.
+    if not _audit(
+        request, state, "annotation.delete", {"annotation_id": annotation_id, "role": who.role}
+    ):
+        raise HTTPException(
+            status_code=503,
+            detail="Jejak audit tidak bisa ditulis; penghapusan dibatalkan.",
+        )
+    annotation_store.remove(key, annotation_id)
     return {"status": "deleted", "snapshot_id": key, "annotation_id": annotation_id}
 
 
@@ -558,10 +588,8 @@ def export_report(request: Request, payload: Optional[ReportRequest] = None) -> 
         summary=dict(state.network.summary),
         title=(payload.title if payload and payload.title else None) or f"Laporan {state.presentation.title}",
     )
-    _audit(request, state, "report.create", {"bytes": len(body)})
+    written = _audit(request, state, "report.create", {"bytes": len(body)})
     name = f"{state.bundle.manifest.dataset_id}-{key}.html"
-    return Response(
-        content=body,
-        media_type="text/html; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="{name}"'},
-    )
+    headers = {"Content-Disposition": f'attachment; filename="{name}"'}
+    headers.update(_audit_headers(written))
+    return Response(content=body, media_type="text/html; charset=utf-8", headers=headers)
