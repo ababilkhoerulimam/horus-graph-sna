@@ -605,3 +605,11 @@ def test_kesepakatan_peringkat_memuat_prominence(client):
 def test_kesepakatan_menolak_top_k_di_luar_batas(client):
     assert client.get("/api/analysis/agreement?top_k=2").status_code == 422
     assert client.get("/api/analysis/agreement?top_k=51").status_code == 422
+
+
+def test_analisis_bertanda_hanya_status(client):
+    payload = client.get("/api/analysis/signed").json()
+
+    assert payload["status"] == "not_published"
+    assert payload["reason"]
+    assert all(not isinstance(value, (int, float)) for value in payload.values())

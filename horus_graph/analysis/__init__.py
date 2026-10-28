@@ -6,6 +6,7 @@ from .dossier import entity_dossier
 from .paths import trace_path
 from .ranking import sentiment_ranking, structural_holes, top_brokers
 from .resolve import resolve_candidates, resolve_entity, unresolved_share
+from .signed import signed_edges
 
 __all__ = [
     "entity_dossier",
@@ -13,6 +14,7 @@ __all__ = [
     "resolve_candidates",
     "resolve_entity",
     "sentiment_ranking",
+    "signed_edges",
     "simulate_removal",
     "structural_holes",
     "top_brokers",

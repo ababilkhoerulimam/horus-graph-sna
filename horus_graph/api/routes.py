@@ -13,6 +13,7 @@ from .. import annotations as annotation_store
 from ..analysis import (
     entity_dossier,
     executive_briefing,
+    signed_edges,
     simulate_removal,
     structural_holes,
     top_brokers,
@@ -354,6 +355,17 @@ def analysis_sensitivity(
     """
     state = _state(request)
     return sensitivity(state.bundle, points=points, active=state.network.backbone.config())
+
+
+@router.get("/api/analysis/signed")
+def analysis_signed(request: Request) -> Dict[str, Any]:
+    """
+    Analisis bertanda tidak diterbitkan; endpoint ini hanya menyatakan itu.
+
+    Tanpa endpoint, ketiadaan blok terbaca sebagai bug oleh UI dan celah oleh
+    pengembang berikutnya yang ingin "melengkapinya".
+    """
+    return signed_edges(_state(request).network)
 
 
 @router.get("/api/analysis/agreement")
