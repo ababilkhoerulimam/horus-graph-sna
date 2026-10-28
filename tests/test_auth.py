@@ -12,12 +12,11 @@ import json
 
 import pytest
 from fastapi.testclient import TestClient
+from test_api import _write_bundle
 
 from horus_graph.api import audit
 from horus_graph.api.app import create_app
 from horus_graph.api.auth import reset_rate_limits
-
-from test_api import _write_bundle
 
 
 @pytest.fixture(autouse=True)

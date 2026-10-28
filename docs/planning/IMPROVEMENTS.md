@@ -428,7 +428,7 @@ Tujuan: bertahan pada dataset tingkat nasional dan pada lebih dari satu
 pengguna. Ini fase termahal; jangan mulai sebelum V0 selesai, karena V2.1
 memindahkan renderer yang isinya masih akan berubah di V0–V1.
 
-- [ ] **V2.1 Renderer canvas/WebGL + LOD** — L
+- [x] **V2.1 Renderer canvas/WebGL + LOD** — L
   - Berkas: `index.html` (lapisan render), baru `web/static/js/render.js`
   - Kerjakan: gambar simpul/sisi ke canvas (2D cukup sampai ~20 ribu sisi;
     WebGL hanya bila terbukti perlu). Level-of-detail: label dan panah hanya
@@ -758,6 +758,62 @@ memindahkan renderer yang isinya masih akan berubah di V0–V1.
   **Batas yang belum ditutup.** Tidak ada rotasi berkas audit dan tidak ada
   endpoint untuk membacanya (dibaca dari berkas); hitungan pembatas laju hilang
   saat restart; OIDC belum ada.
+
+  **Status (V2.1): selesai, dengan ambang yang eksplisit.**
+
+  **Di mana.** `web/static/js/graph_canvas.js` (renderer kanvas), dipanggil dari
+  `index.html` saat jumlah simpul melewati `THRESHOLD = 2000`.
+  `tests/fixtures/synthetic_scale.py` membuat graf uji, `tools/measure_render.py`
+  mengukurnya lewat Chromium headless.
+
+  **Apa yang diukur.** Graf sintetis 10.000 simpul / 50.000 sisi, jendela
+  1600x950:
+
+  | Jalur | Tampil pertama | Gambar ulang | Heap |
+  | --- | --- | --- | --- |
+  | SVG (sebelum) | 2.080 ms | 2 fps | — |
+  | Canvas (sesudah) | 282 ms | 247 fps | 22 MB |
+
+  Batas V2.1 adalah 2.000 ms, 30 fps, dan 500 MB; ketiganya lolos dengan jarak
+  yang lebar. Pada 1.000 simpul / 5.000 sisi jalur SVG tetap dipakai dan masih
+  lolos sendiri (147 ms, 40 fps) — jadi ambangnya bukan tebakan.
+
+  **Lima keputusan yang menyimpang dari rencana:**
+
+  1. **Dua renderer, dipilih oleh ambang.** Rencana menyebut "gambar simpul dan
+     sisi ke canvas" seolah mengganti seluruh jalur. Mengganti seluruhnya
+     berarti kehilangan tooltip, label, navigasi keyboard, dan seleksi yang
+     sudah diuji pada graf kecil — semuanya demi masalah yang hanya muncul pada
+     graf besar. Di bawah 2.000 simpul, SVG tetap.
+  2. **Tata letak filotaksis, bukan simulasi gaya.** Simulasi pada 10.000 simpul
+     butuh puluhan detik dan hasilnya berbeda tiap muat; keduanya melanggar
+     kriteria terima. Susunan deterministik O(n) memberi sebaran merata dalam
+     milidetik. Konsekuensinya bentuknya spiral, bukan gugus komunitas — untuk
+     graf sebesar itu yang dibaca adalah kepadatan dan sebaran, bukan struktur
+     halus.
+  3. **Level-of-detail di tiga tempat.** Sisi disembunyikan di bawah zoom 0,25,
+     label hanya muncul di atas zoom 0,8, dan labelnya dibatasi 60 simpul
+     berderajat tertinggi. Tanpa ini, 50.000 garis per frame tetap berat.
+  4. **`nodeG` menjadi seleksi kosong di jalur kanvas.** Fungsi filter dan label
+     memanggil `nodeG.each(...)`; seleksi kosong membuat semuanya jadi no-op
+     tanpa mengubah satu pun pemanggil.
+  5. **Sisi diarahkan ke objek simpul sekali saat mount.** Versi pertama
+     melewatkan sisi yang ujungnya masih berupa id, dan kanvas tampil kosong
+     tanpa satu pun error — kesalahan yang hanya tertangkap karena tangkapan
+     layarnya diperiksa, bukan karena tesnya.
+
+  **Batas yang belum ditutup.** Jalur kanvas belum punya tooltip, geser simpul,
+  atau navigasi keyboard; seleksi lewat klik sudah ada (radius 12 px). Label
+  mengikuti 60 simpul berderajat tertinggi, bukan label yang lolos penyaringan
+  topik. Untuk graf di atas ambang, itu kompromi yang disengaja sampai ada
+  kebutuhan nyata.
+
+  **Tes.** `tests/test_frontend_canvas.py` (6) menjaga sambungan: berkas dimuat
+  sebelum skrip utama, ambang ada, `renderActiveEdges` mendelegasikan saat
+  kanvas aktif, boot memilih satu renderer, LOD ada, dan sisi diarahkan ke
+  objek simpul. `tests/test_synthetic_scale.py` (5) menjaga fixture:
+  jumlah tepat, deterministik per benih, derajat konsisten dengan sisi, dan
+  permintaan mustahil ditolak. Suite: 524 → 535.
 
 **Selesai V2 bila:** satu bundle 10 ribu simpul terbuka dalam 2 detik, dua
 pengguna dengan peran berbeda bisa bekerja tanpa saling menimpa, dan setiap

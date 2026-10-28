@@ -3161,6 +3161,9 @@
     </div>
   </div>
 
+  <!-- Renderer canvas untuk graf besar; lihat js/graph_canvas.js untuk ambangnya. -->
+  <script src="js/graph_canvas.js"></script>
+
   <script>
     // Embedded Active Dataset
     let allData = { nodes: [], links: [], metadata: {} };  // diisi dari /api/bootstrap
@@ -4056,6 +4059,13 @@
     }
 
     function renderActiveEdges(edgeList) {
+      // Di atas ambang, sisi digambar canvas: satu path SVG per sisi berarti
+      // 50.000 elemen yang harus ditata ulang setiap frame.
+      if (window.HorusCanvas && HorusCanvas.active) {
+        HorusCanvas.setEdges(edgeList);
+        updateEdgeCountBadge();
+        return;
+      }
       const linkSel = activeLayer.selectAll("g.edge-item")
         .data(edgeList, d => getSourceId(d) + "->" + getTargetId(d));
 
@@ -8668,7 +8678,16 @@
         populateEdgeCategoryMenu();
         populateMediaLensMenu();
         buildTopicNetworks();
-        buildNodeLayer();
+        const canvasMode = !!(window.HorusCanvas && HorusCanvas.handles(allData.nodes.length));
+        if (canvasMode) {
+          HorusCanvas.mount(allData);
+          // Lapisan SVG dibiarkan kosong, tetapi `nodeG` tetap seleksi kosong
+          // supaya fungsi filter dan label yang memanggilnya jadi no-op,
+          // bukan error.
+          nodeG = nodeLayer.selectAll("g.node-item");
+        } else {
+          buildNodeLayer();
+        }
         renderMinimapNodes();
         updateMacroStats();
         updateTimelineMilestone(null);
@@ -8678,7 +8697,7 @@
         renderActiveEdges(activeTopicEdges);
         updateEdgeCountBadge();
         renderSidebarEntities();
-        initForceSimulation();
+        if (!canvasMode) initForceSimulation();
         hideCanvasLoading();
         // Tautan diterapkan setelah tata letak berhenti bergerak: mode topik
         // butuh render bipartit yang belum siap sebelum itu. Timer di bawah
