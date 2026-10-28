@@ -19,7 +19,6 @@ from horus_graph.api.app import create_app
 
 pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient  # noqa: E402
-
 from test_api import _write_bundle  # noqa: E402
 
 
