@@ -204,3 +204,37 @@ def test_cli_build_flag_eksplisit_menang(bundle_factory, monkeypatch, capsys) ->
     report = json.loads(capsys.readouterr().out)
     assert report["backbone"]["min_support"] == 5
     assert report["backbone"]["min_npmi"] == 0.4
+
+
+# --- kurva q --------------------------------------------------------------
+
+
+def test_kurva_q_tidak_naik_saat_ambang_naik(bundle_factory) -> None:
+    bundle = _corpus(bundle_factory)
+
+    result = sensitivity(bundle, points=6)
+
+    q_curve = result["by_q"]
+    assert q_curve, "q selalu dihitung oleh from_incidence"
+    passed = [point["passed"] for point in q_curve]
+    # Arah q terbalik dari ambang lain: q <= 0,05 berarti 5% FDR, jadi ambang
+    # yang lebih besar justru lebih longgar dan sisinya bertambah.
+    assert passed == sorted(passed)
+    assert all(point["min_q"] is not None and point["min_q"] > 0 for point in q_curve)
+
+
+def test_kurva_q_hanya_ada_bila_q_dihitung(bundle_factory, monkeypatch) -> None:
+    """Tanpa q, kurva q kosong — bukan kurva datar di nol yang menyesatkan."""
+    from dataclasses import replace
+
+    from horus_graph.analysis import sensitivity as module
+
+    bundle = _corpus(bundle_factory)
+    original = module.cooccurrence
+
+    def without_q(data):
+        return replace(original(data), q_value=None)
+
+    monkeypatch.setattr(module, "cooccurrence", without_q)
+
+    assert module.sensitivity(bundle, points=4)["by_q"] == []

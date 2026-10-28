@@ -11,7 +11,7 @@ mana yang lolos ambang dan mana yang diselamatkan.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 
@@ -25,12 +25,17 @@ class BackboneConfig:
     min_support: int = 3
     min_npmi: float = 0.2
     rescue_isolated: bool = True
+    # Gerbang signifikansi. `None` berarti perilaku lama: hanya support dan
+    # NPMI yang menyaring, sehingga "signifikan" tidak pernah diklaim.
+    min_q: Optional[float] = None
 
     def __post_init__(self) -> None:
         if self.min_support < 1:
             raise ValueError("min_support minimal 1")
         if not -1.0 <= self.min_npmi <= 1.0:
             raise ValueError("min_npmi harus di rentang [-1, 1]")
+        if self.min_q is not None and not 0.0 < self.min_q <= 1.0:
+            raise ValueError("min_q harus di rentang (0, 1]")
 
 
 @dataclass(frozen=True)
@@ -45,6 +50,9 @@ class BackboneReport:
     min_support: int
     min_npmi: float
     rescue_isolated: bool = True
+    min_q: Optional[float] = None
+    tested_pairs: int = 0
+    significant_pairs: int = 0
 
     def as_dict(self) -> Dict[str, Any]:
         return {
@@ -56,6 +64,11 @@ class BackboneReport:
             "min_support": self.min_support,
             "min_npmi": self.min_npmi,
             "rescue_isolated": self.rescue_isolated,
+            # Keluarga uji ikut dilaporkan: q-value tanpa jumlah uji tidak bisa
+            # ditafsirkan.
+            "min_q": self.min_q,
+            "tested_pairs": self.tested_pairs,
+            "significant_pairs": self.significant_pairs,
         }
 
     def config(self) -> "BackboneConfig":
@@ -64,6 +77,7 @@ class BackboneReport:
             min_support=self.min_support,
             min_npmi=self.min_npmi,
             rescue_isolated=self.rescue_isolated,
+            min_q=self.min_q,
         )
 
 
@@ -83,11 +97,22 @@ def select_edges(
     passing = (
         (support[scored] >= config.min_support) & (values[scored] >= config.min_npmi)
     )
+    significant = 0
+    blocked = np.zeros(cooc.support.size, dtype=bool)
+    if config.min_q is not None:
+        if cooc.q_value is None:
+            raise ValueError("min_q butuh q_value; bangun Cooccurrence lewat from_incidence")
+        significant_mask = cooc.q_value[scored] <= config.min_q
+        blocked[scored] = ~significant_mask
+        passing = passing & significant_mask
+        significant = int(significant_mask.sum())
     selected = scored[passing]
     rescued_count = 0
 
     if config.rescue_isolated:
-        selected, rescued_count = _rescue(cooc, selected)
+        # Penyelamatan tidak boleh menghidupkan lagi edge yang gagal gerbang q:
+        # itu mengembalikan tepat edge yang diminta dibuang, tanpa jejak.
+        selected, rescued_count = _rescue(cooc, selected, blocked=blocked)
 
     rescued = np.zeros(selected.size, dtype=bool)
     if rescued_count:
@@ -115,12 +140,24 @@ def select_edges(
         min_support=config.min_support,
         min_npmi=config.min_npmi,
         rescue_isolated=config.rescue_isolated,
+        min_q=config.min_q,
+        tested_pairs=int(scored.size),
+        significant_pairs=significant,
     )
     return selected, rescued, report
 
 
-def _rescue(cooc: Cooccurrence, selected: np.ndarray) -> Tuple[np.ndarray, int]:
-    """Tambah satu edge NPMI tertinggi untuk tiap entitas yang belum tersentuh."""
+def _rescue(
+    cooc: Cooccurrence,
+    selected: np.ndarray,
+    blocked: Optional[np.ndarray] = None,
+) -> Tuple[np.ndarray, int]:
+    """
+    Tambah satu edge NPMI tertinggi untuk tiap entitas yang belum tersentuh.
+
+    `blocked` menandai pasangan yang sudah ditolak gerbang signifikansi;
+    penyelamatan hanya untuk konektivitas, bukan jalan memutar melewati ambang.
+    """
     chosen = set(int(i) for i in selected)
     touched = np.zeros(len(cooc.entity_ids), dtype=bool)
     touched[cooc.pair_u[selected]] = True
@@ -133,7 +170,11 @@ def _rescue(cooc: Cooccurrence, selected: np.ndarray) -> Tuple[np.ndarray, int]:
 
     added: list[int] = []
     for node in np.flatnonzero(~touched):
-        pool = [p for p in incident.get(int(node), []) if p not in chosen]
+        pool = [
+            p
+            for p in incident.get(int(node), [])
+            if p not in chosen and (blocked is None or not blocked[p])
+        ]
         if not pool:
             continue
         best = max(pool, key=lambda p: cooc.npmi[p])

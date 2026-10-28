@@ -116,3 +116,32 @@ def benjamini_hochberg(p_values: Sequence[float]) -> List[float]:
         running = min(running, candidate)
         q_values[position] = running
     return q_values
+
+
+def hypergeometric_p_array(
+    support: np.ndarray, cu: np.ndarray, cv: np.ndarray, total: int
+) -> np.ndarray:
+    """
+    Versi vektor dari `hypergeometric_p`.
+
+    Konvensi `n = max(100, total)` dipertahankan persis; tanpa itu vektor dan
+    skalar bisa memberi p yang berbeda untuk pasangan yang sama, dan pembaca
+    tidak punya cara tahu mana yang dipakai.
+    """
+    support = np.asarray(support, dtype=np.int64)
+    cu = np.asarray(cu, dtype=np.int64)
+    cv = np.asarray(cv, dtype=np.int64)
+    n = int(max(100, total))
+    k1 = np.minimum(cu, cv)
+    k2 = np.maximum(cu, cv)
+    values = np.ones(support.shape, dtype=np.float64)
+    valid = (support > 0) & (k1 > 0) & (k2 > 0) & (total > 0)
+    if not np.any(valid):
+        return values
+
+    from scipy.stats import hypergeom
+
+    clipped = np.minimum(support[valid], k1[valid])
+    values[valid] = hypergeom.sf(clipped - 1, n, k1[valid], k2[valid])
+    return np.clip(values, 0.0, 1.0)
+

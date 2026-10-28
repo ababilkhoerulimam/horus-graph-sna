@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 import pytest
 
 from horus_graph.core import cooccurrence
 from horus_graph.core.backbone import BackboneConfig, select_edges
+from horus_graph.core.build import build_network
 
 
 def _edges(cooc, selected):
@@ -103,3 +106,90 @@ def test_tanpa_pasangan_menghasilkan_graf_kosong_tapi_laporan_lengkap(bundle_fac
     assert report.candidate_pairs == 0
     assert report.still_isolated == ("A", "B")
     assert np.isfinite(cooc.npmi).sum() == 0
+
+
+# --- gerbang q ------------------------------------------------------------
+
+
+def _mixed_significance(bundle_factory):
+    """
+    Satu pasangan benar-benar berasosiasi, satu pasangan hanya kebetulan.
+
+    A-B: 30 dari 100 artikel, padahal margin keduanya 50 — persis yang
+    diharapkan kebetulan. A-C/A-D/C-D: seluruh artikel C dan D memuat A,
+    sehingga mustahil terjadi secara acak.
+    """
+    rows = [(f"art{i:03d}", "A", 1) for i in range(0, 50)]
+    rows += [(f"art{i:03d}", "B", 1) for i in range(20, 70)]
+    rows += [(f"art{i:03d}", e, 1) for i in range(0, 10) for e in ("C", "D")]
+    return bundle_factory(["A", "B", "C", "D"], rows, articles=100)
+
+
+def _selected_names(cooc, selected) -> set:
+    return {
+        frozenset((cooc.entity_ids[int(cooc.pair_u[p])], cooc.entity_ids[int(cooc.pair_v[p])]))
+        for p in selected
+    }
+
+
+def test_tanpa_min_q_semua_pasangan_lolos_ambang_dipakai(bundle_factory):
+    cooc = cooccurrence(_mixed_significance(bundle_factory))
+
+    selected, _, report = select_edges(cooc, BackboneConfig(min_support=3, min_npmi=0.1))
+
+    assert len(selected) == 4
+    # Uji tetap dijalankan (keluarga 4 pasangan), tetapi tidak ada yang
+    # dibuang: significant_pairs 0 berarti "tidak ada gerbang", bukan "gagal".
+    assert report.min_q is None
+    assert report.tested_pairs == 4
+    assert report.significant_pairs == 0
+
+
+def test_gerbang_q_membuang_pasangan_kuat_tapi_tidak_signifikan(bundle_factory):
+    cooc = cooccurrence(_mixed_significance(bundle_factory))
+
+    selected, _, report = select_edges(
+        cooc, BackboneConfig(min_support=3, min_npmi=0.1, min_q=0.01)
+    )
+
+    names = _selected_names(cooc, selected)
+    assert frozenset(("A", "B")) not in names
+    assert names == {
+        frozenset(("A", "C")),
+        frozenset(("A", "D")),
+        frozenset(("C", "D")),
+    }
+    # Keluarga uji adalah seluruh pasangan teramati, bukan hanya yang lolos.
+    assert report.tested_pairs == 4
+    assert report.significant_pairs == 3
+
+
+def test_gerbang_q_menolak_cooccurrence_tanpa_q(bundle_factory):
+    rows = [(f"art{i:03d}", e, 1) for i in range(6) for e in ("A", "B")]
+    cooc = cooccurrence(bundle_factory(["A", "B"], rows, articles=10))
+    stripped = replace(cooc, q_value=None)
+
+    with pytest.raises(ValueError):
+        select_edges(stripped, BackboneConfig(min_q=0.05))
+
+
+def test_edge_membawa_q_saat_gerbang_aktif(bundle_factory):
+    bundle = _mixed_significance(bundle_factory)
+
+    network = build_network(bundle, BackboneConfig(min_support=3, min_npmi=0.1, min_q=0.01))
+
+    assert network.graph.number_of_edges() == 3
+    for _, _, data in network.graph.edges(data=True):
+        assert 0.0 <= data["q"] <= 0.01
+
+
+def test_tanpa_gerbang_q_memilih_pasangan_yang_sama(bundle_factory):
+    """Kehadiran q_value tidak boleh mengubah seleksi saat gerbangnya mati."""
+    cooc = cooccurrence(_mixed_significance(bundle_factory))
+    config = BackboneConfig(min_support=3, min_npmi=0.1)
+
+    with_q = select_edges(cooc, config)
+    without_q = select_edges(replace(cooc, q_value=None), config)
+
+    assert np.array_equal(with_q[0], without_q[0])
+    assert np.array_equal(with_q[1], without_q[1])

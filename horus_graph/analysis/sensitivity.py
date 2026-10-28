@@ -44,6 +44,9 @@ def _measure(cooc: Cooccurrence, config: BackboneConfig) -> Dict[str, Any]:
     return {
         "min_support": config.min_support,
         "min_npmi": round(config.min_npmi, 3),
+        # q hidup di skala yang jauh lebih kecil dari NPMI; 3 desimal akan
+        # menampilkan 0,0004 sebagai 0,0 — nilai yang bahkan tidak sah.
+        "min_q": None if config.min_q is None else round(config.min_q, 6),
         "edges": int(len(selected)),
         "passed": int(len(selected)) - rescued_count,
         "rescued": rescued_count,
@@ -104,16 +107,41 @@ def sensitivity(
         for value in _grid(cooc.npmi, points, base.min_npmi, integral=False)
     ]
 
+    # Kurva ketiga hanya ada bila q dihitung; ambang q nol tidak sah, jadi
+    # grid dijepit ke nilai positif terkecil yang masih bermakna.
+    q_curve: List[Dict[str, Any]] = []
+    if cooc.q_value is not None:
+        # Ambang q nol tidak sah, jadi grid dijepit ke nilai positif terkecil
+        # yang masih bermakna; penjepitan bisa menyatukan beberapa titik.
+        grid = sorted(
+            {max(value, 1e-6)
+             for value in _grid(cooc.q_value, points, base.min_q or 0.05, integral=False)}
+        )
+        q_curve = [
+            _measure(
+                cooc,
+                BackboneConfig(
+                    min_support=base.min_support,
+                    min_npmi=base.min_npmi,
+                    rescue_isolated=base.rescue_isolated,
+                    min_q=value,
+                ),
+            )
+            for value in grid
+        ]
+
     return {
         "status": "ready",
         "candidate_pairs": int(cooc.pair_u.shape[0]),
         "active": {
             "min_support": base.min_support,
             "min_npmi": base.min_npmi,
+            "min_q": base.min_q,
             "rescue_isolated": base.rescue_isolated,
         },
         "by_support": support_curve,
         "by_npmi": npmi_curve,
+        "by_q": q_curve,
     }
 
 

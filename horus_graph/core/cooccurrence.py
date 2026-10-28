@@ -50,6 +50,10 @@ class Cooccurrence:
     pair_incidence: Optional[sparse.csr_matrix] = None
     # Artikel mentah sebelum dedup; `total_articles` adalah penyebut NPMI.
     articles_raw: int = 0
+    # Nilai-p hipergeometrik dan q-value BH per pasangan. `None` berarti tidak
+    # dihitung (mis. objek yang dibangun tangan di tes lama).
+    p_value: Optional[np.ndarray] = None
+    q_value: Optional[np.ndarray] = None
 
     @property
     def pair_count(self) -> int:
@@ -103,6 +107,14 @@ def from_incidence(
     values = association.npmi_array(
         support, node_articles[pair_u], node_articles[pair_v], denominator
     )
+    # Uji dilakukan atas seluruh pasangan teramati, bukan hanya yang lolos
+    # ambang: menyembunyikan sebagian uji sebelum koreksi membuat q terlalu kecil.
+    p_values = association.hypergeometric_p_array(
+        support, node_articles[pair_u], node_articles[pair_v], denominator
+    )
+    q_values = np.asarray(
+        association.benjamini_hochberg(p_values.tolist()), dtype=np.float64
+    )
 
     return Cooccurrence(
         entity_ids=entity_ids,
@@ -116,6 +128,8 @@ def from_incidence(
         unknown_mentions=unknown_mentions,
         pair_incidence=pair_incidence,
         articles_raw=int(incidence.shape[0]) if articles_raw is None else int(articles_raw),
+        p_value=p_values,
+        q_value=q_values,
     )
 
 
@@ -142,6 +156,8 @@ def graph_from_cooccurrence(
         }
         if rescued is not None:
             attributes["rescued"] = bool(rescued[order])
+        if cooc.q_value is not None:
+            attributes["q"] = float(cooc.q_value[position])
         graph.add_edge(u, v, **attributes)
     return graph
 
