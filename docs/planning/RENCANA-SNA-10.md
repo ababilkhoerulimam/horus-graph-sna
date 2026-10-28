@@ -105,7 +105,7 @@ Empat ketergantungan keras, bukan selera:
 | F1 | Masukan yang jujur: satu jalur insidensi, dedup, alias dibawa | F1.1–F1.4 | sedang (denominator berubah) | `[x]` `bd425e4..187c1ff` |
 | F2 | Seleksi tepi yang bisa dipertanggungjawabkan | F2.1–F2.5 | tinggi (angka bergeser, artefak lama) | `[x]` `544de1b..5de2710` |
 | F3 | Nama dan peringkat | F3.1–F3.3 | sedang (perilaku resolve berubah) | `[x]` `d75ba9c..a6d67ac` |
-| F4 | Kalibrasi eksternal dan ketidakpastian | F4.1–F4.4 | rendah | `[ ]` |
+| F4 | Kalibrasi eksternal dan ketidakpastian | F4.1–F4.4 | rendah | `[x]` `9c33234..8a6bc76` |
 
 Gerbang tiap fase: `make check` (ruff + mypy + pytest) hijau.
 
@@ -205,6 +205,16 @@ kesepakatan bergantung pada pilihan UI.
 
 ---
 
+Catatan F4: implementasi menyimpang dari tabel di dua tempat, dan keduanya
+disengaja.
+
+1. **`article_sentiment` tidak dipakai untuk analisis bertanda.** Tabel itu
+   per artikel, sedangkan tanda tepi butuh polaritas per (artikel, entitas).
+   Ia tetap berguna (agregasi, bukti), tetapi D6 tidak berubah karenanya.
+2. **Batas betweenness aproksimasi 500 simpul, bukan 2.000.** 200 draw ×
+   betweenness eksak pada 2.000 simpul sudah menit-menitan; ambang 500
+   menjaga fungsi ini tetap bisa dipanggil tanpa menjadi artefak terjadwal.
+
 ## 5. Sengaja tidak dikerjakan
 
 - **ERGM / model generatif** — butuh dependensi baru dan puluhan parameter untuk
@@ -226,10 +236,10 @@ kesepakatan bergantung pada pilihan UI.
 
 | Batasan | Sebab | Penutup yang disarankan |
 | --- | --- | --- |
-| Tidak ada analisis bertanda | Polaritas hanya per entitas, bukan per (artikel, entitas) | Isi `article_sentiment` dari pipeline NLP, lalu pakai rumus D6 |
+| Tidak ada analisis bertanda | Polaritas hanya per entitas dan per artikel; tidak ada polaritas per (artikel, entitas) | Butuh ekstraksi aspek di pipeline; tanda tepi tetap tidak diterbitkan (D6) |
 | precision@k bergantung label pakar | Tidak ada ground truth publik untuk korpus ini | Mulai dari 20–30 label per kasus; laporkan `coverage` selalu |
 | Curveball mahal pada graf sangat padat | Satu sweep = O(nnz); 10.000 × 200.000 butuh ratusan detik | Turunkan `resamples`, atau pindahkan ke artefak terjadwal |
-| Betweenness aproksimasi pada n > 2.000 | O(n·m) per draw | Tandai `betweenness_approx: true`; jangan sembunyikan |
+| Betweenness aproksimasi pada n > 500 | O(n·m) per draw | Ditandai `betweenness_approx: true`; jangan sembunyikan |
 
 ---
 
