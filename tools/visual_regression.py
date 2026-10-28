@@ -42,6 +42,7 @@ import argparse
 import asyncio
 import base64
 import json
+import os
 import shutil
 import struct
 import subprocess
@@ -53,7 +54,10 @@ import zlib
 from pathlib import Path
 from typing import Any, Dict, List, NamedTuple, Optional, Sequence, Tuple
 
-CHROME = Path(r"C:/Users/Hi/AppData/Local/ms-playwright/chromium-1243/chrome-win64/chrome.exe")
+# Peramban dicari saat dijalankan, bukan dipatok: path milik satu mesin membuat
+# alat bukti ini tidak bisa dipakai di mesin lain atau di CI.
+_CHROME: Optional[Path] = None
+CHROME_NAMES = ("chrome", "chrome.exe", "chromium", "chromium-browser", "msedge", "msedge.exe")
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BASELINE = REPO_ROOT / ".shots" / "baseline"
 CURRENT = REPO_ROOT / ".shots" / "current"
@@ -478,13 +482,40 @@ async def _wait_ready(cdp: Cdp, mode: str, timeout: float = 40.0) -> Dict[str, A
     raise RuntimeError(f"halaman tidak siap setelah {timeout:.0f} detik: {last}")
 
 
+def chrome_path(explicit: Optional[str] = None) -> Optional[Path]:
+    """
+    Cari Chromium: argumen, lalu HORUS_CHROME, lalu PATH, lalu cache Playwright.
+
+    None berarti tidak ditemukan; pemanggil menuliskannya sebagai kegagalan
+    infrastruktur dengan petunjuk, bukan traceback.
+    """
+    if explicit:
+        candidate = Path(explicit)
+        return candidate if candidate.exists() else None
+    env = (os.environ.get("HORUS_CHROME") or "").strip()
+    if env:
+        candidate = Path(env)
+        return candidate if candidate.exists() else None
+    for name in CHROME_NAMES:
+        found = shutil.which(name)
+        if found:
+            return Path(found)
+    cache = Path(os.environ.get("LOCALAPPDATA") or Path.home() / ".cache") / "ms-playwright"
+    for pattern in ("chromium-*/chrome-win64/chrome.exe", "chromium-*/chrome-linux/chrome"):
+        for candidate in sorted(cache.glob(pattern), reverse=True):
+            return candidate
+    return None
+
+
 def _launch_chrome(profile: Path) -> subprocess.Popen:
     # Port 0 + profil sendiri: membaca port dari DevToolsActivePort di profil
     # itu. Port tetap membuat skrip menempel ke peramban milik orang lain bila
     # port tersebut sudah dipakai.
+    if _CHROME is None:  # pragma: no cover - dijaga main()
+        raise RuntimeError("Chromium belum ditentukan; jalankan dengan --chrome atau HORUS_CHROME")
     return subprocess.Popen(
         [
-            str(CHROME),
+            str(_CHROME),
             "--headless=new",
             "--remote-debugging-port=0",
             f"--user-data-dir={profile}",
@@ -656,6 +687,16 @@ def _check_manifest() -> Optional[int]:
             f"({recorded.get('widths')}x{recorded.get('height')}); jalankan --update"
         )
         return EXIT_NO_BASELINE
+    # Toleransi ikut dibandingkan: melonggarkan ambang di kode lalu memakai
+    # baseline lama membuat gerbangnya berubah jadi karet stempel tanpa jejak.
+    for key, now in (("channel_tolerance", CHANNEL_TOLERANCE), ("budget_px", BUDGET_PX)):
+        recorded_value = recorded.get(key)
+        if recorded_value is not None and recorded_value != now:
+            print(
+                f"toleransi {key} berubah ({recorded_value} -> {now}); "
+                f"jalankan --update supaya baseline dan gerbang sejalan"
+            )
+            return EXIT_NO_BASELINE
     current = _chrome_version()
     if recorded.get("chrome") != current:
         print(
@@ -669,6 +710,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--url", default="http://127.0.0.1:8021/")
     parser.add_argument("--only", default=None, help="saring bidikan: nama, mode, atau lebar")
+    parser.add_argument(
+        "--chrome",
+        default=None,
+        help="path Chromium/Chrome; tanpa ini dicari lewat HORUS_CHROME, PATH, lalu cache Playwright",
+    )
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument(
         "--update", action="store_true", help="tulis baseline dari tangkapan sekarang"
@@ -676,6 +722,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     group.add_argument("--check", action="store_true", help="bandingkan tangkapan dengan baseline")
     group.add_argument("--calibrate", action="store_true", help="ukur selisih-diri tiap bidikan")
     args = parser.parse_args(argv)
+
+    global _CHROME
+    _CHROME = chrome_path(args.chrome)
+    if _CHROME is None:
+        print(
+            "Chromium tidak ditemukan. Setel --chrome <path> atau HORUS_CHROME=<path>; "
+            "tanpa peramban, gerbang ini tidak bisa membandingkan apa pun."
+        )
+        return EXIT_INFRA
 
     chosen = shots(args.only)
 

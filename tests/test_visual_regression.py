@@ -398,3 +398,57 @@ def test_tangkapan_gagal_mengembalikan_lima(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(visual_regression, "_capture_all_sync", explode)
 
     assert visual_regression.main(["--update"]) == 5
+
+
+# --- gerbang dan lingkungan -------------------------------------------------
+
+
+def _baseline(tmp_path, monkeypatch, **overrides):
+    """Baseline palsu di folder sementara, dengan manifest yang bisa diubah."""
+    baseline = tmp_path / "baseline"
+    baseline.mkdir()
+    manifest = {
+        "chrome": "uji",
+        "widths": list(visual_regression.WIDTHS),
+        "height": visual_regression.HEIGHT,
+        "channel_tolerance": visual_regression.CHANNEL_TOLERANCE,
+        "budget_px": visual_regression.BUDGET_PX,
+    }
+    manifest.update(overrides)
+    (baseline / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    monkeypatch.setattr(visual_regression, "MANIFEST", baseline / "manifest.json")
+    return baseline
+
+
+def test_toleransi_manifest_berbeda_ditolak(tmp_path, monkeypatch) -> None:
+    """Melonggarkan ambang di kode lalu memakai baseline lama = karet stempel."""
+    _baseline(tmp_path, monkeypatch, budget_px=9999)
+
+    assert visual_regression._check_manifest() == visual_regression.EXIT_NO_BASELINE
+
+
+def test_toleransi_manifest_sama_diterima(tmp_path, monkeypatch) -> None:
+    _baseline(tmp_path, monkeypatch)
+
+    assert visual_regression._check_manifest() is None
+
+
+def test_chrome_dari_env(tmp_path, monkeypatch) -> None:
+    palsu = tmp_path / "chrome"
+    palsu.write_text("", encoding="utf-8")
+    monkeypatch.setenv("HORUS_CHROME", str(palsu))
+
+    assert visual_regression.chrome_path() == palsu
+
+
+def test_chrome_tidak_ditemukan_mengembalikan_none(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("HORUS_CHROME", str(tmp_path / "tidak-ada"))
+
+    assert visual_regression.chrome_path() is None
+
+
+def test_target_visual_terdaftar_di_phony() -> None:
+    makefile = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+
+    phony = next(line for line in makefile.splitlines() if line.startswith(".PHONY:"))
+    assert "visual" in phony.split()
