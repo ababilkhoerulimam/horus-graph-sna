@@ -449,7 +449,7 @@ memindahkan renderer yang isinya masih akan berubah di V0–V1.
   - Tes: skrip regresi visual dijalankan lokal dan di CI (opsional di CI karena
     butuh Chromium).
 
-- [ ] **V2.3 Identitas, audit, dan sesi persisten** — L
+- [x] **V2.3 Identitas, audit, dan sesi persisten** — L
   - Berkas: `api/auth.py`, `copilot/sessions.py:42`, `api/app.py`
   - Kerjakan: OIDC/OAuth2 (atau header SSO dari reverse proxy) → peran
     `viewer`/`analyst`/`admin`; log audit tindakan (siapa, kapan, snapshot,
@@ -697,6 +697,67 @@ memindahkan renderer yang isinya masih akan berubah di V0–V1.
   dipecah oleh id saat nilai sama, kurang dari dua jendela, dan korelasi yang
   tidak dilaporkan untuk dua simpul. Satu tes di `tests/test_api.py` menjaga
   blok bootstrap. Suite: 497 → 507.
+
+  **Status (V2.3): selesai, dengan satu pengurangan yang disengaja.**
+
+  **Di mana.** `api/auth.py` (`Identity`, `require_role`,
+  `enforce_rate_limit`), `api/audit.py`, `copilot/sessions.py` (backend
+  SQLite), `api/app.py` (`DEFAULT_SESSION_DB`).
+
+  **Identitas dan peran.** Tiga jalur, urutannya tetap: header SSO dari reverse
+  proxy (`HORUS_TRUSTED_HEADERS=1` + `X-Forwarded-User` / `X-Forwarded-Groups`
+  → `horus-admin`/`horus-analyst`/`horus-viewer`), token tunggal
+  (`HORUS_API_TOKEN` → admin), atau mode lokal (tanpa keduanya → admin, sama
+  seperti sebelumnya). `viewer` boleh membaca dan menulis catatan, tetapi
+  menghapus catatan butuh `analyst` — 403, bukan 401: ia terautentikasi, hanya
+  tidak berwenang.
+
+  **Audit.** Berkas JSONL append-only di `HORUS_AUDIT_LOG`. Yang dicatat:
+  `view.bootstrap`, `export.<format>`, `report.create`, `annotation.create`,
+  `annotation.delete`. Aktornya diambil dari `request.state.identity` yang diisi
+  `require_token`, bukan dari parameter permintaan — jejak yang bisa dipalsukan
+  pemanggil tidak berguna sebagai jejak.
+
+  **Sesi.** `SessionStore(path)` menulis ke SQLite dan memuat ulang isinya saat
+  dibuat, jadi restart tidak menghilangkan riwayat. `serve` memakai
+  `data/copilot_sessions.db` (atau `HORUS_SESSION_DB`); `create_app` tanpa
+  argumen tetap di memori supaya tes tidak menulis ke berkas bersama.
+
+  **Pembatas laju.** 30 permintaan tulis per menit per identitas per jenis
+  tindakan (`annotations`, `report`), dijawab 429 dengan `Retry-After`.
+
+  **Pengurangan yang disengaja: OIDC tidak diimplementasi.** Rencana menyebut
+  "OIDC/OAuth2 (atau header SSO dari reverse proxy)"; yang dikerjakan jalur
+  kedua. Verifikasi ID token butuh JWKS, toleransi jam, dan rotasi kunci — itu
+  pekerjaan tersendiri, sementara peran yang sama bisa diberikan proxy yang
+  sudah ada. Kalau nanti server ini dihadapkan langsung ke internet, jalur
+  inilah yang harus diganti, bukan ditambal.
+
+  **Empat keputusan lain:**
+
+  1. **Header SSO hanya dipercaya bila gerbangnya menyala.** Tanpa
+     `HORUS_TRUSTED_HEADERS`, siapa pun yang bisa mengirim header bisa mengaku
+     admin — header hanya bermakna di belakang proxy yang menuliskannya.
+  2. **Audit tidak pernah menggagalkan permintaan.** Menolak ekspor karena
+     penulisan log gagal justru mendorong orang mematikan audit.
+  3. **Pembatas laju di memori proses, dan mengaku begitu.** Cukup untuk satu
+     server; tidak berpura-pura terdistribusi, dan hitungannya hilang saat
+     restart.
+  4. **Sesi menulis lewat (write-through), bukan query per panggilan.** Jumlah
+     sesi dibatasi 50, jadi memuat semuanya sekali lebih murah dan tidak
+     mengubah perilaku.
+
+  **Tes.** `tests/test_auth.py` (11) menguji matriks peran: viewer ditolak 403
+  saat menghapus, analyst boleh, grup tak dikenal jatuh ke viewer, header SSO
+  diabaikan tanpa gerbang, token salah 401, audit mencatat ekspor dan
+  penghapusan dengan identitas, dan permintaan ke-31 ditolak 429.
+  `tests/test_sessions.py` (6) menguji persistensi lintas instance, judul yang
+  ikut tersimpan, perintah kanvas yang utuh, penghapusan yang benar-benar
+  menghapus, dan mode memori yang tidak berubah. Suite: 507 → 524.
+
+  **Batas yang belum ditutup.** Tidak ada rotasi berkas audit dan tidak ada
+  endpoint untuk membacanya (dibaca dari berkas); hitungan pembatas laju hilang
+  saat restart; OIDC belum ada.
 
 **Selesai V2 bila:** satu bundle 10 ribu simpul terbuka dalam 2 detik, dua
 pengguna dengan peran berbeda bisa bekerja tanpa saling menimpa, dan setiap

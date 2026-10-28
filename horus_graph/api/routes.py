@@ -26,8 +26,8 @@ from ..enhance.reporting import reporting_block
 from ..export import formats as export_formats
 from ..export import report
 from ..presentation import Presentation
-from . import queries, schemas, serializers
-from .auth import require_token
+from . import audit, queries, schemas, serializers
+from .auth import Identity, identity, rate_limited, require_role, require_token
 from .datasets import list_snapshots
 from .state import AppState, BundleNotFound, get_state
 
@@ -37,6 +37,27 @@ logger = logging.getLogger(__name__)
 # `HORUS_API_TOKEN`, pemeriksaan itu tidak melakukan apa pun.
 router = APIRouter(dependencies=[Depends(require_token)])
 
+
+
+def _identity(request: Request) -> Identity:
+    who = getattr(request.state, "identity", None)
+    return who if isinstance(who, Identity) else identity(request)
+
+
+def _audit(request: Request, state: AppState, action: str, detail: Optional[Dict[str, Any]] = None) -> None:
+    """
+    Catat satu tindakan. Aktornya diambil dari state yang diisi `require_token`,
+    bukan dari parameter, supaya jejaknya tidak bisa dipalsukan pemanggil.
+    """
+    who = _identity(request)
+    audit.record(
+        audit.audit_path(),
+        actor=who.actor,
+        role=who.role,
+        action=action,
+        snapshot=_snapshot_key(state),
+        detail=detail,
+    )
 
 
 def _state(request: Request) -> AppState:
@@ -102,7 +123,9 @@ def dataset_status(request: Request) -> Dict[str, Any]:
 
 @router.get("/api/bootstrap")
 def bootstrap(request: Request) -> Dict[str, Any]:
-    return serializers.bootstrap_payload(_state(request))
+    state = _state(request)
+    _audit(request, state, "view.bootstrap")
+    return serializers.bootstrap_payload(state)
 
 
 @router.get("/api/provenance")
@@ -432,6 +455,7 @@ def export_network(request: Request, fmt: str) -> Response:
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    _audit(request, state, f"export.{fmt}", {"bytes": len(body)})
     name = f"{state.bundle.manifest.dataset_id}.{export_formats.EXTENSIONS[fmt]}"
     return Response(
         content=body,
@@ -473,7 +497,7 @@ def list_annotations(request: Request) -> Dict[str, Any]:
     }
 
 
-@router.post("/api/annotations")
+@router.post("/api/annotations", dependencies=[Depends(rate_limited("annotations"))])
 def create_annotation(request: Request, payload: AnnotationRequest) -> Dict[str, Any]:
     state = _state(request)
     key = _snapshot_key(state)
@@ -481,19 +505,34 @@ def create_annotation(request: Request, payload: AnnotationRequest) -> Dict[str,
         record = annotation_store.add(key, payload.target_type, payload.target_id, payload.text)
     except annotation_store.AnnotationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    _audit(
+        request,
+        state,
+        "annotation.create",
+        {"annotation_id": record.id, "target_type": payload.target_type},
+    )
     return {"status": "saved", "snapshot_id": key, "annotation": record.as_dict()}
 
 
 @router.delete("/api/annotations/{annotation_id}")
-def delete_annotation(request: Request, annotation_id: str) -> Dict[str, Any]:
+def delete_annotation(
+    request: Request,
+    annotation_id: str,
+    who: Identity = Depends(require_role("analyst")),
+) -> Dict[str, Any]:
+    """
+    Menghapus catatan mengubah temuan yang sudah dikutip orang lain, jadi
+    perannya minimal analis; viewer boleh membaca, bukan menghapus.
+    """
     state = _state(request)
     key = _snapshot_key(state)
     if not annotation_store.remove(key, annotation_id):
         raise HTTPException(status_code=404, detail="Catatan tidak ditemukan.")
+    _audit(request, state, "annotation.delete", {"annotation_id": annotation_id, "role": who.role})
     return {"status": "deleted", "snapshot_id": key, "annotation_id": annotation_id}
 
 
-@router.post("/api/report")
+@router.post("/api/report", dependencies=[Depends(rate_limited("report"))])
 def export_report(request: Request, payload: Optional[ReportRequest] = None) -> Response:
     """
     Laporan HTML mandiri: provenance + angka + gambar + catatan.
@@ -519,6 +558,7 @@ def export_report(request: Request, payload: Optional[ReportRequest] = None) -> 
         summary=dict(state.network.summary),
         title=(payload.title if payload and payload.title else None) or f"Laporan {state.presentation.title}",
     )
+    _audit(request, state, "report.create", {"bytes": len(body)})
     name = f"{state.bundle.manifest.dataset_id}-{key}.html"
     return Response(
         content=body,

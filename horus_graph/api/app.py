@@ -9,6 +9,7 @@ menukar dataset di tengah jalan.
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -19,6 +20,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .. import __version__
 from ..analysis.inference import InferenceJobs
+from ..copilot.sessions import configure_store
 from ..copilot.ws import router as copilot_router
 from .auth import ensure_bind_is_safe, require_token
 from .observability import RequestContextMiddleware, configure_logging, metrics_text
@@ -34,8 +36,17 @@ WEB_DIR = Path(__file__).resolve().parents[1] / "web" / "static"
 # `index.html` (270 KB).
 GZIP_MINIMUM_SIZE = 1024
 
+# Riwayat copilot disimpan di berkas ini secara bawaan saat server dijalankan
+# lewat `horus-graph serve`: restart tidak boleh memaksa pengguna mengulang
+# pertanyaan. `create_app` tanpa argumen tetap di memori, supaya tes tidak
+# menulis ke disk bersama.
+DEFAULT_SESSION_DB = "data/copilot_sessions.db"
 
-def create_app(bundle: Optional[Path | str] = None) -> FastAPI:
+
+def create_app(
+    bundle: Optional[Path | str] = None,
+    session_db: Optional[str] = None,
+) -> FastAPI:
     app = FastAPI(
         title="horus-graph",
         version=__version__,
@@ -53,6 +64,10 @@ def create_app(bundle: Optional[Path | str] = None) -> FastAPI:
     # Satu registry per aplikasi, bukan per modul: dua aplikasi dalam satu
     # proses (tes, atau dua bundle) tidak boleh saling meminjam hasil inferensi.
     app.state.inference_jobs = InferenceJobs()
+    # Sesi copilot: SQLite bila path diberikan, memori bila tidak. Dipasang di
+    # sini, bukan di modul, supaya dua aplikasi dalam satu proses tidak berbagi.
+    if session_db:
+        configure_store(session_db)
     app.include_router(router)
     # Copilot selalu dipasang: jalur deterministiknya tidak butuh LLM, jadi
     # drawer tidak pernah menawarkan kanal yang tidak ada.
@@ -119,7 +134,7 @@ def run(
             extra={"path": str(resolved) if resolved else "-"},
         )
 
-    app = create_app(resolved)
+    app = create_app(resolved, session_db=os.environ.get("HORUS_SESSION_DB") or DEFAULT_SESSION_DB)
     # `log_config=None`: uvicorn punya dictConfig sendiri yang akan menimpa
     # handler JSON di atas. Saat `reload=True` proses anak memakai logging
     # bawaan Python — cukup untuk pengembangan, dan tidak berlaku di produksi.
