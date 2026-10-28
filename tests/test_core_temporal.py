@@ -101,3 +101,13 @@ def test_epos_tanpa_edge_tetap_menghasilkan_slice_kosong(bundle_factory):
     assert slice_.density == 0.0
     assert slice_.isolated == ("A", "B")
     assert slice_.top_broker is None
+
+
+def test_kolom_metrik_sama_di_jalur_normal_dan_kosong(bundle_factory):
+    """Satu konstanta kolom untuk kedua jalur; kalau bercabang, KeyError kembali."""
+    from horus_graph.core.temporal import NODE_COLUMNS, build_temporal
+
+    temporal = build_temporal(_corpus(bundle_factory))
+    normal = temporal.by_id("e1").node_metrics
+
+    assert list(normal.columns) == list(NODE_COLUMNS)

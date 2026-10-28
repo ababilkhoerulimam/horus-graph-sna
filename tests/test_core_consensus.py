@@ -141,3 +141,12 @@ def test_ari_tetap_diekspor_dari_enhance():
 
     assert stats.adjusted_rand_index([1, 1, 2, 2], [1, 1, 2, 2]) == 1.0
     assert stats.adjusted_rand_index([1, 1, 2, 2], [2, 2, 1, 1]) == 1.0
+
+
+def test_status_belum_siap_tidak_mengirim_nol():
+    """Nol berarti "tidak ada simpul batas", bukan "belum diukur"."""
+    import networkx as nx
+
+    result = metrics.consensus(nx.Graph(), runs=10)
+
+    assert result.as_dict()["unstable_count"] is None

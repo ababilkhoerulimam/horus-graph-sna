@@ -202,7 +202,9 @@ def _node_metrics(graph: nx.Graph, cooc) -> pd.DataFrame:
                 "louvain_community": int(communities.get(node, 1)),
             }
         )
-    return pd.DataFrame(rows).set_index("entity_id")
+    # Urutan kolom mengikuti satu konstanta, bukan urutan dict, supaya kedua
+    # jalur (epos berisi dan epos kosong) tidak bisa bercabang lagi.
+    return pd.DataFrame(rows, columns=["entity_id", *NODE_COLUMNS]).set_index("entity_id")
 
 
 def _top_broker(node_metrics: pd.DataFrame) -> Optional[Dict[str, Any]]:

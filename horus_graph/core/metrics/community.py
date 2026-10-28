@@ -113,7 +113,12 @@ class ConsensusResult:
             "agreement": self.agreement,
             "communities": len(set(self.labels.values())),
             "stability_median": round(float(median(values)), 4) if values else None,
-            "unstable_count": sum(1 for value in values if value < LOW_STABILITY),
+            # Nol berarti "tidak ada simpul batas", bukan "belum diukur".
+            "unstable_count": (
+                sum(1 for value in values if value < LOW_STABILITY)
+                if self.status == "ready"
+                else None
+            ),
             "unstable": self.unstable(),
             "reason": self.reason,
         }
