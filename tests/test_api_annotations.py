@@ -189,3 +189,14 @@ def test_laporan_tanpa_svg_tetap_terbaca(client) -> None:
     body = client.post("/api/report", json={}).text
 
     assert "Kanvas tidak ikut diekspor" in body
+
+def test_tabrakan_id_dijawab_400(client, monkeypatch) -> None:
+    monkeypatch.setattr(store, "_identifier", lambda *args: "0123456789ab")
+    body = {"target_type": "node", "target_id": "A", "text": "satu"}
+
+    pertama = client.post("/api/annotations", json=body)
+    kedua = client.post("/api/annotations", json={**body, "text": "dua"})
+
+    assert pertama.status_code == 200
+    assert kedua.status_code == 400
+    assert "bertabrakan" in kedua.json()["detail"]

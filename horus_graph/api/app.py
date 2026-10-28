@@ -20,6 +20,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .. import __version__
 from ..analysis.inference import InferenceJobs
+from ..annotations import store_dir
 from ..copilot.sessions import configure_store
 from ..copilot.ws import router as copilot_router
 from .auth import ensure_bind_is_safe, require_token
@@ -69,6 +70,9 @@ def create_app(
     # Selalu dipasang: tanpa ini, aplikasi kedua dalam satu proses memakai
     # store global milik aplikasi pertama.
     configure_store(session_db)
+    # Dicatat absolut: folder relatif membuat dua proses dari direktori berbeda
+    # membaca catatan yang berbeda tanpa error.
+    logging.getLogger("horus_graph.api").info("Folder anotasi: %s", store_dir())
     app.include_router(router)
     # Copilot selalu dipasang: jalur deterministiknya tidak butuh LLM, jadi
     # drawer tidak pernah menawarkan kanal yang tidak ada.

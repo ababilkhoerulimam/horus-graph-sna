@@ -119,3 +119,28 @@ def test_ringkasan_menghitung_per_target() -> None:
     summary = store.summarise(store.load("abc123"))
 
     assert summary == {"total": 3, "by_target": {"node": 2, "graph": 1}}
+
+def test_folder_anotasi_selalu_absolut(monkeypatch) -> None:
+    """
+    Folder relatif berarti catatan yang sama masuk ke tempat berbeda hanya
+    karena server dijalankan dari direktori lain.
+    """
+    monkeypatch.setenv(store.DIR_ENV, "data/annotations-relatif")
+
+    folder = store.store_dir()
+
+    assert folder.is_absolute()
+    assert folder.name == "annotations-relatif"
+
+
+def test_tabrakan_id_dilaporkan_bukan_ditelan(monkeypatch) -> None:
+    """Id 12 hex bisa bertabrakan; teks pengguna tidak boleh hilang diam-diam."""
+    monkeypatch.setattr(store, "_identifier", lambda *args: "0123456789ab")
+    store.add("abc123", "node", "A", "catatan satu")
+
+    with pytest.raises(store.AnnotationError, match="bertabrakan"):
+        store.add("abc123", "node", "A", "catatan dua")
+
+    # Isi yang benar-benar sama tetap idempoten, bukan tabrakan.
+    assert store.add("abc123", "node", "A", "catatan satu").text == "catatan satu"
+    assert len(store.load("abc123")) == 1

@@ -61,9 +61,16 @@ class Annotation:
 
 
 def store_dir() -> Path:
-    """Folder anotasi; dapat dipindah lewat env tanpa menyentuh kode."""
+    """
+    Folder anotasi; dapat dipindah lewat env tanpa menyentuh kode.
+
+    Selalu absolut: folder relatif berarti catatan yang sama masuk ke dua
+    tempat berbeda hanya karena server dijalankan dari direktori lain, tanpa
+    satu pun error. Path-nya dicatat saat start supaya tidak perlu ditebak.
+    """
     override = os.environ.get(DIR_ENV)
-    return Path(override) if override else DEFAULT_DIR
+    base = Path(override).expanduser() if override else DEFAULT_DIR
+    return base.resolve()
 
 
 def path_for(snapshot_id: str) -> Path:
@@ -124,8 +131,20 @@ def add(snapshot_id: str, target_type: str, target_id: str, text: str) -> Annota
     with _LOCK:
         existing = load(snapshot_id)
         for item in existing:
-            if item.id == identifier:
+            if item.id != identifier:
+                continue
+            # Id adalah 12 hex dari sha256: pendek, dan bisa bertabrakan untuk
+            # isi yang berbeda. Mengembalikan catatan lama diam-diam akan
+            # membuang teks yang baru diketik tanpa satu pun tanda.
+            if (item.target_type, item.target_id, item.text) == (
+                target_type,
+                clean_target,
+                body,
+            ):
                 return item
+            raise AnnotationError(
+                "id catatan bertabrakan dengan catatan lain; ubah sedikit teksnya lalu simpan lagi"
+            )
         record = Annotation(
             id=identifier,
             snapshot_id=snapshot_id,
