@@ -312,7 +312,13 @@ def test_tidak_ada_endpoint_yang_menahan_permintaan(client):
     (22 detik pada setelan bawaan, 346 detik pada `resamples=1000`) tanpa satu
     pun pemakai. Batas di bawah longgar; yang dijaga adalah kelasnya: endpoint
     yang menghitung ulang seluruh korpus.
+
+    Permintaan pertama sengaja tidak diukur: ia memuat bundle dan membangun
+    seluruh state, kerja yang wajar terjadi sekali. Yang diukur adalah
+    permintaan berikutnya — di situlah regresi "hitung ulang tiap GET" muncul.
     """
+    assert client.get("/api/health").status_code == 200
+
     batas = 1.0
     for path in (
         "/api/health",
