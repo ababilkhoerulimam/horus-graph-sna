@@ -458,9 +458,16 @@ def temporal(request: Request) -> Dict[str, Any]:
 # --- ekspor ----------------------------------------------------------------
 
 
-@router.get("/api/export/{fmt}")
-def export_network(request: Request, fmt: str) -> Response:
-    """Unduh jaringan sebagai GraphML, GEXF, atau CSV."""
+@router.get("/api/export/{fmt}", dependencies=[Depends(rate_limited("export", limit=10))])
+def export_network(
+    request: Request, fmt: str, who: Identity = Depends(require_role("analyst"))
+) -> Response:
+    """
+    Unduh jaringan sebagai GraphML, GEXF, atau CSV.
+
+    Ekspor mengeluarkan seluruh jaringan dari server, jadi perannya minimal
+    analis: viewer boleh membaca di layar, bukan membawa datanya pergi.
+    """
     state = _state(request)
     try:
         body = export_formats.render(state.network, fmt)
@@ -533,7 +540,10 @@ def create_annotation(
     return {"status": "saved", "snapshot_id": key, "annotation": record.as_dict()}
 
 
-@router.delete("/api/annotations/{annotation_id}")
+@router.delete(
+    "/api/annotations/{annotation_id}",
+    dependencies=[Depends(rate_limited("annotations"))],
+)
 def delete_annotation(
     request: Request,
     annotation_id: str,
@@ -562,8 +572,15 @@ def delete_annotation(
     return {"status": "deleted", "snapshot_id": key, "annotation_id": annotation_id}
 
 
-@router.post("/api/report", dependencies=[Depends(rate_limited("report"))])
-def export_report(request: Request, payload: Optional[ReportRequest] = None) -> Response:
+@router.post(
+    "/api/report",
+    dependencies=[Depends(rate_limited("report", limit=10))],
+)
+def export_report(
+    request: Request,
+    payload: Optional[ReportRequest] = None,
+    who: Identity = Depends(require_role("analyst")),
+) -> Response:
     """
     Laporan HTML mandiri: provenance + angka + gambar + catatan.
 

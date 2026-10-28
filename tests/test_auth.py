@@ -251,3 +251,74 @@ def test_bind_non_loopback_dengan_gerbang_sso_memperingatkan(monkeypatch, caplog
         ensure_bind_is_safe("0.0.0.0")
 
     assert any("bind_non_loopback_trusted" in record.getMessage() for record in caplog.records)
+
+
+# --- batas laju, peran, dan audit di jalur tulis ----------------------------
+
+
+def test_ekspor_butuh_analyst(client, monkeypatch) -> None:
+    monkeypatch.setenv("HORUS_TRUSTED_HEADERS", "1")
+
+    viewer = client.get("/api/export/graphml", headers=_sso("rina", "horus-viewer"))
+    analyst = client.get("/api/export/graphml", headers=_sso("budi", "horus-analyst"))
+
+    assert viewer.status_code == 403
+    assert analyst.status_code == 200
+
+
+def test_laporan_butuh_analyst(client, monkeypatch) -> None:
+    monkeypatch.setenv("HORUS_TRUSTED_HEADERS", "1")
+
+    viewer = client.post("/api/report", json={}, headers=_sso("rina", "horus-viewer"))
+
+    assert viewer.status_code == 403
+
+
+def test_hapus_anotasi_dibatasi(client) -> None:
+    """Bucket yang sama dengan POST: kalau dipisah, batasnya jadi dua kali."""
+    statuses = [
+        client.delete(f"/api/annotations/tidak-ada-{index}").status_code for index in range(31)
+    ]
+
+    assert statuses[:30] == [404] * 30
+    assert statuses[-1] == 429
+
+
+def test_hapus_sesi_butuh_analyst(client, monkeypatch) -> None:
+    monkeypatch.setenv("HORUS_TRUSTED_HEADERS", "1")
+    analyst = _sso("budi", "horus-analyst")
+    viewer = _sso("rina", "horus-viewer")
+
+    sesi = client.post("/api/chat/sessions", json={}, headers=analyst).json()["id"]
+
+    assert client.delete(f"/api/chat/sessions/{sesi}", headers=viewer).status_code == 403
+    assert client.delete(f"/api/chat/sessions/{sesi}", headers=analyst).status_code == 200
+
+
+def test_audit_mencatat_mutasi_sesi(client, monkeypatch, tmp_path) -> None:
+    log = tmp_path / "audit.jsonl"
+    monkeypatch.setenv("HORUS_AUDIT_LOG", str(log))
+    monkeypatch.setenv("HORUS_TRUSTED_HEADERS", "1")
+    analyst = _sso("budi", "horus-analyst")
+
+    sesi = client.post("/api/chat/sessions", json={}, headers=analyst).json()["id"]
+    client.delete(f"/api/chat/sessions/{sesi}", headers=analyst)
+
+    aksi = [entry["action"] for entry in audit.read(log)]
+    assert "chat.session.create" in aksi
+    assert "chat.session.delete" in aksi
+
+
+def test_pesan_chat_dibatasi(client, monkeypatch) -> None:
+    """Pesan memicu panggilan model, jadi batasnya ditegakkan sebelum diproses."""
+    from horus_graph.copilot import ws as ws_module
+
+    monkeypatch.setattr(ws_module, "check_rate", lambda *args, **kwargs: False)
+
+    with client.websocket_connect("/ws/copilot") as socket:
+        socket.receive_json()
+        socket.send_json({"type": "USER_CHAT_QUERY", "payload": {"message": "halo"}})
+        pesan = socket.receive_json()
+
+    assert pesan["type"] == "AGENT_ERROR"
+    assert "Terlalu banyak" in pesan["payload"]["error"]

@@ -21,8 +21,18 @@ from fastapi import (
 )
 from pydantic import BaseModel
 
-from ..api.auth import origin_matches_host, require_token, websocket_identity
+from ..api import audit
+from ..api.auth import (
+    Identity,
+    check_rate,
+    origin_matches_host,
+    rate_limited,
+    require_role,
+    require_token,
+    websocket_identity,
+)
 from ..api.state import BundleNotFound, get_state
+from ..contract.snapshot import snapshot_id
 from .llm import llm_available
 from .service import Copilot, get_copilot
 from .sessions import get_session_store
@@ -47,6 +57,47 @@ def _copilot(bundle_path: Any) -> Copilot:
     return get_copilot(str(state.root))
 
 
+# --- jejak audit ------------------------------------------------------------
+
+
+def _snapshot_of(bundle_path: Any = None) -> Optional[str]:
+    try:
+        state = get_state(bundle_path)
+    except Exception:  # pragma: no cover - jejak tidak boleh menjatuhkan permintaan
+        return None
+    manifest = state.bundle.manifest
+    return manifest.snapshot_id or snapshot_id(manifest)
+
+
+def _audit_action(
+    who: Identity,
+    action: str,
+    detail: Optional[Dict[str, Any]] = None,
+    bundle_path: Any = None,
+) -> bool:
+    """Satu baris jejak untuk mutasi yang datang lewat REST."""
+    return audit.record(
+        audit.audit_path(),
+        actor=who.actor,
+        role=who.role,
+        action=action,
+        snapshot=_snapshot_of(bundle_path),
+        detail=detail,
+    )
+
+
+class _SocketClosed(Exception):
+    """Ditutup dari dalam handler; loop utama harus berhenti, bukan mengirim lagi."""
+
+
+def _audit_socket(websocket: WebSocket, action: str, detail: Optional[Dict[str, Any]] = None) -> bool:
+    """Satu baris jejak untuk mutasi yang datang lewat WebSocket."""
+    who = getattr(websocket.state, "identity", None)
+    if not isinstance(who, Identity):  # pragma: no cover - handshake selalu mengisi
+        return True
+    return _audit_action(who, action, detail)
+
+
 # --- riwayat sesi ----------------------------------------------------------
 
 
@@ -55,10 +106,18 @@ def list_sessions() -> Dict[str, Any]:
     return {"sessions": get_session_store().list_sessions()}
 
 
-@router.post("/api/chat/sessions", dependencies=_AUTH)
-def create_session(payload: Optional[CreateSessionRequest] = None) -> Dict[str, Any]:
+@router.post("/api/chat/sessions", dependencies=_AUTH + [Depends(rate_limited("chat"))])
+def create_session(
+    request: Request,
+    payload: Optional[CreateSessionRequest] = None,
+    who: Identity = Depends(require_role("analyst")),
+) -> Dict[str, Any]:
     title = payload.title if payload else None
-    return get_session_store().create_session(title=title)
+    dibuat = get_session_store().create_session(title=title)
+    _audit_action(
+        who, "chat.session.create", {"session_id": dibuat.get("id")}, request.app.state.bundle_path
+    )
+    return dibuat
 
 
 @router.get("/api/chat/sessions/{session_id}/messages", dependencies=_AUTH)
@@ -69,10 +128,22 @@ def session_messages(session_id: str) -> Dict[str, Any]:
     }
 
 
-@router.delete("/api/chat/sessions/{session_id}", dependencies=_AUTH)
-def delete_session(session_id: str) -> Dict[str, Any]:
+@router.delete(
+    "/api/chat/sessions/{session_id}",
+    dependencies=_AUTH + [Depends(rate_limited("chat"))],
+)
+def delete_session(
+    request: Request,
+    session_id: str,
+    who: Identity = Depends(require_role("analyst")),
+) -> Dict[str, Any]:
+    # Menghapus riwayat orang lain mengubah temuan yang mungkin sudah dikutip,
+    # jadi perannya sama dengan menghapus catatan.
     if not get_session_store().delete_session(session_id):
         raise HTTPException(status_code=404, detail="Sesi tidak ditemukan.")
+    _audit_action(
+        who, "chat.session.delete", {"session_id": session_id}, request.app.state.bundle_path
+    )
     return {"status": "deleted", "session_id": session_id}
 
 
@@ -170,7 +241,10 @@ async def copilot_socket(websocket: WebSocket) -> None:
                 )
 
         elif kind == "USER_CHAT_QUERY":
-            await _handle_query(websocket, copilot, payload)
+            try:
+                await _handle_query(websocket, copilot, payload)
+            except _SocketClosed:
+                return
 
         elif kind == "TRIGGER_CANVAS_COMMAND":
             await websocket.send_json({"type": "CANVAS_COMMAND", "payload": payload})
@@ -183,6 +257,17 @@ async def _handle_query(
     if not query:
         return
 
+    who = getattr(websocket.state, "identity", None)
+    if isinstance(who, Identity) and not check_rate(who, bucket="chat.query", limit=10):
+        # Satu pesan memicu panggilan model; batasnya lebih ketat daripada
+        # bucket tulis biasa, dan ditutup 1013 (coba lagi nanti) supaya klien
+        # tahu ini bukan kesalahan permanen.
+        await websocket.send_json(
+            {"type": "AGENT_ERROR", "payload": {"error": "Terlalu banyak pertanyaan; coba lagi sebentar."}}
+        )
+        await websocket.close(code=1013)
+        raise _SocketClosed()
+
     store = get_session_store()
     session_id = payload.get("session_id")
     if session_id:
@@ -192,6 +277,13 @@ async def _handle_query(
         session_id = store.create_session()["id"]
 
     store.append_message(session_id=session_id, role="user", content=query)
+    # Isi pesan tidak dicatat: yang perlu bisa ditelusuri adalah siapa bertanya
+    # dan sesi mana, bukan isi percakapannya.
+    _audit_socket(
+        websocket,
+        "chat.query",
+        {"session_id": session_id, "chars": len(query)},
+    )
     history = [
         {"role": item["role"], "content": item["content"]}
         for item in store.get_session_messages(session_id, limit=10)[:-1]
