@@ -480,7 +480,7 @@ memindahkan renderer yang isinya masih akan berubah di V0–V1.
     tangan; difusi deterministik pada seed tetap.
 
   - [x] **(a) Consensus clustering + stabilitas per simpul**
-  - [ ] (b) Triad census + rich-club
+  - [x] (b) Triad census + rich-club
   - [ ] (c) Difusi independent cascade + threshold
   - [ ] (d) Graph sequence + sentralitas dinamis
 
@@ -541,6 +541,63 @@ memindahkan renderer yang isinya masih akan berubah di V0–V1.
   (`awaiting_input`), determinisme seed, dan batas `runs ≥ 2`.
   `tests/test_frontend_consensus.py` (6) menjaga agar `null` tidak menjadi
   angka di UI. Suite: 429 → 448.
+
+  **Status (b): selesai.**
+
+  **Di mana.** `core/motifs.py` (`triad_census`, `rich_club`, `motif_block`),
+  dipanggil dari `build_network` untuk sensus triad. Rich-club dihitung di
+  `analysis/motifs.py` dan disimpan sebagai `<bundle>/motifs.json` lewat
+  `horus-graph motifs <bundle> --write`.
+
+  **Apa yang diukur.** Pada bundle emas (77 simpul, 475 sisi): 73.150 triple —
+  43.547 kelas 003 (tanpa sisi), 25.536 kelas 102 (satu sisi), 2.112 baji
+  terbuka (201), dan 1.955 segitiga (300). Artinya 48,1% triad bertepi ganda
+  tertutup. Rich-club ternormalisasi memuncak 1,1015 pada derajat 20 dengan 10
+  graf acak pembanding (10 pertukaran sisi per sisi, seed 42); empat ambang
+  derajat tertinggi tidak dilaporkan.
+
+  **Biaya.** Sensus triad 0,05 detik dan ikut build yang sudah ada. Rich-club
+  1,05 detik untuk 10 pembanding pada graf ini; perintah `motifs` utuh 4,6
+  detik karena ia membangun ulang jaringan lebih dulu (3,1 detik).
+
+  **Empat keputusan yang menyimpang dari rencana:**
+
+  1. **Triad di build, rich-club di artefak.** Sensus triad murah dan selalu
+     segar, jadi tidak ada gunanya membuatnya artefak. Pembanding acak
+     rich-club sebaliknya: 1 detik di sini, menit pada graf besar. Server tidak
+     pernah membayarnya secara interaktif.
+  2. **Sensus triad tidak pernah dibaca dari artefak.** Artefak bisa dibuat
+     untuk graf yang berbeda; mencampur dua sensus dari dua graf adalah cara
+     termudah membuat laporan tidak bisa dipertanggungjawabkan. Kalau artefak
+     dan build berbeda, yang dipakai build — dan rich-club dari artefak hanya
+     dikirim bila statusnya `ready`.
+  3. **Rich-club selalu ternormalisasi.** Koefisien mentah pada derajat 0 sama
+     dengan kepadatan graf (0,1623 di sini) lalu naik secara konstruksi; angka
+     seperti itu terbaca sebagai bukti klub orang kaya padahal bukan. Yang
+     dikirim hanya rasio terhadap null model yang mempertahankan derajat.
+  4. **Ambang derajat tertinggi dipotong dan dilaporkan.** `MIN_RICH_CLUB_NODES
+     = 10`: di bawah itu subgraf terlalu kecil, dan rasionya melompat antara
+     1,3 dan 3,0 hanya karena ganti seed. Empat ambang teratas pada bundle emas
+     jatuh di bawah batas dan muncul sebagai `truncated_degrees`, bukan
+     dibuang diam-diam.
+
+  **Permukaan baca.** `graph.motifs.triads` (status, metode, kelas, `triples`,
+  `triangles`, `open_wedges`, `closed_share`) dan `graph.motifs.rich_club`
+  (status, metode, `replicates`, `peak`, `truncated_degrees`) di
+  `/api/bootstrap`, dan ikut di laporan HTML serta `/api/provenance`. Di UI:
+  panel "Motif Lokal" berisi dua kotak, masing-masing menulis "tidak diukur"
+  beserta alasan dari engine bila angkanya tidak ada. Teks engine masuk lewat
+  `textContent`: alasannya menyebut `<bundle>`, dan `innerHTML` menelan potongan
+  itu sebagai tag sehingga kalimatnya bolong — terlihat saat verifikasi visual,
+  bukan saat tes.
+
+  **Tes.** `tests/test_core_motifs.py` (16) memakai graf yang jawabannya bisa
+  dihitung tangan — segitiga, baji terbuka, lintasan, simpul terisolasi, graf
+  kosong — plus determinisme seed dan pemotongan ambang. `tests/
+  test_analysis_motifs.py` (6) menjaga artefak: parameter tersimpan, berkas
+  hilang berarti `awaiting_input`, dan kurva mentah tidak pernah dikirim
+  sendirian. `tests/test_frontend_motifs.py` (8) menjaga agar `null` dan
+  "belum diukur" tidak menjadi angka di UI. Suite: 472 → 480.
 
 
 **Selesai V2 bila:** satu bundle 10 ribu simpul terbuka dalam 2 detik, dua

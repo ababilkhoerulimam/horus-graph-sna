@@ -16,6 +16,7 @@ import pandas as pd
 from .._coerce import to_number
 from ..contract import schema
 from ..core.build import NetworkBundle
+from ..core.motifs import motif_block as assemble_motifs
 from ..core.stance import stance_of
 from ..enhance.reporting import reporting_block
 from ..presentation import Presentation
@@ -33,7 +34,9 @@ def bootstrap_payload(state: AppState) -> Dict[str, Any]:
     """Seluruh data yang dibutuhkan visualizer untuk boot, dalam satu panggilan."""
     network = state.network
     presentation = state.presentation
-    block = reporting_block(state.bundle, network, seed=PROVENANCE_SEED)
+    block = reporting_block(
+        state.bundle, network, motifs=state.motifs, seed=PROVENANCE_SEED
+    )
 
     return {
         "presentation": presentation.as_dict(),
@@ -65,6 +68,9 @@ def bootstrap_payload(state: AppState) -> Dict[str, Any]:
             # Stabilitas komunitas per simpul; blok ini menyebut metode,
             # jumlah jalankan, dan simpul batas supaya angkanya bisa diaudit.
             "consensus": network.consensus.as_dict(),
+            # Sensus triad selalu segar dari build; rich-club hanya bila
+            # artefaknya ada, karena pembanding acaknya tidak dijalankan server.
+            "motifs": motif_block(state),
         },
         "epochs": epoch_payloads(state),
         "topics": topic_payloads(state),
@@ -73,6 +79,22 @@ def bootstrap_payload(state: AppState) -> Dict[str, Any]:
         "anomaly": anomaly_payload(state),
         "provenance": block,
     }
+
+
+def motif_block(state: AppState) -> Dict[str, Any]:
+    """
+    Sensus triad dari build, rich-club dari artefak.
+
+    Triad sengaja tidak diambil dari artefak: artefak bisa dibuat untuk graf
+    yang berbeda, dan mencampur dua sensus dari dua graf adalah cara termudah
+    membuat laporan tidak bisa dipertanggungjawabkan.
+    """
+    block = assemble_motifs(state.network.triads)
+    stored = (state.motifs or {}).get("motifs") or {}
+    club = stored.get("rich_club")
+    if isinstance(club, dict) and club.get("status") == "ready":
+        block["rich_club"] = club
+    return block
 
 
 def node_payloads(state: AppState) -> List[Dict[str, Any]]:

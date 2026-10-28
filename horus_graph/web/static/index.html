@@ -3098,6 +3098,14 @@
       </div>
       <div id="community-breakdown" style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px;margin-bottom:20px;font-size:11px;"></div>
 
+      <!-- Motif lokal: sebaran triad dan rasio rich-club. Rich-club hanya
+           muncul bila artefaknya ada; kurva mentahnya tidak pernah dikirim
+           sendirian karena naik secara konstruksi. -->
+      <div style="font-size:12px;font-weight:800;color:#F8FAFC;margin-bottom:8px;text-transform:uppercase;">
+        Motif Lokal
+      </div>
+      <div id="motif-body" style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px;margin-bottom:20px;font-size:11px;"></div>
+
       <!-- Sensitivitas ambang backbone. Kurva ini menjawab "berapa sisi yang
            bertahan bila ambang digeser", supaya jumlah sisi pada ambang aktif
            tidak terbaca sebagai satu-satunya kemungkinan. -->
@@ -7767,6 +7775,59 @@
         breakdown.appendChild(border);
       }
 
+      // Motif lokal: dua kotak, satu per motif. Alasan ketiadaan ditulis apa
+      // adanya, karena kotak kosong terbaca seperti hasil ukur nol. Teks dari
+      // engine masuk lewat textContent: alasannya menyebut `<bundle>`, dan
+      // innerHTML menelan potongan itu sebagai tag sehingga kalimatnya bolong.
+      const motifBody = document.getElementById("motif-body");
+      if (motifBody) {
+        motifBody.innerHTML = "";
+        const motifBox = (judul) => {
+          const box = document.createElement("div");
+          box.className = "prov-box";
+          const label = document.createElement("strong");
+          label.textContent = judul;
+          box.appendChild(label);
+          return box;
+        };
+        const motifBlock = meta.motifs || {};
+        const triads = motifBlock.triads || {};
+        const triadBox = motifBox("Sensus triad: ");
+        if (triads.status === "ready") {
+          const share = triads.closed_share === null || triads.closed_share === undefined
+            ? "—" : (triads.closed_share * 100).toFixed(1) + "%";
+          triadBox.appendChild(document.createTextNode(
+            `${formatCount(triads.triangles)} segitiga, ` +
+            `${formatCount(triads.open_wedges)} baji terbuka, ` +
+            `${share} triad bertepi ganda tertutup ` +
+            `(dari ${formatCount(triads.triples)} triple).`
+          ));
+        } else {
+          triadBox.appendChild(document.createTextNode(
+            `tidak diukur. ${triads.reason || "Graf terlalu kecil."}`
+          ));
+        }
+        motifBody.appendChild(triadBox);
+
+        const club = motifBlock.rich_club || {};
+        const clubBox = motifBox("Rich-club: ");
+        if (club.status === "ready" && club.peak) {
+          const extra = club.truncated_degrees
+            ? ` ${club.truncated_degrees} ambang derajat tertinggi dipotong.`
+            : "";
+          clubBox.appendChild(document.createTextNode(
+            `rasio puncak ${formatNumber(club.peak.ratio, 2)} pada derajat ${club.peak.degree} ` +
+            `(${formatCount(club.replicates)} graf acak pembanding). ` +
+            `1,0 berarti tidak ada efek di luar derajat.${extra}`
+          ));
+        } else {
+          clubBox.appendChild(document.createTextNode(
+            `tidak diukur. ${club.reason || "Jalankan horus-graph motifs --write."}`
+          ));
+        }
+        motifBody.appendChild(clubBox);
+      }
+
       // Disclosure korpus: angka dari /api/bootstrap (coverage).
       const cov = CORPUS_COVERAGE;
       if (cov && cov.articles) {
@@ -8589,7 +8650,8 @@
             summary: payload.graph.summary,
             // Stabilitas komunitas per simpul; blok ini boleh tidak ada pada
             // payload lama, jadi pembacanya selalu memakai fallback.
-            consensus: payload.graph.consensus || null
+            consensus: payload.graph.consensus || null,
+            motifs: payload.graph.motifs || null
           }
         };
         allData.nodes.forEach(n => {

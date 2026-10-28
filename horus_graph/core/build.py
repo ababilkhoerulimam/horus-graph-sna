@@ -21,6 +21,7 @@ from . import metrics
 from .backbone import BackboneConfig, BackboneReport, select_edges
 from .cooccurrence import Cooccurrence, cooccurrence
 from .layers import SentimentLayer, TransmissionLayer, sentiment_layer, transmission_layer
+from .motifs import TRIAD_METHOD, TriadCensus, triad_census
 
 
 @dataclass(frozen=True)
@@ -41,6 +42,7 @@ class NetworkBundle:
     backbone: BackboneReport
     cooccurrence: Cooccurrence
     consensus: metrics.ConsensusResult
+    triads: TriadCensus
 
     @property
     def edge_count(self) -> int:
@@ -85,6 +87,7 @@ class NetworkBundle:
                 "closeness": metrics.CLOSENESS_METHOD,
                 "community": metrics.COMMUNITY_METHOD,
                 "consensus": metrics.CONSENSUS_METHOD,
+                "triad_census": TRIAD_METHOD,
             },
             "layers": {
                 "transmission": {
@@ -158,6 +161,9 @@ def build_network(
     pagerank_map = metrics.pagerank(graph)
     communities = metrics.louvain(graph)
     consensus = metrics.consensus(graph, runs=consensus_runs)
+    # Sensus triad ikut di sini karena murah (~0,1 detik); rich-club tidak,
+    # karena pembanding acaknya mahal dan disimpan sebagai artefak.
+    triads = triad_census(graph)
 
     node_metrics = _node_frame(
         graph,
@@ -189,6 +195,7 @@ def build_network(
         backbone=report,
         cooccurrence=cooc,
         consensus=consensus,
+        triads=triads,
     )
 
 

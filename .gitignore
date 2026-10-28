@@ -223,3 +223,6 @@ __marimo__/
 
 # Bundle data (regenerate with: horus-graph export-legacy)
 data/
+
+# Tangkapan layar verifikasi visual
+.shots/

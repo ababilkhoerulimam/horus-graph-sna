@@ -13,8 +13,9 @@ import time
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, Optional
 
+from ..analysis import motifs as motif_artifact
 from ..core.anomaly import AnomalyReport, detect_anomalies
 from ..core.bipartite import TopicActorBundle, build_bipartite
 from ..core.build import NetworkBundle, build_network
@@ -40,6 +41,9 @@ class AppState:
     bipartite: TopicActorBundle
     anomaly: AnomalyReport
     build_seconds: float
+    # Artefak rich-club, bila sudah dihitung di luar server. Dibaca sekali saat
+    # bundle dimuat: ini langkah build, bukan kerja per permintaan.
+    motifs: Optional[Dict[str, Any]] = None
 
 
 def resolve_bundle_path(explicit: Optional[Path | str] = None) -> Optional[Path]:
@@ -86,6 +90,7 @@ def load_state(path: str) -> AppState:
         bipartite=build_bipartite(bundle),
         anomaly=detect_anomalies(bundle),
         build_seconds=round(time.perf_counter() - started, 3),
+        motifs=motif_artifact.read_artifact(root),
     )
     return state
 

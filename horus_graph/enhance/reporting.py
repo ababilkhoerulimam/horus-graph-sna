@@ -29,6 +29,7 @@ def reporting_block(
     null: Optional[NullModelResult] = None,
     bootstrap: Optional[BootstrapResult] = None,
     topology: Optional[TopologyProfile] = None,
+    motifs: Optional[Dict[str, Any]] = None,
     seed: int = 42,
 ) -> Dict[str, Any]:
     """Fakta yang wajib ikut bila angka engine ini dikutip di luar."""
@@ -67,7 +68,7 @@ def reporting_block(
         },
         "metrics": dict(provenance["metrics"]),
         "layers": dict(network.layers),
-        "limitations": _limitations(bundle, network, null),
+        "limitations": _limitations(bundle, network, null, motifs),
     }
 
     if null is not None:
@@ -84,7 +85,10 @@ def reporting_block(
 
 
 def _limitations(
-    bundle: DataBundle, network: NetworkBundle, null: Optional[NullModelResult]
+    bundle: DataBundle,
+    network: NetworkBundle,
+    null: Optional[NullModelResult],
+    motifs: Optional[Dict[str, Any]] = None,
 ) -> List[str]:
     notes: List[str] = [
         "Ko-okurensi mengukur kebersamaan penyebutan dalam artikel, bukan hubungan kausal.",
@@ -128,6 +132,41 @@ def _limitations(
         notes.append(
             f"p-value empiris beresolusi 1/{null.resamples + 1}; nilai minimum yang bisa "
             "dilaporkan adalah batas resolusi, bukan bukti kemustahilan."
+        )
+
+    notes.extend(_motif_notes(network, motifs))
+    return notes
+
+
+def _motif_notes(network: NetworkBundle, motifs: Optional[Dict[str, Any]]) -> List[str]:
+    """
+    Batasan motif, termasuk alasan rich-club tidak dilaporkan.
+
+    Rich-club tanpa pembanding acak naik secara konstruksi, jadi ketiadaannya
+    harus disebut — bukan dibiarkan kosong yang terbaca seperti nol.
+    """
+    notes: List[str] = []
+    triads = network.triads
+    if triads.available:
+        notes.append(
+            "Sensus triad dihitung pada salinan berarah simetris, sehingga hanya empat dari "
+            "enam belas kelas Davis-Leinhardt yang mungkin muncul (003, 102, 201, 300)."
+        )
+    else:
+        notes.append(f"Sensus triad tidak dilaporkan: {triads.reason}")
+
+    stored = (motifs or {}).get("motifs") or {}
+    club = stored.get("rich_club") or {}
+    if club.get("status") == "ready" and club.get("normalized"):
+        notes.append(
+            f"Rasio rich-club memakai {club.get('replicates')} graf acak berderajat sama; "
+            "nilai 1,0 berarti tidak ada efek di luar derajat, dan ambang derajat tertinggi "
+            "dipotong karena subgrafnya terlalu kecil untuk memberi rasio yang stabil."
+        )
+    else:
+        notes.append(
+            "Rasio rich-club tidak dilaporkan: pembanding acaknya belum dihitung, dan kurva "
+            "mentahnya naik secara konstruksi sehingga tidak bisa dibaca sebagai temuan."
         )
     return notes
 

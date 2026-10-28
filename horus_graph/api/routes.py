@@ -110,7 +110,9 @@ def provenance(request: Request) -> Dict[str, Any]:
     # `bootstrap_payload` merakit 140 KB payload untuk mengambil satu blok;
     # blok itu sendiri murah, jadi panggil langsung.
     state = _state(request)
-    return reporting_block(state.bundle, state.network, seed=serializers.PROVENANCE_SEED)
+    return reporting_block(
+        state.bundle, state.network, motifs=state.motifs, seed=serializers.PROVENANCE_SEED
+    )
 
 
 @router.get("/api/inference")
@@ -468,7 +470,9 @@ def export_report(request: Request, payload: Optional[ReportRequest] = None) -> 
     """
     state = _state(request)
     key = _snapshot_key(state)
-    block = reporting_block(state.bundle, state.network, seed=serializers.PROVENANCE_SEED)
+    block = reporting_block(
+        state.bundle, state.network, motifs=state.motifs, seed=serializers.PROVENANCE_SEED
+    )
 
     stored = inference_artifact.read_artifact(state.root)
     if stored is not None and isinstance(stored.get("inference"), dict):

@@ -177,6 +177,28 @@ def test_bootstrap_membawa_stabilitas_komunitas_per_simpul(client):
     assert sum(1 for node in nodes.values() if node["community_stability"] is not None) >= 2
 
 
+def test_bootstrap_membawa_sensus_triad(client):
+    payload = client.get("/api/bootstrap").json()
+    triads = payload["graph"]["motifs"]["triads"]
+
+    assert triads["status"] == "ready"
+    assert triads["method"] == "undirected_triad_census_symmetric"
+    # Rantai A-B-C-D: tidak ada segitiga, jadi semua triple terhubung terbuka.
+    assert triads["triangles"] == 0
+    assert triads["open_wedges"] == 2
+    assert triads["closed_share"] == 0.0
+
+
+def test_rich_club_menunggu_masukan_tanpa_artefak(client):
+    payload = client.get("/api/bootstrap").json()
+    club = payload["graph"]["motifs"]["rich_club"]
+
+    assert club["status"] == "awaiting_input"
+    assert "motifs" in club["reason"]
+    # Kurva mentah tidak dikirim sendirian: naiknya konstruksi, bukan temuan.
+    assert "coefficients" not in club
+
+
 def test_tanpa_lapisan_sentimen_simpul_tidak_membawa_blok(client):
     payload = client.get("/api/bootstrap").json()
 

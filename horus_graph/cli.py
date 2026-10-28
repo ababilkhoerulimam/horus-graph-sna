@@ -232,6 +232,64 @@ def _cmd_inference(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_motifs(args: argparse.Namespace) -> int:
+    """
+    Sensus triad dan rich-club ternormalisasi.
+
+    Dipisahkan dari `build` karena pembanding acak untuk rich-club memakan
+    ~1 detik pada 77 simpul dan menit pada graf besar; server tidak pernah
+    membayarnya secara interaktif.
+    """
+    from .analysis import motifs as motif_artifact
+    from .core.build import build_network
+
+    bundle = load_bundle(Path(args.bundle))
+    network = build_network(bundle)
+    params = motif_artifact.MotifParams(
+        replicates=args.replicates, swaps_per_edge=args.swaps_per_edge, seed=args.seed
+    )
+    payload = motif_artifact.compute(network, params)
+
+    if args.write:
+        path = motif_artifact.write_artifact(Path(args.bundle), payload)
+        print(f"Artefak ditulis: {path.name}")
+
+    if args.json:
+        print(json.dumps(payload, indent=2, ensure_ascii=False, default=str))
+        return 0
+
+    triads = payload["motifs"]["triads"]
+    if triads["status"] != "ready":
+        print(f"Triad: tidak diukur ({triads['reason']})")
+    else:
+        share = triads["closed_share"]
+        print(
+            f"Triad: {triads['triangles']} segitiga, {triads['open_wedges']} baji terbuka, "
+            f"{'tidak terdefinisi' if share is None else f'{share * 100:.1f}%'} "
+            f"triad bertepi ganda yang tertutup"
+        )
+
+    club = payload["motifs"]["rich_club"]
+    if club["status"] != "ready":
+        print(f"Rich-club: tidak diukur ({club['reason']})")
+        return 0
+    peak = club.get("peak")
+    if peak is None:
+        print(f"Rich-club: kurva kosong ({club['replicates']} pembanding)")
+    else:
+        print(
+            f"Rich-club: rasio puncak {peak['ratio']} pada derajat {peak['degree']} "
+            f"({club['replicates']} pembanding, seed {params.seed}); "
+            "1,0 berarti tidak ada efek di luar derajat"
+        )
+        if club["truncated_degrees"]:
+            print(
+                f"  {club['truncated_degrees']} ambang derajat tertinggi tidak dilaporkan: "
+                "subgrafnya terlalu kecil untuk memberi rasio yang bisa dipercaya"
+            )
+    return 0
+
+
 def _cmd_dossier(args: argparse.Namespace) -> int:
     from .analysis.dossier import entity_dossier
 
@@ -486,6 +544,27 @@ def build_parser() -> argparse.ArgumentParser:
                            help="Simpan hasil ke <bundle>/inference.json agar dibaca server")
     inference.add_argument("--json", action="store_true")
     inference.set_defaults(func=_cmd_inference)
+
+    motifs_parser = sub.add_parser(
+        "motifs", help="Sensus triad dan rich-club ternormalisasi (mahal; simpan sebagai artefak)"
+    )
+    motifs_parser.add_argument("bundle")
+    motifs_parser.add_argument(
+        "--replicates", type=int, default=10, help="Jumlah graf acak pembanding untuk rich-club"
+    )
+    motifs_parser.add_argument(
+        "--swaps-per-edge",
+        type=int,
+        default=10,
+        dest="swaps_per_edge",
+        help="Pertukaran sisi per sisi pada tiap graf acak",
+    )
+    motifs_parser.add_argument("--seed", type=int, default=42)
+    motifs_parser.add_argument(
+        "--write", action="store_true", help="Simpan hasil ke <bundle>/motifs.json"
+    )
+    motifs_parser.add_argument("--json", action="store_true")
+    motifs_parser.set_defaults(func=_cmd_motifs)
 
     dossier = sub.add_parser("dossier", help="Profil satu entitas")
     dossier.add_argument("bundle")
