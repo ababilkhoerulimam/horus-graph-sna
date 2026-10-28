@@ -102,8 +102,8 @@ Empat ketergantungan keras, bukan selera:
 
 | Fase | Isi | Butir | Risiko | Status |
 | --- | --- | --- | --- | --- |
-| F1 | Masukan yang jujur: satu jalur insidensi, dedup, alias dibawa | F1.1–F1.4 | sedang (denominator berubah) | `[ ]` |
-| F2 | Seleksi tepi yang bisa dipertanggungjawabkan | F2.1–F2.5 | tinggi (angka bergeser, artefak lama) | `[ ]` |
+| F1 | Masukan yang jujur: satu jalur insidensi, dedup, alias dibawa | F1.1–F1.4 | sedang (denominator berubah) | `[x]` `bd425e4..187c1ff` |
+| F2 | Seleksi tepi yang bisa dipertanggungjawabkan | F2.1–F2.5 | tinggi (angka bergeser, artefak lama) | `[x]` `544de1b..5de2710` |
 | F3 | Nama dan peringkat | F3.1–F3.3 | sedang (perilaku resolve berubah) | `[ ]` |
 | F4 | Kalibrasi eksternal dan ketidakpastian | F4.1–F4.4 | rendah | `[ ]` |
 
