@@ -217,15 +217,15 @@ def reset_rate_limits() -> None:
         _buckets.clear()
 
 
-def enforce_rate_limit(
+def check_rate(
     who: Identity,
     *,
     bucket: str,
     limit: int = RATE_LIMIT,
     window: float = RATE_WINDOW_SECONDS,
-) -> None:
+) -> bool:
     """
-    Batas sederhana per identitas dan per jenis tindakan.
+    Batas sederhana per identitas dan per jenis tindakan. False bila terlampaui.
 
     Disimpan di memori proses: cukup untuk satu server, dan sengaja tidak
     berpura-pura terdistribusi. Yang dijaga adalah satu klien yang mengulang
@@ -237,13 +237,26 @@ def enforce_rate_limit(
         stamps = [stamp for stamp in _buckets.get(key, []) if now - stamp < window]
         if len(stamps) >= limit:
             _buckets[key] = stamps
-            raise HTTPException(
-                status_code=429,
-                detail=f"Terlalu banyak permintaan {bucket}; coba lagi dalam {int(window)} detik.",
-                headers={"Retry-After": str(int(window))},
-            )
+            return False
         stamps.append(now)
         _buckets[key] = stamps
+    return True
+
+
+def enforce_rate_limit(
+    who: Identity,
+    *,
+    bucket: str,
+    limit: int = RATE_LIMIT,
+    window: float = RATE_WINDOW_SECONDS,
+) -> None:
+    """Versi HTTP: 429 dengan Retry-After, bukan nilai balik."""
+    if not check_rate(who, bucket=bucket, limit=limit, window=window):
+        raise HTTPException(
+            status_code=429,
+            detail=f"Terlalu banyak permintaan {bucket}; coba lagi dalam {int(window)} detik.",
+            headers={"Retry-After": str(int(window))},
+        )
 
 
 def rate_limited(bucket: str, *, limit: int = RATE_LIMIT) -> Callable[[Request], None]:
