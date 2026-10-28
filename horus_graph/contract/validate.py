@@ -22,6 +22,9 @@ from . import schema
 from .models import Domain, Manifest
 
 SENTIMENT_SUM_TOLERANCE = 1.0
+# Dua artikel bisa jadi rilis yang memang diringkas dua kali; tiga dengan judul
+# identik di hari yang sama sudah berpola.
+SYNDICATION_MIN_COPIES = 3
 
 
 @dataclass
@@ -162,6 +165,49 @@ def _check_articles(frame: pd.DataFrame, manifest: Manifest, findings: List[Find
     empty_source = int(frame["source_id"].isna().sum())
     if empty_source:
         findings.append(_error("source_missing", "articles", f"{empty_source} artikel tanpa source_id"))
+
+    _check_syndication(frame, findings)
+
+
+def _check_syndication(frame: pd.DataFrame, findings: List[Finding]) -> None:
+    """
+    Sindikasi yang tidak dilabeli tidak digabung, tetapi harus terlihat.
+
+    Menggabungkan otomatis berarti engine memutuskan dua artikel adalah satu
+    peristiwa; keputusan itu milik pipeline ingest. Yang bisa dilakukan engine
+    adalah melaporkan polanya, supaya kolom `dedupe_group` tidak tinggal kosong
+    tanpa ada yang sadar bahwa dukungan tepi sedang digandakan.
+    """
+    if "title" not in frame.columns or "published_at" not in frame.columns:
+        return
+
+    titles = frame["title"].astype("string").fillna("").str.strip().str.casefold()
+    titles = titles.str.replace(r"\s+", " ", regex=True)
+    days = pd.to_datetime(frame["published_at"], errors="coerce", utc=True).dt.date
+    labeled = (
+        frame["dedupe_group"]
+        if "dedupe_group" in frame.columns
+        else pd.Series([None] * len(frame), index=frame.index)
+    )
+    keys = pd.DataFrame(
+        {"title": titles, "day": days, "source": frame["source_id"]},
+        index=frame.index,
+    )[labeled.isna()]
+
+    suspects = 0
+    for (title, _day), group in keys.groupby(["title", "day"], dropna=True):
+        if not title or len(group) < SYNDICATION_MIN_COPIES:
+            continue
+        if group["source"].nunique() >= SYNDICATION_MIN_COPIES:
+            suspects += 1
+    if suspects:
+        findings.append(
+            _warn(
+                "syndication_suspected",
+                "articles",
+                f"{suspects} kelompok judul sama di hari yang sama tanpa dedupe_group",
+            )
+        )
 
 
 def _check_mentions(frame: pd.DataFrame, findings: List[Finding]) -> None:

@@ -301,3 +301,62 @@ def test_ego_kosong_diterima_sebagai_tanpa_pusat(tmp_path):
         generator_version="0",
     )
     assert "ego_not_in_entities" not in _codes(validate_bundle(root))
+
+
+def _syndication_frame(titles, sources, groups):
+    import pandas as pd
+
+    return pd.DataFrame(
+        {
+            "title": titles,
+            "published_at": ["2024-01-01T00:00:00Z"] * len(titles),
+            "source_id": sources,
+            "dedupe_group": groups,
+        }
+    )
+
+
+def test_sindikasi_tanpa_dedupe_group_dilaporkan():
+    from horus_graph.contract.validate import _check_syndication
+
+    findings = []
+    _check_syndication(
+        _syndication_frame(
+            ["Klasemen Liga", "klasemen liga", "Klasemen  Liga", "Lain"],
+            ["a", "b", "c", "d"],
+            [None, None, None, None],
+        ),
+        findings,
+    )
+
+    assert [item.code for item in findings] == ["syndication_suspected"]
+    assert findings[0].level == "warn"
+
+
+def test_sindikasi_terlabel_tidak_dilaporkan():
+    from horus_graph.contract.validate import _check_syndication
+
+    findings = []
+    _check_syndication(
+        _syndication_frame(
+            ["Klasemen Liga"] * 3,
+            ["a", "b", "c"],
+            ["g1", "g1", "g1"],
+        ),
+        findings,
+    )
+
+    assert findings == []
+
+
+def test_sindikasi_dua_artikel_tidak_dilaporkan():
+    from horus_graph.contract.validate import _check_syndication
+
+    findings = []
+    _check_syndication(
+        _syndication_frame(["Klasemen Liga"] * 2, ["a", "b"], [None, None]),
+        findings,
+    )
+
+    assert findings == []
+
