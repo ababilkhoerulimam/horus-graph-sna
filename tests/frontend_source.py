@@ -15,12 +15,8 @@ STATIC = Path(__file__).resolve().parents[1] / "horus_graph" / "web" / "static"
 
 # Urutan mengikuti urutan pemuatan di index.html.
 STYLES = ("css/app.css",)
-SCRIPTS = (
-    "js/graph_canvas.js",
-    "js/app.js",
-    "js/copilot_ui.js",
-    "js/copilot_bridge.js",
-)
+APP_CHUNKS = tuple(sorted(f"js/app_{index:02d}.js" for index in range(1, 11)))
+SCRIPTS = ("js/graph_canvas.js",) + APP_CHUNKS + ("js/copilot_ui.js", "js/copilot_bridge.js")
 
 
 def read(relative: str) -> str:

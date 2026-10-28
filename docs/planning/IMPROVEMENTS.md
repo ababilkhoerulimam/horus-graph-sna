@@ -441,17 +441,28 @@ memindahkan renderer yang isinya masih akan berubah di V0–V1.
 
 - [ ] **V2.2 Pecah frontend + regresi visual** — L
 
-  **Status: sebagian.** CSS dan seluruh skrip sudah keluar dari `index.html`:
-  8.726 → 909 baris (batas 1.500 terpenuhi), dengan `css/app.css` (2.269) dan
-  `js/app.js` (5.546). Sepuluh tes frontend kini membaca gabungan markup, CSS,
-  dan skrip lewat `tests/frontend_source.py` — tanpa itu, memindahkan sebuah
-  aturan ke berkas lain membuat pagar aksesibilitas lolos karena teksnya tidak
-  ditemukan lagi, bukan karena aturannya benar.
+  **Status: hampir selesai — ukuran berkas terpenuhi, regresi visual belum.**
 
-  Yang belum: `js/app.js` masih 5.546 baris (batas 800), dan regresi visual
-  (3 mode x 3 lebar) belum dibuat. Memecah `app.js` menyentuh ~5.500 baris yang
-  berbagi global lewat deklarasi top-level; tiap pemecahan harus diverifikasi
-  tangkapan layar per panel, dan verifikasi itu yang belum ada otomatisnya.
+  `index.html` 8.726 → 909 baris (batas 1.500). CSS di `css/app.css` (2.269),
+  skrip di sepuluh berkas `js/app_01.js`..`app_10.js` yang dimuat berurutan;
+  yang terbesar 760 baris (batas 800). Pemecahannya memotong di batas bagian
+  yang sudah ada, dan satu fungsi (`loadAnnotations`) dipindah ke depan karena
+  deklarasinya dipakai pernyataan level atas di potongan sebelumnya — hoisting
+  tidak melintasi batas berkas, dan itu satu-satunya pelanggaran yang ditemukan
+  saat memeriksa.
+
+  Sepuluh tes frontend membaca gabungan markup, CSS, dan skrip lewat
+  `tests/frontend_source.py`. Tanpa itu, memindahkan aturan ke berkas lain
+  membuat pagar aksesibilitas lolos karena teksnya tidak ditemukan lagi, bukan
+  karena aturannya benar.
+
+  Diverifikasi: 77 simpul tetap SVG (77 `g.node-item`, tanpa error konsol),
+  10.000 simpul tetap kanvas (220 fps, 30 MB), dan 535 tes hijau.
+
+  **Yang belum: regresi visual 3 mode x 3 lebar.** Skrip pembandingnya belum
+  ada, dan `Pillow` tidak terpasang di lingkungan ini — perbandingan piksel
+  harus ditulis sendiri atau menambah dependensi, dan itu keputusan tersendiri,
+  bukan sesuatu yang pantas diselipkan di akhir refactor.
 
 
   - Berkas: `index.html` (7.792 baris), `web/static/js/*`
