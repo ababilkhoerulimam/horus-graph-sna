@@ -37,10 +37,10 @@ Daftar lengkap per butir ada di [Lampiran A](#lampiran-a--19-temuan-terverifikas
 | Fase | Isi | Butir | Risiko | Status |
 | --- | --- | --- | --- | --- |
 | A | Ruang kerja bersih (commit V2.2 yang menggantung) | 19 | rendah | `[x]` |
-| B | Tutup kebocoran: sanitasi, audit, identitas, token | 1, 2, 3, 17 | sedang | `[ ]` |
-| C | Kontrak & semantik API | 7, 10, 8, 9, 11, 14 | sedang–tinggi | `[ ]` |
-| D | Frontend setara: gerbang visual, label, kanvas, ukuran | 6, 4, 5, 13, 12 | tinggi (kanvas) | `[ ]` |
-| E | Operasional & dokumen | 16, 15, 18 | rendah | `[ ]` |
+| B | Tutup kebocoran: sanitasi, audit, identitas, token | 1, 2, 3, 17 | sedang | `[x]` |
+| C | Kontrak & semantik API | 7, 10, 8, 9, 11, 14 | sedang–tinggi | `[x]` |
+| D | Frontend setara: gerbang visual, label, kanvas, ukuran | 6, 4, 5, 13, 12 | tinggi (kanvas) | `[x]` |
+| E | Operasional & dokumen | 16, 15, 18 | rendah | `[x]` |
 
 Ketergantungan: `A → B → C → D → E`. B2 dan B3 menjadi prasyarat C1; B3 menjadi
 prasyarat C4; D1 → D3 → D4; E3 terakhir.
@@ -68,10 +68,10 @@ didaftarkan di `.PHONY`.
 
 | Butir | Perubahan | Kriteria terima | Effort | Status |
 | --- | --- | --- | --- | --- |
-| **1** CRITICAL | Ganti denylist regex dengan **allowlist + rebuild pohon memakai `html.parser`** (`convert_charrefs=True`), serialisasi ulang dari nol, root `<svg xmlns>` ditulis sendiri. Tanpa `href`/`xlink:href`/`src`/`style`/`image`/`use`/`foreignObject`. Batas 2 MB, 20.000 elemen, depth 32. Gagal → placeholder. Tambah `<meta CSP default-src 'none'>` sebagai lapis kedua | 28 kasus adversarial lulus; setiap keluaran lolos regex `(?i)<\s*script\|\son[a-z]+\s*=\|javascript:\|https?://\|@import\|<image\|<foreignobject` = None; SVG sah mempertahankan jumlah `<circle>` | M | `[ ]` |
-| **2** HIGH | Audit per kelas operasi: **egress** → 200 + `X-Audit-Status: failed`; **mutasi idempoten** → 200 + header; **mutasi tak-idempoten** → audit **sebelum** tulis, gagal → 503 tanpa perubahan. Baris gagal ditulis `logger.error` utuh + counter `/metrics` + `threading.Lock` pada append | Status 200/503 tepat; tidak ada baris audit hilang tanpa jejak; DELETE gagal membuat catatan tetap ada | S | `[ ]` |
-| **3** HIGH | Invarian: `Identity('local','admin')` **hanya** bila `TRUSTED=0` dan `TOKEN` kosong. `TRUSTED=1` tanpa header → **401**. Satu resolver dipakai HTTP **dan** WS; WS gagal → `close(1008)` sebelum `accept()`. Sanitasi `actor` (tolak karakter kontrol, >128 karakter) | Matriks 14 kombinasi env × header × token lulus; tidak ada `source=="local"` saat gerbang menyala | S | `[ ]` |
-| **17** LOW | HTTP: `request_token()` hanya header, halaman pertama pindah ke `#token=` lalu `replaceState`. WS: **tidak ditambal**, dicatat sebagai batasan + `Referrer-Policy: no-referrer`. Tiket sekali-pakai menjadi syarat bila server keluar dari loopback | `GET /api/bootstrap?token=…` → 401; batasan tercatat | S | `[ ]` |
+| **1** CRITICAL | Ganti denylist regex dengan **allowlist + rebuild pohon memakai `html.parser`** (`convert_charrefs=True`), serialisasi ulang dari nol, root `<svg xmlns>` ditulis sendiri. Tanpa `href`/`xlink:href`/`src`/`style`/`image`/`use`/`foreignObject`. Batas 2 MB, 20.000 elemen, depth 32. Gagal → placeholder. Tambah `<meta CSP default-src 'none'>` sebagai lapis kedua | 28 kasus adversarial lulus; setiap keluaran lolos regex `(?i)<\s*script\|\son[a-z]+\s*=\|javascript:\|https?://\|@import\|<image\|<foreignobject` = None; SVG sah mempertahankan jumlah `<circle>` | M | `[x]` |
+| **2** HIGH | Audit per kelas operasi: **egress** → 200 + `X-Audit-Status: failed`; **mutasi idempoten** → 200 + header; **mutasi tak-idempoten** → audit **sebelum** tulis, gagal → 503 tanpa perubahan. Baris gagal ditulis `logger.error` utuh + counter `/metrics` + `threading.Lock` pada append | Status 200/503 tepat; tidak ada baris audit hilang tanpa jejak; DELETE gagal membuat catatan tetap ada | S | `[x]` |
+| **3** HIGH | Invarian: `Identity('local','admin')` **hanya** bila `TRUSTED=0` dan `TOKEN` kosong. `TRUSTED=1` tanpa header → **401**. Satu resolver dipakai HTTP **dan** WS; WS gagal → `close(1008)` sebelum `accept()`. Sanitasi `actor` (tolak karakter kontrol, >128 karakter) | Matriks 14 kombinasi env × header × token lulus; tidak ada `source=="local"` saat gerbang menyala | S | `[x]` |
+| **17** LOW | HTTP: `request_token()` hanya header, halaman pertama pindah ke `#token=` lalu `replaceState`. WS: **tidak ditambal**, dicatat sebagai batasan + `Referrer-Policy: no-referrer`. Tiket sekali-pakai menjadi syarat bila server keluar dari loopback | `GET /api/bootstrap?token=…` → 401; batasan tercatat | S | `[x]` |
 
 > **Kenapa `html.parser`, bukan `xml.etree`.** Laporan dibuka browser sebagai
 > HTML, jadi tokenizer HTML adalah parser acuan. `ElementTree` memberi pohon
@@ -84,12 +84,12 @@ didaftarkan di `.PHONY`.
 
 | Butir | Perubahan | Kontrak | Kriteria terima | Effort | Status |
 | --- | --- | --- | --- | --- | --- |
-| 7 | `DELETE /api/annotations` masuk bucket `annotations` **yang sama** dengan POST (kalau beda bucket, penyerang mendapat 30+30). `POST /api/annotations`, `/api/report`, `/api/export` dapat `require_role("analyst")`. WS: bucket `chat`, `delete_session` butuh analyst, audit `chat.session.create/delete` dan `chat.query` tanpa isi pesan. Urutan tetap: identitas → 403 → 429 → mutasi → audit | perilaku | 429 pada permintaan ke-31; viewer 403; tiga aksi baru muncul di JSONL | M | `[ ]` |
-| 10 | Artefak menyimpan `snapshot_id`; `stale()` membandingkannya; CLI ikut menstempel; `computing` dijawab **202**; `forget()` dipanggil saat sukses; gagal bisa diulang setelah TTL 300 detik | aditif | Tabel kebenaran `stale()` lulus; 202 untuk computing | M | `[ ]` |
-| 8 | `coefficients` hanya dikirim bila `normalized`; serializer memeriksa `normalized is True` | breaking (tanpa konsumen) | Set kunci `rich_club` saat `normalized:false` tidak memuat `coefficients` | S | `[ ]` |
-| 9 | Hapus larik `degree`/`betweenness` mentah dari `sequence.series[]` | breaking (tanpa konsumen) | `set(row) == {id, degree_rank, betweenness_rank, betweenness_rank_shift, windows_present}` | S | `[ ]` |
-| 11 | `pd.DataFrame(rows, columns=["entity_id", *NODE_COLUMNS])` di jalur normal | internal | Kolom sama di jalur normal dan jalur epos kosong | XS | `[ ]` |
-| 14 | `unstable_count` dan `truncated_degrees` = `null` saat status bukan `ready` | breaking null-vs-0 | `awaiting_input` → `None`; `ready` dengan nol → `0` | XS | `[ ]` |
+| 7 | `DELETE /api/annotations` masuk bucket `annotations` **yang sama** dengan POST (kalau beda bucket, penyerang mendapat 30+30). `POST /api/annotations`, `/api/report`, `/api/export` dapat `require_role("analyst")`. WS: bucket `chat`, `delete_session` butuh analyst, audit `chat.session.create/delete` dan `chat.query` tanpa isi pesan. Urutan tetap: identitas → 403 → 429 → mutasi → audit | perilaku | 429 pada permintaan ke-31; viewer 403; tiga aksi baru muncul di JSONL | M | `[x]` |
+| 10 | Artefak menyimpan `snapshot_id`; `stale()` membandingkannya; CLI ikut menstempel; `computing` dijawab **202**; `forget()` dipanggil saat sukses; gagal bisa diulang setelah TTL 300 detik | aditif | Tabel kebenaran `stale()` lulus; 202 untuk computing | M | `[x]` |
+| 8 | `coefficients` hanya dikirim bila `normalized`; serializer memeriksa `normalized is True` | breaking (tanpa konsumen) | Set kunci `rich_club` saat `normalized:false` tidak memuat `coefficients` | S | `[x]` |
+| 9 | Hapus larik `degree`/`betweenness` mentah dari `sequence.series[]` | breaking (tanpa konsumen) | `set(row) == {id, degree_rank, betweenness_rank, betweenness_rank_shift, windows_present}` | S | `[x]` |
+| 11 | `pd.DataFrame(rows, columns=["entity_id", *NODE_COLUMNS])` di jalur normal | internal | Kolom sama di jalur normal dan jalur epos kosong | XS | `[x]` |
+| 14 | `unstable_count` dan `truncated_degrees` = `null` saat status bukan `ready` | breaking null-vs-0 | `awaiting_input` → `None`; `ready` dengan nol → `0` | XS | `[x]` |
 
 Dampak bundle lama: hanya `inference.json` (dihitung ulang sekali, ±72 detik
 pada bundle emas) dan payload `null`. `contract_version` **tidak** naik karena
@@ -101,10 +101,10 @@ skema bundle tidak berubah.
 
 | Butir | Perubahan | Kriteria terima | Effort | Status |
 | --- | --- | --- | --- | --- |
-| 6 | `_check_manifest()` membandingkan `channel_tolerance` dan `budget_px` (beda → exit 4). Chromium dari `--chrome` → `HORUS_CHROME` → `which` → default. Target `visual` sudah di `.PHONY` sejak Fase A | Manifest beda → exit 4; tanpa baseline → exit 4, bukan traceback | S | `[ ]` |
-| **4** HIGH | Gerbang label menjadi `if (isSun \|\| d.label_priority <= labelBudget())`; hapus `isAnchorNode` | Tes gagal pada kode lama, lulus pada kode baru | XS | `[ ]` |
-| **5** HIGH | Adapter `graphView` di `app_01.js` dengan dua implementasi (svg/canvas): `setActive`, `setQuery`, `fit`, `refresh`. Kanvas dapat `fit()` saat mount (bbox + padding 48), alpha per simpul (aktif 1, nonaktif 0,06), sisi hanya bila kedua ujung aktif. Enam pemanggil diganti | `measure_render.py` mencetak `fit_coverage ≥ 0,9` dan `dim_applied true`; 77 simpul tetap 77 `g.node-item` | L | `[ ]` |
-| 13 + 12 | `size_rank` menjadi opsi metrik `prominence` (default) di `SIZE_RANK_FIELDS`. Kartu sankey: tinggi = `CARD_MIN_H + (MAX-MIN) × sizeRank`, lebar tetap | Selisih > 0 antara metrik `degree` dan `prominence` di mode topik-aktor | M | `[ ]` |
+| 6 | `_check_manifest()` membandingkan `channel_tolerance` dan `budget_px` (beda → exit 4). Chromium dari `--chrome` → `HORUS_CHROME` → `which` → default. Target `visual` sudah di `.PHONY` sejak Fase A | Manifest beda → exit 4; tanpa baseline → exit 4, bukan traceback | S | `[x]` |
+| **4** HIGH | Gerbang label menjadi `if (isSun \|\| d.label_priority <= labelBudget())`; hapus `isAnchorNode` | Tes gagal pada kode lama, lulus pada kode baru | XS | `[x]` |
+| **5** HIGH | Adapter `graphView` di `app_01.js` dengan dua implementasi (svg/canvas): `setActive`, `setQuery`, `fit`, `refresh`. Kanvas dapat `fit()` saat mount (bbox + padding 48), alpha per simpul (aktif 1, nonaktif 0,06), sisi hanya bila kedua ujung aktif. Enam pemanggil diganti | `measure_render.py` mencetak `fit_coverage ≥ 0,9` dan `dim_applied true`; 77 simpul tetap 77 `g.node-item` | L | `[x]` |
+| 13 + 12 | `size_rank` menjadi opsi metrik `prominence` (default) di `SIZE_RANK_FIELDS`. Kartu sankey: tinggi = `CARD_MIN_H + (MAX-MIN) × sizeRank`, lebar tetap | Selisih > 0 antara metrik `degree` dan `prominence` di mode topik-aktor | M | `[x]` |
 
 ---
 
@@ -112,9 +112,9 @@ skema bundle tidak berubah.
 
 | Butir | Perubahan | Kriteria terima | Effort | Status |
 | --- | --- | --- | --- | --- |
-| 16 | `_load()` hanya memuat 50 sesi terbaru (sisanya tetap di DB); `_evict()` tidak menghapus baris; `create_app()` selalu `configure_store` | 60 sesi → 50 di memori, 60 baris di DB | S | `[ ]` |
-| 15 | `add()` melaporkan tabrakan id, bukan menelan; `store_dir()` absolut dan dicatat saat start | 400 dengan pesan; `store_dir().is_absolute()` | S | `[ ]` |
-| 18 | `frontend_source.py` ikut `css/copilot.css`; angka disegarkan dari pengukuran ulang; rujukan `index.html:3766` → `app_07.js:67`; `tests/test_docs_consistency.py` menjaga 5–6 klaim stabil | Mengubah satu angka di dokumen membuat tes merah | S | `[ ]` |
+| 16 | `_load()` hanya memuat 50 sesi terbaru (sisanya tetap di DB); `_evict()` tidak menghapus baris; `create_app()` selalu `configure_store` | 60 sesi → 50 di memori, 60 baris di DB | S | `[x]` |
+| 15 | `add()` melaporkan tabrakan id, bukan menelan; `store_dir()` absolut dan dicatat saat start | 400 dengan pesan; `store_dir().is_absolute()` | S | `[x]` |
+| 18 | `frontend_source.py` ikut `css/copilot.css`; angka disegarkan dari pengukuran ulang; rujukan `index.html:3766` → `app_07.js:67`; `tests/test_docs_consistency.py` menjaga 5–6 klaim stabil | Mengubah satu angka di dokumen membuat tes merah | S | `[x]` |
 
 ---
 
@@ -147,26 +147,30 @@ ditebalkan.
 | A1 | `feat(tools): pembanding tangkapan layar tanpa Pillow, gantikan shot.py` | `[x]` | `e5a96a5` |
 | A2 | `build(make): target make visual untuk gerbang regresi visual` | `[x]` | `f2210df` |
 | A3 | `docs: V2.2 selesai — regresi visual 3 mode x 3 lebar` | `[x]` | `113bc88` |
-| B1 | `fix(export): sanitasi SVG berbasis allowlist` | `[ ]` | |
-| B2 | `fix(api): audit tidak pernah menggagalkan permintaan` | `[ ]` | |
-| B3 | `fix(auth): identitas fail-closed saat gerbang SSO menyala` | `[ ]` | |
-| B4 | `fix(auth): token tidak lagi lewat query string` | `[ ]` | |
-| C1 | `feat(api): batas laju dan audit untuk sesi serta chat` | `[ ]` | |
-| C2 | `fix(inference): artefak terikat snapshot, job gagal bisa diulang` | `[ ]` | |
-| C3 | `fix(motifs): koefisien mentah tidak dikirim tanpa pembanding` | `[ ]` | |
-| C4 | `refactor(sequence): seri hanya memuat peringkat` | `[ ]` | |
-| C5 | `fix(temporal,metrics): kolom mengikuti NODE_COLUMNS, null saat belum siap` | `[ ]` | |
-| D1 | `fix(tools): anggaran visual dibaca dari manifest, Chromium tidak hardcode` | `[ ]` | |
-| D2 | `fix(ui): label dibatasi peringkat, bukan is_anchor` | `[ ]` | |
-| D3 | `feat(ui): kanvas setara SVG untuk filter, cari, dan fit` | `[ ]` | |
-| D4 | `feat(ui): ukuran simpul dan kartu mengikuti metrik terpilih` | `[ ]` | |
-| E1 | `fix(copilot): batas sesi ditegakkan saat muat, eviksi tidak menghapus` | `[ ]` | |
-| E2 | `fix(annotations): tabrakan id dilaporkan, folder absolut` | `[ ]` | |
-| E3 | `docs: angka dan rujukan disegarkan, dijaga tes` | `[ ]` | |
+| B1 | `fix(export): sanitasi SVG laporan memakai allowlist, bukan denylist` | `[x]` | `041772a` |
+| B2 | `fix(api): audit tidak pernah menggagalkan permintaan` | `[x]` | `606fdc1` |
+| B3 | `fix(auth): identitas fail-closed saat gerbang SSO menyala` | `[x]` | `22c69ef` |
+| B4 | `fix(auth): token tidak lagi lewat query string` | `[x]` | `8ddfc23` |
+| C1 | `feat(api): batas laju dan audit untuk sesi serta chat` | `[x]` | `f7b8415` |
+| C2 | `fix(inference): artefak terikat snapshot, job gagal bisa diulang` | `[x]` | `8615d26` |
+| C3 | `fix(motifs): koefisien mentah tidak dikirim tanpa pembanding` | `[x]` | `dc8c365` |
+| C4 | `refactor(sequence): seri hanya memuat peringkat` | `[x]` | `c4c89d1` |
+| C5 | `fix(temporal,metrics): kolom mengikuti NODE_COLUMNS, null saat belum siap` | `[x]` | `87809a4` |
+| D1 | `fix(tools): anggaran visual dibaca dari manifest, Chromium tidak hardcode` | `[x]` | `53267f1` |
+| D2 | `fix(ui): label dibatasi peringkat, bukan is_anchor` | `[x]` | `de6b4cd` |
+| D3 | `feat(ui): kanvas setara SVG untuk filter, cari, dan fit` | `[x]` | `591757a` |
+| D4 | `feat(ui): ukuran simpul dan kartu mengikuti metrik terpilih` | `[x]` | `b45b451` |
+| E1 | `fix(copilot): batas sesi ditegakkan saat muat, eviksi tidak menghapus` | `[x]` | `4ddb35e` |
+| E2 | `fix(annotations): tabrakan id dilaporkan, folder absolut` | `[x]` | `25ebb52` |
+| E3 | `docs: angka dan rujukan disegarkan, dijaga tes` | `[x]` | `07b89b2` |
 
 Gerbang tiap rentang: `make check` (ruff + mypy + pytest) hijau. Baseline
-542 lulus / 23 skip; target akhir ±600 lulus. D1 dan D3 menambah
-`make visual` sebelum/sesudah.
+542 lulus / 23 skip; **akhir 633 lulus / 23 skip**, `ruff` bersih, `mypy`
+bersih atas 77 berkas. D1 dan D3 memakai `make visual` sebelum/sesudah.
+
+Satu commit tambahan di luar tabel: `d2ce918 style(tests): urutkan blok
+import` — perbaikan urutan impor yang diminta `ruff` setelah C1. Ia tidak
+mengubah perilaku, jadi tidak diberi butir sendiri.
 
 ---
 
@@ -192,6 +196,8 @@ Gerbang tiap rentang: `make check` (ruff + mypy + pytest) hijau. Baseline
 | Token di query WS | WebSocket browser tidak bisa menyetel header | Tiket sekali pakai (`POST /api/ws-ticket`, TTL 30 detik) bila server keluar dari loopback |
 | Header SSO di bind non-loopback | Siapa pun yang menjangkau port bisa mengaku admin lewat header | `HORUS_TRUSTED_PROXY_IPS` dibandingkan `request.client.host` (±15 baris) |
 | Laporan tidak memuat `app.css` | Sanitizer membuang `style`; laporan hanya membawa CSS template | Sertakan sub-CSS statis tepercaya atau kirim hanya layer yang terlihat |
+| Cabang sankey tidak pernah tercapai | Tidak ada endpoint yang mengirim `sankey_data`; mode topik-aktor selalu jatuh ke jalur `topics`/`actors`/`edges`. Tinggi kartu sankey tetap mengikuti peringkat bila payload itu datang | Kirim `sankey_data` dari `topic_actor_network` atau hapus cabangnya |
+| Kartu topik tidak ikut berskala | `/api/topics/actor-network` tidak mengirim ukuran untuk topik; hanya aktor yang punya simpul di `nodeMap` | Tambahkan `article_count`/peringkat per topik di endpoint, lalu pakai `cardHeight` yang sama |
 
 ---
 
