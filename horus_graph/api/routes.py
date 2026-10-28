@@ -19,6 +19,7 @@ from ..analysis import (
     trace_path,
 )
 from ..analysis import inference as inference_artifact
+from ..analysis.agreement import rank_agreement
 from ..analysis.inference import InferenceJobs, InferenceParams
 from ..analysis.sensitivity import sensitivity
 from ..contract.snapshot import snapshot_id
@@ -27,7 +28,7 @@ from ..enhance.reporting import reporting_block
 from ..export import formats as export_formats
 from ..export import report
 from ..presentation import Presentation
-from . import audit, queries, schemas, serializers
+from . import audit, encoding, queries, schemas, serializers
 from .auth import Identity, identity, rate_limited, require_role, require_token
 from .datasets import list_snapshots
 from .state import AppState, BundleNotFound, get_state
@@ -353,6 +354,34 @@ def analysis_sensitivity(
     """
     state = _state(request)
     return sensitivity(state.bundle, points=points, active=state.network.backbone.config())
+
+
+@router.get("/api/analysis/agreement")
+def analysis_agreement(
+    request: Request,
+    top_k: int = Query(default=10, ge=3, le=50),
+) -> Dict[str, Any]:
+    """
+    Kesepakatan peringkat antar-varian metrik.
+
+    `prominence` ikut sebagai varian karena ia yang dipakai UI untuk menentukan
+    ukuran simpul. Tanpa itu, kesepakatan yang dilaporkan tidak menjawab
+    pertanyaan "apakah urutan yang terlihat di layar masuk akal".
+    """
+    state = _state(request)
+    metrics = {
+        str(entity_id): {
+            "degree": row["degree"],
+            "articles": row["articles"],
+            "betweenness": row["betweenness"],
+            "effective_size": row["effective_size"],
+        }
+        for entity_id, row in state.network.node_metrics.iterrows()
+    }
+    prominence = {
+        entity_id: row["size_rank"] for entity_id, row in encoding.encode(metrics).items()
+    }
+    return rank_agreement(state.network, top_k=top_k, extra={"prominence": prominence})
 
 
 @router.get("/api/analysis/brokers", response_model=schemas.BrokerRankingResponse)

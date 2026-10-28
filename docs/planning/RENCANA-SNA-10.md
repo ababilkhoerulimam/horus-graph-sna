@@ -164,9 +164,19 @@ nnz ≈ 5 ribu, 200 draw × 5 sweep ≈ 5 detik, menggantikan ≈ 50 detik
 
 | Butir | Perubahan | Kriteria terima | Effort |
 | --- | --- | --- | --- |
-| F3.1 | `resolve_entity`: normalisasi (NFKD, casefold, tanda baca), urutan id → alias → label → substring, ambigu → `None` + `resolve_candidates`; laporkan `unresolved_share` | alias "EMV" menyelesaikan kueri; dua entitas "Andi"/"Andi Pratama" → `None` + ≥ 2 kandidat; `unresolved_share` = hitungan manual | M |
-| F3.2 | `rank_agreement`: tau-b (seri dikoreksi), Jaccard top-10, `betweenness_weighted` (jarak `1/support`, bukan `support`) | identik 1,0; terbalik −1,0; known-answer 0,6; `None` dibuang berpasangan; `coverage < 0,5` → status `insufficient` | M |
+| F3.1 | `resolve_entity`: normalisasi (NFKD, casefold, tanda baca), urutan id → label → alias → substring, ambigu → `None` + `resolve_candidates`; `unresolved_share` diukur pada label katalog | alias "EMV" menyelesaikan kueri; "andi" pada label "Andi Pratama"/"Andi Wijaya" → `None` + 2 kandidat; `unresolved_share` = hitungan manual | M |
+| F3.2 | `rank_agreement`: tau-b (seri dikoreksi), Jaccard top-10, `betweenness_weighted` (jarak `1/support`, bukan `support`); enam varian | identik 1,0; terbalik −1,0; known-answer 0,6; `None` dibuang berpasangan; `coverage < 0,5` → status `insufficient` | M |
 | F3.3 | Endpoint `/api/analysis/agreement` (6 varian + `prominence` di lapisan API) | matriks simetris, diagonal 1,0; `prominence` ada di daftar varian | S |
+
+Dua kriteria F3 dikoreksi saat implementasi:
+
+1. **"Andi" tidak ambigu bila ada entitas berlabel "Andi".** Label persis
+   adalah lapis kedua, jadi ia menang atas "Andi Pratama" di lapis substring.
+   Yang benar-benar ambigu: dua label yang sama-sama hanya *mengandung* kueri.
+2. **`unresolved_share` tidak bisa diukur dari kueri pengguna**, karena tidak
+   ada batch kueri di sistem. Ukurannya diambil dari katalog: entitas yang
+   labelnya tidak mengembalikan dirinya sendiri (label ganda, atau label yang
+   menunjuk entitas lain) — cacat data, bukan salah ketik.
 
 Catatan F3.2: `prominence` sengaja tidak masuk `metric_agreement` — ia bobot
 tampilan (0,45/0,35/0,20), bukan metrik analisis; memasukkannya membuat

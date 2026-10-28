@@ -588,3 +588,20 @@ def test_response_model_tidak_membuang_kunci(client):
         "contract_version", "build_seconds", "capabilities",
     ):
         assert kunci in payload, kunci
+
+
+def test_kesepakatan_peringkat_memuat_prominence(client):
+    payload = client.get("/api/analysis/agreement", params={"top_k": 3}).json()
+
+    assert payload["status"] in {"ready", "insufficient"}
+    assert "prominence" in payload["variants"]
+    assert payload["top_k"] == 3
+    for name in payload["variants"]:
+        assert payload["tau"][name][name] == 1.0
+    first, second = payload["variants"][0], payload["variants"][1]
+    assert payload["tau"][first][second] == payload["tau"][second][first]
+
+
+def test_kesepakatan_menolak_top_k_di_luar_batas(client):
+    assert client.get("/api/analysis/agreement?top_k=2").status_code == 422
+    assert client.get("/api/analysis/agreement?top_k=51").status_code == 422
