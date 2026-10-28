@@ -15,31 +15,16 @@ server dimatikan, setelah bundle dipindah, dan setelah versi engine berubah.
 from __future__ import annotations
 
 import html
-import re
 from typing import Any, Dict, List, Optional
 
 from ..annotations import Annotation
-
-# Elemen dan atribut yang bisa menjalankan kode saat laporan dibuka. SVG dari
-# kanvas dikirim klien, jadi ia diperlakukan sebagai masukan tidak tepercaya:
-# laporan ini memang untuk dibagikan.
-_SCRIPT_TAG = re.compile(r"<\s*script\b[^>]*>.*?<\s*/\s*script\s*>", re.IGNORECASE | re.DOTALL)
-_DANGEROUS_TAG = re.compile(
-    r"<\s*/?\s*(foreignObject|iframe|object|embed|link|meta|base)\b[^>]*>", re.IGNORECASE
-)
-_EVENT_ATTR = re.compile(r"\son[a-z]+\s*=\s*(?:\"[^\"]*\"|'[^']*'|[^\s>]+)", re.IGNORECASE)
-_JS_URL = re.compile(r"(?:javascript|data:text/html)\s*:", re.IGNORECASE)
+from .svg_sanitize import sanitize_svg
 
 LIMITATIONS_HEADING = "Apa yang tidak bisa disimpulkan dari laporan ini"
 
-
-def sanitize_svg(svg: str) -> str:
-    """Buang hal yang bisa menjalankan kode; sisakan gambar."""
-    cleaned = _SCRIPT_TAG.sub("", svg)
-    cleaned = _DANGEROUS_TAG.sub("", cleaned)
-    cleaned = _EVENT_ATTR.sub("", cleaned)
-    cleaned = _JS_URL.sub("", cleaned)
-    return cleaned
+# Ditaruh di laporan, bukan hanya di penyaring: CSP berlaku juga saat berkas
+# dibuka lewat file://, dan menutup lubang penyaring yang belum ditemukan.
+CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'"
 
 
 def render_report(
@@ -69,6 +54,8 @@ def render_report(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="{CSP}">
+<meta name="referrer" content="no-referrer">
 <title>{_text(title)}</title>
 <style>
   :root {{ color-scheme: light; }}
@@ -149,7 +136,7 @@ def render_report(
 
   <h2>Gambar jaringan</h2>
   <div class="figure">
-    {sanitize_svg(svg) if svg else '<div class="empty">Kanvas tidak ikut diekspor.</div>'}
+    {_figure(svg)}
   </div>
 
   <h2>Catatan analis</h2>
@@ -170,6 +157,22 @@ def render_report(
 </body>
 </html>
 """
+
+
+def _figure(svg: Optional[str]) -> str:
+    """
+    Gambar sebagai SVG sebaris, atau keterangan bila tidak ada.
+
+    Dua kegagalan dibedakan: klien tidak mengirim gambar, dan gambar yang
+    dikirim ditolak penyaring. Menuliskan keduanya sebagai "tidak diekspor"
+    akan menyembunyikan yang kedua.
+    """
+    if not svg:
+        return '<div class="empty">Kanvas tidak ikut diekspor.</div>'
+    cleaned = sanitize_svg(svg)
+    if not cleaned:
+        return '<div class="empty">Gambar ditolak karena tidak lolos penyaringan.</div>'
+    return cleaned
 
 
 def _text(value: Any) -> str:
