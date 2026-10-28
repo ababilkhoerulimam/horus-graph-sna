@@ -127,6 +127,42 @@ class EdgeEvidenceResponse(_Loose):
     evidence: List[EvidenceItem]
 
 
+class DiffusionPoint(_Loose):
+    adopted: int
+    count: int
+    share: float
+
+
+class DiffusionSeed(_Loose):
+    id: str
+    label: str
+    entity_type: Optional[str] = None
+
+
+class DiffusionAdopter(_Loose):
+    id: str
+    label: str
+    entity_type: Optional[str] = None
+    frequency: float
+
+
+class DiffusionResponse(_Loose):
+    status: str
+    method: Optional[str] = None
+    reason: Optional[str] = None
+    deterministic: Optional[bool] = None
+    params: Optional[Dict[str, Any]] = None
+    nodes: Optional[int] = None
+    edges: Optional[int] = None
+    distribution: List[DiffusionPoint] = Field(default_factory=list)
+    mean: Optional[float] = None
+    p05: Optional[int] = None
+    p50: Optional[int] = None
+    p95: Optional[int] = None
+    adoption_frequency: List[DiffusionAdopter] = Field(default_factory=list)
+    seeds: List[DiffusionSeed] = Field(default_factory=list)
+
+
 class BrokerRow(_Loose):
     rank: int
     id: str

@@ -481,7 +481,7 @@ memindahkan renderer yang isinya masih akan berubah di V0–V1.
 
   - [x] **(a) Consensus clustering + stabilitas per simpul**
   - [x] (b) Triad census + rich-club
-  - [ ] (c) Difusi independent cascade + threshold
+  - [x] (c) Difusi independent cascade + threshold
   - [ ] (d) Graph sequence + sentralitas dinamis
 
   **Status (a): selesai.**
@@ -599,6 +599,56 @@ memindahkan renderer yang isinya masih akan berubah di V0–V1.
   sendirian. `tests/test_frontend_motifs.py` (8) menjaga agar `null` dan
   "belum diukur" tidak menjadi angka di UI. Suite: 472 → 480.
 
+
+  **Status (c): selesai.**
+
+  **Di mana.** `core/diffusion.py` (`independent_cascade`, `linear_threshold`),
+  dipanggil dari `api/queries.py` lewat `GET /api/analysis/diffusion` dan dari
+  CLI `horus-graph diffuse <bundle> --seeds …`.
+
+  **Apa yang diukur.** Sebaran, bukan satu angka: berapa kali tiap jumlah
+  pengadopsi muncul dari `runs` jalankan, plus frekuensi tiap simpul ikut
+  terinfeksi. Pada bundle emas, penyebar Dewa United FC, 200 jalankan,
+  peluang 0,1, seed 42: rata-rata 3,815 pengadopsi dari 77 simpul, p05 1,
+  p50 1, p95 20. Penyebarnya 100%, tetangga terdekatnya hanya 3% (Jan Olde
+  Riekerink, Egy Maulana Vikri, Alex Martins), Ricky Kambuaya 2%. Bentuk
+  sebaran inilah yang hilang kalau hanya rata-rata yang dilaporkan: separuh
+  jalankan berhenti di penyebar, tetapi 5% jalankan mencapai 20 simpul.
+
+  Model ambang 0,3 pada penyebar yang sama berhenti di 1,0 pengadopsi.
+  Penyebabnya derajat: tetangga ego punya 20+ tetangga, sehingga satu suara
+  aktif tidak pernah mencapai 30% — hasil yang benar, bukan kegagalan hitung.
+
+  **Biaya.** Independent cascade 200 jalankan 16 ms (2000 jalankan 149 ms);
+  ambang 200 jalankan 90 ms karena tiap gelombang memindai seluruh simpul.
+  Keduanya jauh di bawah build, jadi dihitung per permintaan.
+
+  **Lima keputusan yang menyimpang dari rencana:**
+
+  1. **Difusi tidak masuk `/api/bootstrap`.** Masukannya — siapa penyebarnya,
+     berapa kali disimulasikan — datang dari pemakai. Blok bootstrap yang
+     selalu `awaiting_input` hanya menambah derau; presedennya kontrafaktual,
+     yang juga dihitung per permintaan.
+  2. **Dua model, satu endpoint.** `model=ic|threshold` dengan satu bentuk
+     permintaan; parameter yang tidak berlaku tetap diterima tetapi hanya yang
+     benar-benar dipakai masuk `params`.
+  3. **Peluang per sisi seragam.** Bobot NPMI bukan peluang; memakainya sebagai
+     peluang akan mengarang arti yang tidak bisa dipertanggungjawabkan.
+  4. **Ambang seragam dan deterministik.** Linear threshold dengan satu ambang
+     untuk semua simpul tidak punya keacakan, jadi hasilnya satu batang. Itu
+     dilaporkan lewat `deterministic: true` supaya sebaran satu batang tidak
+     terbaca sebagai ukuran ketidakpastian.
+  5. **Sebaran penuh, bukan ringkasan.** `distribution` berisi setiap jumlah
+     pengadopsi yang muncul beserta `share`-nya, dan `adoption_frequency`
+     menyebut frekuensi per simpul. Rata-rata saja menyembunyikan bentuk.
+
+  **Tes.** `tests/test_core_diffusion.py` (12) memakai graf yang jawabannya
+  bisa dihitung tangan: lintasan tiga simpul (peluang 1 → 3, peluang 0 → 1),
+  bintang empat simpul (ambang 0,5 dinilai serentak), determinisme seed,
+  batas `runs`, penyebar di luar graf, dan graf tanpa sisi. Lima tes di
+  `tests/test_api.py` menjaga endpoint: sebaran berjumlah 1, penyebar tak
+  dikenal → 422, `runs` di bawah batas → 422, dan penyebar kosong →
+  `awaiting_input`. Suite: 480 → 497.
 
 **Selesai V2 bila:** satu bundle 10 ribu simpul terbuka dalam 2 detik, dua
 pengguna dengan peran berbeda bisa bekerja tanpa saling menimpa, dan setiap

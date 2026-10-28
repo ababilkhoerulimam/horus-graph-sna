@@ -12,6 +12,8 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
+from ..analysis.resolve import resolve_entity
+from ..core import diffusion as diffusion_core
 from ..enhance import stats
 from .state import AppState
 
@@ -261,3 +263,70 @@ def _delta(before: Any, after: Any) -> Optional[float]:
     if before is None or after is None or pd.isna(before) or pd.isna(after):
         return None
     return round(float(after) - float(before), 6)
+
+
+def diffusion(
+    state: AppState,
+    seeds: List[str],
+    *,
+    model: str = "ic",
+    probability: float = 0.1,
+    threshold: float = 0.2,
+    runs: int = 200,
+    seed: int = 42,
+) -> Dict[str, Any]:
+    """
+    Sebaran difusi dari satu set simpul penyebar.
+
+    Difusi tidak dihitung saat build: masukannya — siapa penyebarnya dan
+    berapa kali disimulasikan — datang dari pemakai, jadi blok bootstrap-nya
+    akan selalu kosong dan hanya menambah derau. Karena itu ia dihitung per
+    permintaan, seperti kontrafaktual.
+
+    Nama penyebar diterima seperti yang diketik pengguna dan diselesaikan
+    lewat `resolve_entity` yang sama dengan jalur lain, supaya "egy" dan
+    "Egy Maulana" tidak menghasilkan dua jawaban berbeda.
+    """
+    network = state.network
+    graph = network.graph
+    if graph.number_of_edges() == 0:
+        return diffusion_core.awaiting("Graf tanpa sisi: tidak ada jalur penularan.")
+    if not seeds:
+        return diffusion_core.awaiting("Difusi butuh setidaknya satu simpul penyebar (seed).")
+
+    resolved: List[str] = []
+    unknown: List[str] = []
+    for query in seeds:
+        entity_id = resolve_entity(network, query)
+        if entity_id is None:
+            unknown.append(query)
+        elif entity_id not in resolved:
+            resolved.append(entity_id)
+    if unknown:
+        raise ValueError(f"Simpul penyebar tidak ditemukan: {', '.join(sorted(unknown))}.")
+
+    if model == "threshold":
+        result = diffusion_core.linear_threshold(
+            graph, resolved, threshold=threshold, runs=runs, seed=seed
+        )
+    else:
+        result = diffusion_core.independent_cascade(
+            graph, resolved, probability=probability, runs=runs, seed=seed
+        )
+
+    result["seeds"] = [
+        {"id": entity_id, "label": network.label_of(entity_id), "entity_type": network.type_of(entity_id)}
+        for entity_id in resolved
+    ]
+    adopters = [
+        {
+            "id": row["id"],
+            "label": network.label_of(row["id"]),
+            "entity_type": network.type_of(row["id"]),
+            "frequency": row["frequency"],
+        }
+        for row in result["adoption_frequency"]
+    ]
+    adopters.sort(key=lambda row: (-row["frequency"], row["id"]))
+    result["adoption_frequency"] = adopters
+    return result

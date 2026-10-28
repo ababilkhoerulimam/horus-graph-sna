@@ -290,6 +290,58 @@ def _cmd_motifs(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_diffuse(args: argparse.Namespace) -> int:
+    """
+    Sebaran difusi dari satu set simpul penyebar.
+
+    Difusi tidak punya angka tunggal: yang dilaporkan rata-rata, pita p05-p95,
+    dan frekuensi tiap simpul ikut terinfeksi. Satu angka rata-rata
+    menyembunyikan bentuk sebarannya.
+    """
+    from .analysis.resolve import resolve_entity
+    from .core import diffusion as diffusion_core
+    from .core.build import build_network
+
+    network = build_network(load_bundle(Path(args.bundle)))
+    resolved: List[str] = []
+    unknown: List[str] = []
+    for query in [part.strip() for part in args.seeds.split(",") if part.strip()]:
+        entity_id = resolve_entity(network, query)
+        if entity_id is None:
+            unknown.append(query)
+        elif entity_id not in resolved:
+            resolved.append(entity_id)
+
+    if unknown:
+        print(f"Simpul penyebar tidak ditemukan: {', '.join(sorted(unknown))}", file=sys.stderr)
+        return 2
+    if not resolved:
+        print("Difusi butuh setidaknya satu simpul penyebar (--seeds).", file=sys.stderr)
+        return 2
+
+    if args.model == "threshold":
+        result = diffusion_core.linear_threshold(
+            network.graph, resolved, threshold=args.threshold, runs=args.runs, seed=args.seed
+        )
+    else:
+        result = diffusion_core.independent_cascade(
+            network.graph, resolved, probability=args.probability, runs=args.runs, seed=args.seed
+        )
+
+    if args.json:
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        return 0
+
+    print(
+        f"Difusi {args.model}: {result['mean']} pengadopsi rata-rata dari {result['nodes']} simpul "
+        f"(p05 {result['p05']}, p50 {result['p50']}, p95 {result['p95']}; "
+        f"{result['params']['runs']} jalankan, seed {result['params']['seed']})"
+    )
+    for row in result["adoption_frequency"][:5]:
+        print(f"  {network.label_of(row['id'])}: {row['frequency'] * 100:.1f}% jalankan")
+    return 0
+
+
 def _cmd_dossier(args: argparse.Namespace) -> int:
     from .analysis.dossier import entity_dossier
 
@@ -565,6 +617,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     motifs_parser.add_argument("--json", action="store_true")
     motifs_parser.set_defaults(func=_cmd_motifs)
+
+    diffuse = sub.add_parser("diffuse", help="Sebaran difusi dari simpul penyebar (bukan satu angka)")
+    diffuse.add_argument("bundle")
+    diffuse.add_argument("--seeds", required=True, help="Id atau label simpul penyebar, dipisah koma")
+    diffuse.add_argument("--model", choices=("ic", "threshold"), default="ic")
+    diffuse.add_argument("--probability", type=float, default=0.1, help="Peluang per sisi (model ic)")
+    diffuse.add_argument("--threshold", type=float, default=0.2, help="Ambang proporsi tetangga (model threshold)")
+    diffuse.add_argument("--runs", type=int, default=200, help="Jumlah simulasi (10-2000)")
+    diffuse.add_argument("--seed", type=int, default=42)
+    diffuse.add_argument("--json", action="store_true")
+    diffuse.set_defaults(func=_cmd_diffuse)
 
     dossier = sub.add_parser("dossier", help="Profil satu entitas")
     dossier.add_argument("bundle")

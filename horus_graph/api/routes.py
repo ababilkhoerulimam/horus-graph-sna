@@ -328,6 +328,40 @@ def analysis_holes(
     return structural_holes(_state(request).network, mode=mode, limit=limit)
 
 
+@router.get("/api/analysis/diffusion", response_model=schemas.DiffusionResponse)
+def analysis_diffusion(
+    request: Request,
+    seeds: str = Query(description="Id atau label simpul penyebar, dipisah koma"),
+    model: str = Query(default="ic", pattern="^(ic|threshold)$"),
+    probability: float = Query(default=0.1, ge=0.0, le=1.0),
+    threshold: float = Query(default=0.2, ge=0.0, le=1.0),
+    runs: int = Query(default=200, ge=10, le=2000),
+    seed: int = Query(default=42),
+) -> Dict[str, Any]:
+    """
+    Sebaran difusi dari satu set penyebar; bukan satu angka.
+
+    `probability` hanya dipakai model `ic` dan `threshold` hanya dipakai model
+    `threshold`; parameter yang tidak berlaku tetap diterima supaya klien bisa
+    mengirim satu bentuk permintaan untuk dua model, dan nilainya ikut
+    dilaporkan di `params` hanya bila benar-benar dipakai.
+    """
+    wanted = [part.strip() for part in seeds.split(",") if part.strip()]
+    state = _state(request)
+    try:
+        return queries.diffusion(
+            state,
+            wanted,
+            model=model,
+            probability=probability,
+            threshold=threshold,
+            runs=runs,
+            seed=seed,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
 @router.get("/api/analysis/briefing")
 def analysis_briefing(request: Request) -> Dict[str, Any]:
     state = _state(request)

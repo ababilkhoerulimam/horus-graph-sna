@@ -199,6 +199,56 @@ def test_rich_club_menunggu_masukan_tanpa_artefak(client):
     assert "coefficients" not in club
 
 
+def test_difusi_mengembalikan_sebaran_bukan_satu_angka(client):
+    """Rantai A-B-C-D dengan peluang 1: setiap jalankan menyentuh empat simpul."""
+    payload = client.get(
+        "/api/analysis/diffusion", params={"seeds": "A", "probability": 1.0, "runs": 10}
+    ).json()
+
+    assert payload["status"] == "ready"
+    assert payload["method"] == "independent_cascade_uniform_probability"
+    assert payload["mean"] == 4.0
+    assert payload["distribution"] == [{"adopted": 4, "count": 10, "share": 1.0}]
+    # Sebaran berjumlah 1, dan penyebar dilaporkan dengan label, bukan id saja.
+    assert payload["seeds"][0]["id"] == "A"
+    assert payload["seeds"][0]["label"] == "A"
+    frekuensi = {row["id"]: row["frequency"] for row in payload["adoption_frequency"]}
+    assert frekuensi["A"] == 1.0
+
+
+def test_difusi_penyebar_tak_dikenal_ditolak(client):
+    response = client.get("/api/analysis/diffusion", params={"seeds": "Tidak Ada"})
+
+    assert response.status_code == 422
+    assert "tidak ditemukan" in response.json()["detail"]
+
+
+def test_difusi_jumlah_simulasi_di_bawah_batas_ditolak(client):
+    response = client.get("/api/analysis/diffusion", params={"seeds": "A", "runs": 5})
+
+    assert response.status_code == 422
+
+
+def test_difusi_ambang_penuh_deterministik(client):
+    """Ambang 1,0 pada rantai: tidak ada simpul yang seluruh tetangganya aktif."""
+    payload = client.get(
+        "/api/analysis/diffusion",
+        params={"seeds": "A", "model": "threshold", "threshold": 1.0, "runs": 10},
+    ).json()
+
+    assert payload["status"] == "ready"
+    assert payload["deterministic"] is True
+    assert payload["mean"] == 1.0
+
+
+def test_difusi_tanpa_penyebar_menunggu_masukan(client):
+    payload = client.get("/api/analysis/diffusion", params={"seeds": " , "}).json()
+
+    assert payload["status"] == "awaiting_input"
+    assert payload["mean"] is None
+    assert payload["reason"]
+
+
 def test_tanpa_lapisan_sentimen_simpul_tidak_membawa_blok(client):
     payload = client.get("/api/bootstrap").json()
 
