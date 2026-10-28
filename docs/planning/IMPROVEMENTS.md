@@ -15,12 +15,14 @@ Legenda effort: **XS** < 1 jam, **S** setengah hari, **M** satu-dua hari,
 
 ## Diagnosis yang jadi dasar urutan
 
-Empat angka, semuanya terukur di repo ini:
+Empat angka, semuanya terukur di repo ini. Nomor baris `index.html` di bawah
+merujuk pada berkas sebelum pemecahan V2.2; kode yang sama sekarang ada di
+`js/app_07.js` (skala ukuran mulai `:52`, radius `:95`).
 
 | Temuan | Bukti |
 | --- | --- |
-| Encoding visual dikalibrasi ke satu dataset | `index.html:3778-3781` memakai `(deg-11)/(47-11)`, `bw/0.04`, volume `2.2–3.85`; `:6425-6437` memakai `/60`, `/0.08`, `/35` |
-| Dua rumus radius untuk variabel yang sama | `assignNodeProminence` (`:3766`) vs `computeNodeRadius` (`:6419`) |
+| Encoding visual dikalibrasi ke satu dataset | `index.html` pra-pecah baris 3778–3781 memakai `(deg-11)/(47-11)`, `bw/0.04`, volume `2.2–3.85`; baris 6425–6437 memakai `/60`, `/0.08`, `/35` |
+| Dua rumus radius untuk variabel yang sama | `assignNodeProminence` (baris 3766) vs `computeNodeRadius` (baris 6419) |
 | Rigor statistika tidak sampai ke produk | `api/routes.py:106` memanggil `reporting_block` tanpa `null`/`bootstrap`; `enhance/reporting.py:68` hanya menambah `inference` bila objeknya sudah dihitung |
 | Seluruh graf dikirim sekali | `/api/bootstrap` 155 KB untuk 77 simpul (`serializers.py:31`) |
 
@@ -38,7 +40,8 @@ turunannya ikut berubah.
 **1. Skala visual dihitung di Python, bukan di JS.**
 Alasan: engine sudah punya data, tes, dan disiplin "satu aturan" (`_coerce.py`,
 `stance.py`). Menaruh aturan skala di JS berarti aturan itu tidak bisa diuji
-tanpa harness JS baru, dan akan bercabang lagi seperti `:3766` vs `:6419`.
+tanpa harness JS baru, dan akan bercabang lagi seperti dulu
+(`assignNodeProminence` vs `computeNodeRadius`).
 Yang dikirim: `size_rank` (0–1), `radius_tier` (1–5), `label_priority` (int).
 Alternatif yang ditolak: pustaka skala di JS (d3.scaleQuantile) — benar secara
 matematis, tapi menambah tempat kedua yang bisa lupa diperbarui.
@@ -65,8 +68,8 @@ tampilan yang sama harus bisa dibuka ulang persis. Semua butir V0 murah; tidak
 ada alasan menundanya.
 
 - [x] **V0.1 Skala visual dihitung engine** — M
-  - Berkas: `api/serializers.py:74` (`node_payloads`), `index.html:3766`,
-    `:6419`
+  - Berkas: `api/serializers.py:74` (`node_payloads`), `js/app_07.js:52`
+    (`SIZE_RANK_FIELDS`), `:95` (`computeNodeRadius`)
   - Kerjakan: tambah blok per simpul `size_rank`, `radius_tier`,
     `label_priority` yang dihitung dari **peringkat persentil** degree, artikel,
     dan betweenness — bukan dari batas tetap. Bobot komposit tetap
@@ -81,7 +84,7 @@ ada alasan menundanya.
     `size_rank` monoton terhadap degree pada graf bintang; bundle 5 simpul
     menghasilkan 5 tier berbeda.
   - Effort alasan: satu fungsi + satu blok payload + satu jalur UI.
-  - Hasil: `horus_graph/api/encoding.py` (98 baris) menghitung
+  - Hasil: `horus_graph/api/encoding.py` (112 baris) menghitung
     `size_rank`, `rank_degree`, `rank_volume`, `rank_betweenness`, `rank_burt`,
     `radius_tier`, `label_priority` dari peringkat persentil; seri diputus
     `entity_id`. `node_payloads` memanggilnya sekali per graf lewat
@@ -91,7 +94,7 @@ ada alasan menundanya.
     simpul dan metrik kosong yang ditaruh di belakang).
 
 - [x] **V0.2 Satu radius untuk semua mode** — S
-  - Berkas: `index.html:3766`, `:6419`, `:6440`
+  - Berkas: `js/app_07.js:52`, `:95`, `:102` (`refreshNodeStyles`)
   - Kerjakan: hapus `assignNodeProminence`; `computeNodeRadius` membaca
     `radius_tier` dari payload. Pemilih metrik ukuran (`degree`/`betweenness`/
     `burt`/`volume`) tetap ada, tetapi memilih **peringkat** yang mana, bukan
@@ -150,7 +153,7 @@ ada alasan menundanya.
     sehingga tautan bisa disalin dari address bar. Bila tombol tetap diinginkan,
     tempatnya di menu "Data", bukan di toolbar.
   - Catatan temuan: `applyTimelineFilter` masih menulis `epoch_1..epoch_3`
-    sebagai literal (`index.html:3529-3532`). Tidak merusak bundle lain karena
+    sebagai literal (pra-pecah, baris 3529–3532). Tidak merusak bundle lain karena
     `updatePillsState` mengabaikan kunci tak dikenal, tetapi itu asumsi dataset
     yang tersisa — kandidat butir berikutnya.
 
@@ -298,7 +301,7 @@ seberapa yakin?". V1 bergantung pada V0.4 (tautan) dan V0.1 (peringkat).
 
 - [x] **V1.3 Diff epos yang sungguhan** — M
   - Berkas: `api/queries.py` (`graph_compare`), `api/routes.py:…`
-    (`/api/graph/compare`), `index.html:7236`
+    (`/api/graph/compare`), `js/app_08.js` (tabel diff)
   - Kerjakan: perluas respons dengan delta per simpul (`degree`, `betweenness`,
     `community`) dan sisi masuk/keluar; UI menampilkan tabel berperingkat
     `|Δbetweenness|` di samping cincin kanvas yang sudah ada. Cincin tetap,
@@ -413,7 +416,7 @@ yang memuat ambang, ketidakpastian, dan batasannya — tanpa menjelaskan apa pun
 secara lisan.
 
 **Fase V1 selesai.** Keempat butir tertutup, 429 tes lulus, `ruff` dan `mypy`
-bersih (70 berkas). Pada bundle golden, satu laporan HTML sekarang memuat:
+bersih (77 berkas). Pada bundle golden, satu laporan HTML sekarang memuat:
 snapshot_id `5e0643344153eeb6`, ambang 3 / 0.2 dengan 8 sisi diselamatkan,
 seed 42, angka kunci (77 simpul, 475 sisi, Q 0.3872, transitivity 0.7352),
 p-value modularitas dengan resolusinya, ARI komunitas 0.9156 (p05–p95
@@ -443,9 +446,10 @@ memindahkan renderer yang isinya masih akan berubah di V0–V1.
 
   **Status: selesai — ukuran berkas dan regresi visual terpenuhi.**
 
-  `index.html` 8.726 → 909 baris (batas 1.500). CSS di `css/app.css` (2.269),
-  skrip di sepuluh berkas `js/app_01.js`..`app_10.js` yang dimuat berurutan;
-  yang terbesar 761 baris (batas 800). Pemecahannya memotong di batas bagian
+  `index.html` 8.726 → 923 baris (batas 1.500). CSS di `css/app.css` (2.269)
+  dan `css/copilot.css` (511), skrip di sepuluh berkas `js/app_01.js`..
+  `app_10.js` yang dimuat berurutan; yang terbesar `app_03.js` 762 baris
+  (batas 800). Pemecahannya memotong di batas bagian
   yang sudah ada, dan satu fungsi (`loadAnnotations`) dipindah ke depan karena
   deklarasinya dipakai pernyataan level atas di potongan sebelumnya — hoisting
   tidak melintasi batas berkas, dan itu satu-satunya pelanggaran yang ditemukan
@@ -457,7 +461,7 @@ memindahkan renderer yang isinya masih akan berubah di V0–V1.
   karena aturannya benar.
 
   Diverifikasi: 77 simpul tetap SVG (77 `g.node-item`, tanpa error konsol),
-  10.000 simpul tetap kanvas (220 fps, 30 MB), dan 535 tes hijau.
+  10.000 simpul tetap kanvas (247 fps, 22 MB), dan seluruh suite hijau.
 
   **Regresi visual: `tools/visual_regression.py`.** Sembilan bidikan (3 mode x
   3 lebar: 1024/1280/1600, tinggi 950) dibandingkan dengan baseline di

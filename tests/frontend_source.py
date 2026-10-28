@@ -14,7 +14,10 @@ from pathlib import Path
 STATIC = Path(__file__).resolve().parents[1] / "horus_graph" / "web" / "static"
 
 # Urutan mengikuti urutan pemuatan di index.html.
-STYLES = ("css/app.css",)
+# Kedua berkas gaya ikut dibaca: aturan aksesibilitas untuk drawer copilot
+# tinggal di copilot.css, dan tanpa ini pagar aksesibilitas hanya memeriksa
+# separuh tampilan.
+STYLES = ("css/app.css", "css/copilot.css")
 APP_CHUNKS = tuple(sorted(f"js/app_{index:02d}.js" for index in range(1, 11)))
 SCRIPTS = ("js/graph_canvas.js",) + APP_CHUNKS + ("js/copilot_ui.js", "js/copilot_bridge.js")
 
