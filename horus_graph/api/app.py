@@ -66,8 +66,9 @@ def create_app(
     app.state.inference_jobs = InferenceJobs()
     # Sesi copilot: SQLite bila path diberikan, memori bila tidak. Dipasang di
     # sini, bukan di modul, supaya dua aplikasi dalam satu proses tidak berbagi.
-    if session_db:
-        configure_store(session_db)
+    # Selalu dipasang: tanpa ini, aplikasi kedua dalam satu proses memakai
+    # store global milik aplikasi pertama.
+    configure_store(session_db)
     app.include_router(router)
     # Copilot selalu dipasang: jalur deterministiknya tidak butuh LLM, jadi
     # drawer tidak pernah menawarkan kanal yang tidak ada.

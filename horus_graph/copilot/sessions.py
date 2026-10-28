@@ -93,15 +93,25 @@ class SessionStore:
         with self._lock:
             session = self._sessions.get(session_id)
             if session is None:
-                now = time.time()
-                session = Session(
-                    id=session_id,
-                    title=(title or "Sesi baru").strip()[:TITLE_MAX_CHARS] or "Sesi baru",
-                    created_at=now,
-                    updated_at=now,
-                )
-                self._sessions[session_id] = session
+                # Sesi yang tergusur dari memori masih ada di DB. Mengambilnya
+                # kembali membuat id yang dipegang drawer tidak memulai riwayat
+                # kosong di atas riwayat yang sebenarnya masih tersimpan.
+                session = self._restore(session_id)
+                if session is None:
+                    now = time.time()
+                    session = Session(
+                        id=session_id,
+                        title=(title or "Sesi baru").strip()[:TITLE_MAX_CHARS] or "Sesi baru",
+                        created_at=now,
+                        updated_at=now,
+                    )
+                else:
+                    # Membuka sesi dihitung sebagai aktivitas. Tanpa ini sesi
+                    # yang baru dipulihkan langsung tergusur lagi karena
+                    # updated_at-nya paling lama.
+                    session.updated_at = time.time()
                 self._write_session(session)
+                self._sessions[session_id] = session
                 self._evict()
             return session.as_dict()
 
@@ -183,33 +193,56 @@ class SessionStore:
         self._load()
 
     def _load(self) -> None:
+        """
+        Muat hanya sesi terbaru; sisanya tetap di DB.
+
+        `MAX_SESSIONS` adalah batas memori, bukan batas penyimpanan. Memuat
+        semuanya membuat cap itu baru berlaku setelah sesi ke-51 dibuat, dan
+        eviksi berikutnya menghapus riwayat pengguna dari disk.
+        """
         if self._db is None:
             return
         rows = self._db.execute(
-            "SELECT id, title, created_at, updated_at FROM sessions ORDER BY updated_at"
+            "SELECT id FROM sessions ORDER BY updated_at DESC LIMIT ?",
+            (MAX_SESSIONS,),
         ).fetchall()
-        for session_id, title, created_at, updated_at in rows:
-            messages = [
-                {
-                    "role": role,
-                    "content": content,
-                    "agent_name": agent_name,
-                    "canvas_command": json.loads(canvas_command) if canvas_command else None,
-                    "created_at": _iso(created_at),
-                }
-                for role, content, agent_name, canvas_command, created_at in self._db.execute(
-                    "SELECT role, content, agent_name, canvas_command, created_at "
-                    "FROM messages WHERE session_id = ? ORDER BY seq",
-                    (session_id,),
-                ).fetchall()
-            ]
-            self._sessions[session_id] = Session(
-                id=session_id,
-                title=title,
-                created_at=created_at,
-                updated_at=updated_at,
-                messages=messages,
-            )
+        for (session_id,) in rows:
+            session = self._restore(session_id)
+            if session is not None:
+                self._sessions[session_id] = session
+
+    def _restore(self, session_id: str) -> Optional[Session]:
+        """Bangun satu sesi dari DB; None bila barisnya sudah tidak ada."""
+        if self._db is None:
+            return None
+        row = self._db.execute(
+            "SELECT title, created_at, updated_at FROM sessions WHERE id = ?",
+            (session_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        title, created_at, updated_at = row
+        messages = [
+            {
+                "role": role,
+                "content": content,
+                "agent_name": agent_name,
+                "canvas_command": json.loads(canvas_command) if canvas_command else None,
+                "created_at": _iso(message_at),
+            }
+            for role, content, agent_name, canvas_command, message_at in self._db.execute(
+                "SELECT role, content, agent_name, canvas_command, created_at "
+                "FROM messages WHERE session_id = ? ORDER BY seq",
+                (session_id,),
+            ).fetchall()
+        ]
+        return Session(
+            id=session_id,
+            title=title,
+            created_at=created_at,
+            updated_at=updated_at,
+            messages=messages,
+        )
 
     def _write_session(self, session: Session) -> None:
         """Tulis satu sesi; dipanggil dengan lock aktif."""
@@ -249,13 +282,18 @@ class SessionStore:
         self._db.commit()
 
     def _evict(self) -> None:
-        """Buang sesi terlama bila melewati batas; dipanggil dengan lock aktif."""
+        """
+        Buang sesi terlama dari memori saja; dipanggil dengan lock aktif.
+
+        Baris DB sengaja dibiarkan: riwayat pengguna tidak boleh hilang karena
+        batas memori proses. Yang dibuang hanya salinan yang membuat proses
+        tumbuh tanpa batas.
+        """
         if len(self._sessions) <= MAX_SESSIONS:
             return
         ordered = sorted(self._sessions.values(), key=lambda item: item.updated_at)
         for session in ordered[: len(self._sessions) - MAX_SESSIONS]:
             self._sessions.pop(session.id, None)
-            self._drop(session.id)
 
 
 _store: Optional[SessionStore] = None
