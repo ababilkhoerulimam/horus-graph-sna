@@ -15,15 +15,18 @@ hanya ke loopback. Begitu host bukan loopback, server menolak start.
 
 from __future__ import annotations
 
+import logging
 import os
 import secrets
 import threading
 import time
 from dataclasses import dataclass
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Mapping
 from urllib.parse import urlparse
 
 from fastapi import HTTPException, Request, WebSocket
+
+logger = logging.getLogger(__name__)
 
 TOKEN_ENV = "HORUS_API_TOKEN"
 HEADER = "authorization"
@@ -54,11 +57,26 @@ def _bearer(header_value: str) -> str:
 
 
 def request_token(request: Request) -> str:
-    header = _bearer(request.headers.get(HEADER, ""))
-    return header or (request.query_params.get(WS_QUERY) or "")
+    """
+    Token HTTP hanya dari header.
+
+    Query string pernah diterima demi tautan yang bisa dibuka langsung, tetapi
+    ia ikut tercatat di log akses, riwayat, dan referer. Halaman tetap bisa
+    dibuka dengan ?token=... karena skrip di halaman memindahkannya ke
+    sessionStorage lalu mengirimnya sebagai header.
+    """
+    return _bearer(request.headers.get(HEADER, ""))
 
 
 def websocket_token(websocket: WebSocket) -> str:
+    """
+    Token WS dari header bila ada, selain itu dari query.
+
+    WebSocket di browser tidak bisa menyetel header, jadi query adalah satu-
+    satunya jalur yang tersedia tanpa menambah endpoint tiket. Itu batasan yang
+    diakui, bukan pilihan: selama server hanya bind ke loopback, token di query
+    hanya berguna dari mesin yang sama.
+    """
     header = _bearer(websocket.headers.get(HEADER, ""))
     return header or (websocket.query_params.get(WS_QUERY) or "")
 
@@ -118,28 +136,55 @@ def role_from_groups(raw: str) -> str:
     return max(roles, key=lambda role: ROLE_RANK[role])
 
 
-def identity(request: Request) -> Identity:
+def _unauthorized(detail: str) -> HTTPException:
+    return HTTPException(
+        status_code=401, detail=detail, headers={"WWW-Authenticate": "Bearer"}
+    )
+
+
+def _clean_actor(value: str) -> str:
+    """
+    Buang karakter yang bisa memalsukan baris log.
+
+    Nama aktor ikut ditulis ke berkas audit dan ke log; baris baru di dalamnya
+    akan membuat satu tindakan terbaca sebagai dua.
+    """
+    cleaned = "".join(ch for ch in (value or "") if ch.isprintable() and ch not in "\r\n")
+    return cleaned.strip()[:128]
+
+
+def resolve_identity(headers: Mapping[str, str], token: str) -> Identity:
     """
     Identitas pemanggil: SSO lewat proxy, token tunggal, atau mode lokal.
 
-    Urutannya tetap. SSO lebih dulu karena di belakang proxy token tidak
-    dikirim browser; token kedua karena itu cara alat ini dipakai hari ini;
-    mode lokal terakhir, dan hanya berlaku selama tidak ada token yang disetel.
+    Urutannya tetap, tetapi ada satu invarian yang mengikat: mode lokal hanya
+    sah bila gerbang SSO mati dan token kosong. Begitu gerbang menyala, server
+    menyatakan ada proxy yang mengautentikasi — dan proxy yang mengautentikasi
+    selalu mengisi header. Permintaan tanpa header berarti tidak melewati proxy
+    itu, jadi ia tidak punya identitas: 401, bukan admin.
     """
-    if trusted_headers_enabled():
-        actor = (request.headers.get(USER_HEADER) or "").strip()
+    trusted = trusted_headers_enabled()
+    if trusted:
+        actor = _clean_actor(headers.get(USER_HEADER) or "")
         if actor:
-            return Identity(actor, role_from_groups(request.headers.get(GROUPS_HEADER) or ""), "sso")
+            return Identity(actor, role_from_groups(headers.get(GROUPS_HEADER) or ""), "sso")
 
-    if not token_ok(request_token(request)):
-        raise HTTPException(
-            status_code=401,
-            detail="Token tidak valid.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    if not token_ok(token):
+        raise _unauthorized("Token tidak valid.")
     if api_token():
         return Identity(TOKEN_ACTOR, "admin", "token")
+    if trusted:
+        raise _unauthorized("Header identitas tidak ada; gerbang SSO menyala.")
     return Identity(LOCAL_ACTOR, "admin", "local")
+
+
+def identity(request: Request) -> Identity:
+    return resolve_identity(request.headers, request_token(request))
+
+
+def websocket_identity(websocket: WebSocket) -> Identity:
+    """Jalur WS memakai aturan yang sama; handshake tidak punya status code."""
+    return resolve_identity(websocket.headers, websocket_token(websocket))
 
 
 def require_role(minimum: str) -> Callable[[Request], Identity]:
@@ -227,7 +272,19 @@ def origin_matches_host(websocket: WebSocket) -> bool:
 
 def ensure_bind_is_safe(host: str) -> None:
     """Gagal cepat sebelum soket dibuka, bukan setelah data terbaca."""
-    if host in LOOPBACK_HOSTS or api_token():
+    if host in LOOPBACK_HOSTS:
+        return
+    if trusted_headers_enabled():
+        # Header menang atas token, jadi siapa pun yang bisa menjangkau port ini
+        # bisa mengaku admin. Tidak ditutup di sini: penutupnya daftar IP proxy.
+        logger.warning(
+            "bind_non_loopback_trusted host=%s: %s menyala, jadi header identitas "
+            "dipercaya dari siapa pun yang bisa menjangkau port ini.",
+            host,
+            TRUSTED_ENV,
+        )
+        return
+    if api_token():
         return
     raise RuntimeError(
         f"Menolak bind ke {host!r} tanpa {TOKEN_ENV}. "

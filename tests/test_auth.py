@@ -20,10 +20,13 @@ from horus_graph.api.auth import reset_rate_limits
 
 
 @pytest.fixture(autouse=True)
-def _bersihkan(monkeypatch):
+def _bersihkan(monkeypatch, tmp_path):
     """Tiap tes mulai tanpa token, tanpa header SSO, tanpa audit, tanpa hitungan."""
     for name in ("HORUS_API_TOKEN", "HORUS_TRUSTED_HEADERS", "HORUS_AUDIT_LOG"):
         monkeypatch.delenv(name, raising=False)
+    # Catatan disimpan di luar bundle; tanpa ini tes menulis ke data/ repo dan
+    # saling mewarisi isi.
+    monkeypatch.setenv("HORUS_ANNOTATIONS_DIR", str(tmp_path / "annotations"))
     reset_rate_limits()
     yield
     reset_rate_limits()
@@ -158,3 +161,93 @@ def test_audit_menulis_baris_json_yang_bisa_dibaca(tmp_path) -> None:
     baris = json.loads(log.read_text(encoding="utf-8").splitlines()[0])
     assert baris["actor"] == "uji"
     assert baris["snapshot"] == "abc"
+
+
+# --- matriks identitas ------------------------------------------------------
+#
+# Invarian yang dijaga: Identity('local', 'admin') hanya sah bila gerbang SSO
+# mati DAN token kosong. Begitu gerbang menyala, permintaan tanpa header tidak
+# punya identitas — 401, bukan admin.
+
+
+def test_gerbang_sso_tanpa_header_ditolak(client, monkeypatch) -> None:
+    monkeypatch.setenv("HORUS_TRUSTED_HEADERS", "1")
+
+    assert client.get("/api/bootstrap").status_code == 401
+
+
+def test_gerbang_sso_dengan_header_kosong_ditolak(client, monkeypatch) -> None:
+    monkeypatch.setenv("HORUS_TRUSTED_HEADERS", "1")
+
+    assert client.get("/api/bootstrap", headers={"X-Forwarded-User": "   "}).status_code == 401
+
+
+def test_gerbang_sso_dengan_header_diterima(client, monkeypatch) -> None:
+    monkeypatch.setenv("HORUS_TRUSTED_HEADERS", "1")
+
+    response = client.get("/api/bootstrap", headers=_sso("rina", "horus-analyst"))
+
+    assert response.status_code == 200
+
+
+def test_gerbang_sso_tanpa_header_tidak_jatuh_ke_token(client, monkeypatch) -> None:
+    """Token yang benar tidak membuka jalan saat gerbang SSO menyala tanpa header."""
+    monkeypatch.setenv("HORUS_TRUSTED_HEADERS", "1")
+    monkeypatch.setenv("HORUS_API_TOKEN", "rahasia")
+
+    tanpa_header = client.get("/api/bootstrap")
+    dengan_token = client.get("/api/bootstrap", headers={"Authorization": "Bearer rahasia"})
+
+    assert tanpa_header.status_code == 401
+    assert dengan_token.status_code == 200
+
+
+def test_gerbang_sso_tanpa_token_tetap_menolak_header_palsu_tanpa_gerbang(
+    client, monkeypatch
+) -> None:
+    """Kebalikannya: tanpa gerbang, header tidak dipercaya sama sekali."""
+    monkeypatch.setenv("HORUS_API_TOKEN", "rahasia")
+
+    assert client.get("/api/bootstrap", headers=_sso("penyusup", "horus-admin")).status_code == 401
+
+
+def test_ws_tanpa_header_ditolak_saat_gerbang_menyala(client, monkeypatch) -> None:
+    from fastapi import WebSocketDisconnect
+
+    monkeypatch.setenv("HORUS_TRUSTED_HEADERS", "1")
+
+    with pytest.raises(WebSocketDisconnect):
+        with client.websocket_connect("/ws/copilot") as socket:
+            socket.receive_json()
+
+
+def test_ws_dengan_header_sso_diterima(client, monkeypatch) -> None:
+    monkeypatch.setenv("HORUS_TRUSTED_HEADERS", "1")
+
+    with client.websocket_connect("/ws/copilot", headers=_sso("budi", "horus-analyst")) as socket:
+        assert socket.receive_json()["type"] == "SYSTEM_CONNECTED"
+
+
+def test_actor_dibersihkan_dari_karakter_kontrol(client, monkeypatch, tmp_path) -> None:
+    """Nama aktor ikut ke berkas audit; baris baru di dalamnya memalsukan baris."""
+    log = tmp_path / "audit.jsonl"
+    monkeypatch.setenv("HORUS_AUDIT_LOG", str(log))
+    monkeypatch.setenv("HORUS_TRUSTED_HEADERS", "1")
+
+    client.get("/api/bootstrap", headers={"X-Forwarded-User": "budi\r\nadmin"})
+
+    baris = log.read_text(encoding="utf-8").splitlines()
+    assert len(baris) == 1
+    assert json.loads(baris[0])["actor"] == "budiadmin"
+
+
+def test_bind_non_loopback_dengan_gerbang_sso_memperingatkan(monkeypatch, caplog) -> None:
+    from horus_graph.api.auth import ensure_bind_is_safe
+
+    monkeypatch.setenv("HORUS_TRUSTED_HEADERS", "1")
+    monkeypatch.delenv("HORUS_API_TOKEN", raising=False)
+
+    with caplog.at_level("WARNING"):
+        ensure_bind_is_safe("0.0.0.0")
+
+    assert any("bind_non_loopback_trusted" in record.getMessage() for record in caplog.records)

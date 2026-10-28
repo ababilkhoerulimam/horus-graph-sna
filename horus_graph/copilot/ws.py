@@ -21,7 +21,7 @@ from fastapi import (
 )
 from pydantic import BaseModel
 
-from ..api.auth import origin_matches_host, require_token, token_ok, websocket_token
+from ..api.auth import origin_matches_host, require_token, websocket_identity
 from ..api.state import BundleNotFound, get_state
 from .llm import llm_available
 from .service import Copilot, get_copilot
@@ -97,8 +97,16 @@ def copilot_tools(request: Request) -> Dict[str, Any]:
 async def copilot_socket(websocket: WebSocket) -> None:
     # Diperiksa sebelum `accept()`: handshake yang ditolak tidak boleh menjadi
     # koneksi yang hidup. WebSocket tidak tunduk pada same-origin policy, jadi
-    # Origin dan token diperiksa di sini, bukan diserahkan ke browser.
-    if not origin_matches_host(websocket) or not token_ok(websocket_token(websocket)):
+    # Origin dan identitas diperiksa di sini, bukan diserahkan ke browser.
+    # Aturan identitasnya sama dengan HTTP: gerbang SSO yang menyala menuntut
+    # header, dan handshake tanpa identitas ditutup 1008 — bukan diterima
+    # sebagai pengguna lokal.
+    if not origin_matches_host(websocket):
+        await websocket.close(code=1008)
+        return
+    try:
+        websocket.state.identity = websocket_identity(websocket)
+    except HTTPException:
         await websocket.close(code=1008)
         return
 
