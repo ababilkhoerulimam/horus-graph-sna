@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Tautan yang dibuka dengan ?token= tidak boleh membawa token itu ke
+       server lain lewat header Referer. -->
+  <meta name="referrer" content="no-referrer">
   <title>Horus Graph — Social Network Analysis Studio</title>
   <link rel="icon" href="data:,">
   <script src="js/d3.v7.min.js"></script>
@@ -17,7 +20,8 @@
     //
     // Nilai masuk lewat ?token=…, disimpan di sessionStorage, lalu dihapus dari
     // address bar supaya tidak tertinggal di riwayat atau ikut terkirim sebagai
-    // referer.
+    // referer. Server sendiri tidak lagi menerima token di query string: yang
+    // dikirim selalu header Authorization, dan itu yang diperiksa.
     (function () {
       const TOKEN_KEY = "horusToken";
       let token = "";

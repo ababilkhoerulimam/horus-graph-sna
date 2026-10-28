@@ -40,9 +40,13 @@ def test_token_wajib_saat_disetel(app_client, monkeypatch):
 
     benar = {"Authorization": "Bearer rahasia-uji"}
     assert app_client.get("/api/health", headers=benar).status_code == 200
-    # Klien yang tidak bisa menyetel header (EventSource, <a download>) memakai
-    # query; keduanya diperiksa dengan cara yang sama.
-    assert app_client.get("/api/health?token=rahasia-uji").status_code == 200
+
+
+def test_token_di_query_ditolak(app_client, monkeypatch):
+    """Token di URL masuk log akses dan riwayat, jadi jalur itu ditutup."""
+    monkeypatch.setenv(TOKEN_ENV, "rahasia-uji")
+
+    assert app_client.get("/api/health?token=rahasia-uji").status_code == 401
 
 
 def test_metrics_ikut_dijaga(app_client, monkeypatch):
