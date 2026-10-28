@@ -89,8 +89,14 @@ def test_resolusi_p_value_mengikuti_jumlah_resample(bundle_factory) -> None:
     assert block["p_value_resolution"] == round(1.0 / (used + 1), 4)
 
 
-def test_graf_tanpa_resample_tidak_punya_resolusi(bundle_factory) -> None:
-    """Tidak ada resample berarti tidak ada uji, jadi tidak ada resolusi."""
+def test_graf_lengkap_tidak_lebih_padat_dari_null(bundle_factory) -> None:
+    """
+    Semua artikel menyebut ketiganya: tidak ada susunan yang lebih padat.
+
+    Null insidensi tetap berjalan di sini (tidak seperti swap pada proyeksi
+    yang menyerah pada graf lengkap), dan hasilnya justru lebih jujur: p = 1
+    karena tidak ada struktur yang melebihi derajat.
+    """
     bundle = bundle_factory(
         ["A", "B", "C"],
         [(f"art{i:03d}", e, 1) for i in range(0, 12) for e in ("A", "B", "C")],
@@ -98,9 +104,10 @@ def test_graf_tanpa_resample_tidak_punya_resolusi(bundle_factory) -> None:
         ego="A",
     )
     payload = artifact.compute(bundle, build_network(bundle), SMALL)
+    null = payload["inference"]["null_model"]
 
-    assert payload["inference"]["null_model"]["resamples"] == 0
-    assert payload["inference"]["p_value_resolution"] is None
+    assert null["method"] == "bipartite_incidence_permutation"
+    assert null["p_value"]["edges"] > 0.1
 
 
 def test_p_value_tidak_pernah_nol(bundle_factory) -> None:
@@ -137,13 +144,18 @@ def test_artefak_tanpa_kunci_inference_ditolak(tmp_path) -> None:
 
 
 def test_artefak_dengan_parameter_lain_dianggap_basi() -> None:
-    payload = {"params": {"resamples": 50, "bootstrap_resamples": 50, "seed": 42,
-                          "ci": 90.0, "method_version": 1}}
-
-    assert artifact.stale(payload, SMALL)
-    assert not artifact.stale(payload, artifact.InferenceParams(
+    params = artifact.InferenceParams(
         resamples=50, bootstrap_resamples=50, seed=42, ci=90.0
-    ))
+    )
+    fresh = {"params": params.as_dict()}
+    assert not artifact.stale(fresh, params)
+
+    # Parameter berbeda: angka 50 resampling bukan jawaban untuk 5 resampling.
+    assert artifact.stale(fresh, SMALL)
+
+    # Versi metode lama basi walau parameternya sama: arti null_model berubah.
+    old = {"params": {**params.as_dict(), "method_version": 1}}
+    assert artifact.stale(old, params)
 
 
 # --- endpoint -------------------------------------------------------------
@@ -295,3 +307,41 @@ def test_kegagalan_bisa_diulang_setelah_jeda(client, monkeypatch) -> None:
 
     assert ulang.status_code == 202
     assert ulang.json()["status"] == "computing"
+
+
+def test_edge_significance_melaporkan_keluarga_dan_sisi(bundle_factory) -> None:
+    bundle = _sparse(bundle_factory)
+    network = build_network(bundle)
+
+    block = artifact.compute(bundle, network, SMALL)["inference"]["edge_significance"]
+
+    assert block["family"] == "all_observed_pairs"
+    assert block["tested"] >= block["significant"]
+    assert block["q_threshold"] == 0.05
+    # Rincian sepanjang jumlah sisi backbone: satu baris per sisi, bukan per pasangan.
+    assert len(block["u"]) == len(block["v"]) == len(block["q"])
+    assert len(block["u"]) == network.graph.number_of_edges()
+
+
+def test_edge_significance_memakai_indeks_simpul_yang_sah(bundle_factory) -> None:
+    bundle = _sparse(bundle_factory)
+    network = build_network(bundle)
+
+    block = artifact.compute(bundle, network, SMALL)["inference"]["edge_significance"]
+    ids = network.cooccurrence.entity_ids
+
+    for u, v in zip(block["u"], block["v"], strict=True):
+        assert 0 <= u < len(ids) and 0 <= v < len(ids)
+        assert ids[u] in network.graph and ids[v] in network.graph
+
+
+def test_rincian_edge_dibuang_di_atas_batas(bundle_factory, monkeypatch) -> None:
+    bundle = _sparse(bundle_factory)
+    network = build_network(bundle)
+    monkeypatch.setattr(artifact, "EDGE_DETAIL_LIMIT", 0)
+
+    block = artifact.compute(bundle, network, SMALL)["inference"]["edge_significance"]
+
+    assert block["detail"] == "omitted"
+    assert "u" not in block
+    assert block["tested"] >= block["significant"]

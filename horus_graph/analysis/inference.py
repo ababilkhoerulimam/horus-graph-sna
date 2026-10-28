@@ -27,11 +27,11 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from ..core.build import NetworkBundle
 from ..enhance.bootstrap import bootstrap_network
-from ..enhance.nullmodel import degree_preserving_null
+from ..enhance.nullmodel import association_null
 from ..enhance.reporting import reporting_block
 from ..io.bundle import DataBundle
 
@@ -40,7 +40,11 @@ DEFAULT_RESAMPLES = 200
 DEFAULT_BOOTSTRAP_RESAMPLES = 200
 DEFAULT_SEED = 42
 DEFAULT_CI = 90.0
-METHOD_VERSION = 1
+DEFAULT_SWEEPS = 5
+# Naik dari 1: arti `null_model` berubah (insidensi, bukan proyeksi), sehingga
+# artefak lama harus dihitung ulang, bukan disajikan sebagai angka metode baru.
+METHOD_VERSION = 2
+EDGE_DETAIL_LIMIT = 50_000
 
 
 @dataclass(frozen=True)
@@ -51,6 +55,7 @@ class InferenceParams:
     bootstrap_resamples: int = DEFAULT_BOOTSTRAP_RESAMPLES
     seed: int = DEFAULT_SEED
     ci: float = DEFAULT_CI
+    sweeps: int = DEFAULT_SWEEPS
     method_version: int = METHOD_VERSION
 
     def as_dict(self) -> Dict[str, Any]:
@@ -59,6 +64,7 @@ class InferenceParams:
             "bootstrap_resamples": self.bootstrap_resamples,
             "seed": self.seed,
             "ci": self.ci,
+            "sweeps": self.sweeps,
             "method_version": self.method_version,
         }
 
@@ -82,14 +88,17 @@ def compute(
     angka snapshot baru — parameter bisa sama, datanya tidak.
     """
     config = params or InferenceParams()
-    null = degree_preserving_null(
-        network, resamples=config.resamples, seed=config.seed
+    null = association_null(
+        network, resamples=config.resamples, seed=config.seed, sweeps=config.sweeps
     )
     bootstrap = bootstrap_network(
         network, resamples=config.bootstrap_resamples, seed=config.seed, ci=config.ci
     )
     block = reporting_block(bundle, network, null=null, bootstrap=bootstrap, seed=config.seed)
     inference = dict(block.get("inference") or {})
+    significance = edge_significance(network)
+    if significance is not None:
+        inference["edge_significance"] = significance
     payload: Dict[str, Any] = {
         "method_version": config.method_version,
         "params": config.as_dict(),
@@ -233,3 +242,45 @@ class InferenceJobs:
             thread = self._running.get(key)
         if thread is not None:
             thread.join(timeout)
+
+
+def edge_significance(network: NetworkBundle, q_threshold: float = 0.05) -> Optional[Dict[str, Any]]:
+    """
+    Ringkasan uji tepi untuk artefak.
+
+    Hanya tepi backbone yang disimpan, dan pasangannya sebagai indeks integer:
+    menyimpan string id membuat artefak 4x lebih besar tanpa menambah informasi.
+    Di atas `EDGE_DETAIL_LIMIT` rinciannya dibuang dan hanya ringkasan yang
+    tersisa — artefak yang dibaca UI tidak boleh tumbuh tanpa batas.
+    """
+    cooc = network.cooccurrence
+    if cooc.q_value is None:
+        return None
+
+    position_of = {entity_id: index for index, entity_id in enumerate(cooc.entity_ids)}
+    u: List[int] = []
+    v: List[int] = []
+    q: List[float] = []
+    for source, target, data in network.graph.edges(data=True):
+        value = data.get("q")
+        if value is None:
+            continue
+        u.append(position_of[source])
+        v.append(position_of[target])
+        q.append(round(float(value), 4))
+
+    summary: Dict[str, Any] = {
+        "family": "all_observed_pairs",
+        "tested": cooc.pair_count,
+        "significant": int((cooc.q_value <= q_threshold).sum()),
+        "q_threshold": q_threshold,
+    }
+    if len(u) > EDGE_DETAIL_LIMIT:
+        summary["detail"] = "omitted"
+        return summary
+
+    summary["u"] = u
+    summary["v"] = v
+    summary["q"] = q
+    return summary
+

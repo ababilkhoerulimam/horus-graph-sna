@@ -131,12 +131,30 @@ karena bentuk `Cooccurrence` tidak berubah.
 
 | Butir | Perubahan | Kriteria terima | Effort |
 | --- | --- | --- | --- |
-| F2.1 | `hypergeometric_p_array` (vektor) + `q_value` di `from_incidence`; BH atas seluruh pasangan support ≥ 1 | vektor ≡ skalar (`approx 1e-12`); BH known-answer `[0.01,0.04,0.03,0.5]` → `[0.04,0.04,0.04,0.5]`; q ≥ p dan monoton | M |
-| F2.2 | `BackboneConfig.min_q` (default `None`), atribut tepi `q`, `BackboneReport` melaporkan `tested_pairs`/`significant_pairs`/`q_threshold` | `min_q=None` mereproduksi seleksi lama (`array_equal`); pasangan support tinggi dengan p = 0,3 gugur saat `min_q=0.1` | S |
-| F2.3 | Kurva sensitivitas ketiga `by_q` | `edges` tidak bertambah saat `min_q` naik; ambang aktif selalu ada di grid | S |
-| F2.4 | `association_null` (curveball) + `topology_null` (nama baru untuk yang lama) | tiap draw: margin baris **dan** kolom identik dengan aslinya; seed sama → identik; graf dua klik: `observed edges > null mean` | L |
+| F2.1 | `hypergeometric_p_array` (vektor) + `q_value` di `from_incidence`; BH atas seluruh pasangan support ≥ 1 | vektor ≡ skalar (`approx 1e-12`); BH known-answer `[0.01,0.02,0.03,0.5]` → `[0.04,0.04,0.04,0.5]`; q ≥ p dan monoton | M |
+| F2.2 | `BackboneConfig.min_q` (default `None`), atribut tepi `q`, `BackboneReport` melaporkan `tested_pairs`/`significant_pairs`/`min_q` | `min_q=None` mereproduksi seleksi lama (`array_equal`); pasangan yang lolos support + NPMI tetapi q > ambang gugur, dan penyelamatan tidak menghidupkannya lagi | S |
+| F2.3 | Kurva sensitivitas ketiga `by_q` | `passed` tidak berkurang saat `min_q` naik (arah q terbalik dari ambang lain); ambang aktif selalu ada di grid | S |
+| F2.4 | `association_null` (curveball) + `topology_null` (nama baru untuk yang lama) | tiap draw: margin baris **dan** kolom identik dengan aslinya; seed sama → identik; graf dua klik: modularitas teramati > null | L |
 | F2.5 | Artefak inferensi v2 + blok `edge_significance` ringkas (indeks integer, bukan string) | `method_version` 1 → basi; panjang `u`/`v`/q = jumlah tepi backbone; artefak 475 tepi < 20 KB | S |
 
+
+Tiga kriteria di tabel ini dikoreksi saat implementasi; semuanya salah asumsi,
+bukan salah hitung:
+
+1. **BH.** Contoh `[0.01,0.04,0.03,0.5]` menghasilkan `[0.04, 0.0533, 0.0533, 0.5]`
+   — 0,04 ada di peringkat 3, jadi 0,04 × 4/3. Jawaban `[0.04,0.04,0.04,0.5]`
+   benar untuk `[0.01,0.02,0.03,0.5]`, dan itulah yang diuji.
+2. **`min_q` tidak bisa diuji dengan p = 0,3.** p sebesar itu berarti pasangan
+   tidak berasosiasi, dan NPMI-nya ikut mendekati 0 sehingga sudah gugur di
+   `min_npmi` sebelum gerbang q sempat bekerja. Yang diuji: pasangan yang lolos
+   support + NPMI tetapi q-nya di atas ambang.
+3. **Arah q terbalik.** `q <= 0,05` adalah 5% FDR: ambang lebih besar berarti
+   lebih longgar. Kurva `by_q` karena itu tidak menurun, dan UI harus memberi
+   label sendiri alih-alih menumpang sumbu `min_support`.
+4. **Null insidensi membuat proyeksi lebih padat, bukan lebih jarang.** Pada dua
+   klik terpisah, pengacakan menyebar entitas antarartikel sehingga pasangan
+   lintas klik ikut lolos ambang (36,8 vs 20 sisi). Statistik pembedanya
+   modularitas (0,50 vs 0,09), dan itulah yang diuji.
 Catatan F2.4: biaya turun, bukan naik — satu sweep curveball ≈ 5 ms pada
 nnz ≈ 5 ribu, 200 draw × 5 sweep ≈ 5 detik, menggantikan ≈ 50 detik
 `double_edge_swap`. Pada 10.000 simpul, `resamples` dipotong ke 100 dan
