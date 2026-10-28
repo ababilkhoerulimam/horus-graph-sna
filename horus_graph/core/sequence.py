@@ -19,7 +19,7 @@ Dua hal yang dijaga:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence
 
 import numpy as np
 
@@ -43,10 +43,10 @@ def build_sequence(temporal: TemporalBundle, *, limit: int = MOVERS_LIMIT) -> Di
         )
 
     windows = [item.window.id for item in slices]
-    ranks, values = _per_window(slices)
+    ranks = _per_window(slices)
 
     nodes = sorted({str(node) for item in slices for node in item.node_metrics.index})
-    series = [_series_for(node, windows, ranks, values) for node in nodes]
+    series = [_series_for(node, windows, ranks) for node in nodes]
 
     return {
         "status": "ready",
@@ -76,20 +76,20 @@ def awaiting(reason: str) -> Dict[str, Any]:
 
 def _per_window(
     slices: Sequence[EpochSlice],
-) -> Tuple[Dict[str, Dict[str, Dict[str, int]]], Dict[str, Dict[str, Dict[str, Optional[float]]]]]:
+) -> Dict[str, Dict[str, Dict[str, int]]]:
     """
-    Peringkat dan nilai mentah per jendela.
+    Peringkat per jendela. Nilai mentah tidak ikut: jumlah simpul dan kerapatan
+    tiap jendela berbeda, jadi angka antara epos tidak sebanding dan hanya
+    mengundang pembacaan yang salah.
 
     Peringkat 1 = tertinggi. Seri dipecah oleh id supaya dua simpul dengan nilai
     sama tidak bertukar tempat hanya karena urutan indeks berubah.
     """
     ranks: Dict[str, Dict[str, Dict[str, int]]] = {}
-    values: Dict[str, Dict[str, Dict[str, Optional[float]]]] = {}
     for slice_ in slices:
         frame = slice_.node_metrics
         epoch = slice_.window.id
         ranks[epoch] = {}
-        values[epoch] = {}
         for metric in SEQUENCE_METRICS:
             column = frame[metric] if metric in frame.columns else None
             ordered = (
@@ -98,31 +98,13 @@ def _per_window(
                 else []
             )
             ranks[epoch][metric] = {str(node): position + 1 for position, node in enumerate(ordered)}
-            values[epoch][metric] = {
-                str(node): (None if column is None else _number(column.get(node)))
-                for node in frame.index
-            }
-    return ranks, values
-
-
-def _number(value: Any) -> Optional[float]:
-    """Nilai mentah sebagai float, atau None bila tidak terukur."""
-    if value is None:
-        return None
-    try:
-        number = float(value)
-    except (TypeError, ValueError):
-        return None
-    if np.isnan(number):
-        return None
-    return round(number, 6)
+    return ranks
 
 
 def _series_for(
     node: str,
     windows: Sequence[str],
     ranks: Dict[str, Dict[str, Dict[str, int]]],
-    values: Dict[str, Dict[str, Dict[str, Optional[float]]]],
 ) -> Dict[str, Any]:
     """
     Satu simpul sebagai larik sejajar, bukan daftar objek per jendela.
@@ -132,15 +114,11 @@ def _series_for(
     menambah satu pun informasi; yang kosong tetap null, jadi "tidak ada di
     jendela ini" tidak berubah menjadi 0.
     """
-    degree = [values[epoch]["degree"].get(node) for epoch in windows]
-    betweenness = [values[epoch]["betweenness"].get(node) for epoch in windows]
     degree_rank = [ranks[epoch]["degree"].get(node) for epoch in windows]
     betweenness_rank = [ranks[epoch]["betweenness"].get(node) for epoch in windows]
 
     return {
         "id": node,
-        "degree": degree,
-        "betweenness": betweenness,
         "degree_rank": degree_rank,
         "betweenness_rank": betweenness_rank,
         "betweenness_rank_shift": _shift(betweenness_rank[0], betweenness_rank[-1]),

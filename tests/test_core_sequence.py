@@ -85,7 +85,6 @@ def test_simpul_yang_hilang_mendapat_null_bukan_nol() -> None:
     a = next(row for row in hasil["series"] if row["id"] == "A")
 
     assert a["degree_rank"][1] is None
-    assert a["degree"][1] is None
     assert a["betweenness_rank"][1] is None
     # Tanpa ujung akhir, tidak ada arah yang bisa diklaim.
     assert a["betweenness_rank_shift"] is None
@@ -153,3 +152,22 @@ def test_korelasi_tidak_dilaporkan_untuk_dua_simpul() -> None:
     hasil = sequence.build_sequence(temporal)
 
     assert hasil["rank_agreement"][0]["spearman"] is None
+
+
+def test_seri_hanya_memuat_peringkat() -> None:
+    """Nilai mentah tidak dikirim: antar epos ia tidak sebanding."""
+    temporal = _temporal(
+        _slice("e1", {"A": (5, 0.5), "B": (1, 0.1)}),
+        _slice("e2", {"A": (1, 0.1), "B": (5, 0.5)}, start=2021),
+    )
+
+    hasil = sequence.build_sequence(temporal)
+
+    for row in hasil["series"]:
+        assert set(row) == {
+            "id",
+            "degree_rank",
+            "betweenness_rank",
+            "betweenness_rank_shift",
+            "windows_present",
+        }
