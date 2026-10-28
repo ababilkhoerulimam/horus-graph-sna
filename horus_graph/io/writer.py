@@ -90,7 +90,7 @@ def write_bundle(
     for table, (relative, table_schema, required) in schema.TABLES.items():
         frame = frames.get(table)
         if frame is None or (required is False and frame.empty):
-            if table in ("transmission", "sentiment"):
+            if table in ("transmission", "sentiment", "article_sentiment"):
                 layers[table] = "awaiting_input"
             continue
         arrow = _to_arrow(frame, table_schema, table)
@@ -98,7 +98,7 @@ def write_bundle(
         pq.write_table(arrow, path, compression="zstd")
         counts[table] = len(frame)
         hashes[relative] = _sha256(path)
-        if table in ("transmission", "sentiment"):
+        if table in ("transmission", "sentiment", "article_sentiment"):
             layers[table] = "ready"
 
     manifest = Manifest(

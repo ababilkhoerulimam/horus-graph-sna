@@ -278,6 +278,27 @@ def _check_sentiment(frame: pd.DataFrame, findings: List[Finding]) -> None:
         findings.append(_error("method_missing", "sentiment", f"{empty_method} baris tanpa method"))
 
 
+def _check_article_sentiment(frame: pd.DataFrame, findings: List[Finding]) -> None:
+    """Nilai artikel: sama ketatnya dengan sentimen entitas."""
+    if frame.empty:
+        findings.append(_warn("layer_empty", "article_sentiment", "Layer ada tetapi tanpa baris"))
+        return
+
+    negative = int((frame[["pos", "neu", "neg"]] < 0).any(axis=1).sum())
+    if negative:
+        findings.append(
+            _error(
+                "sentiment_negative_value",
+                "article_sentiment",
+                f"{negative} baris bernilai negatif",
+            )
+        )
+
+    empty_method = int(frame["method"].fillna("").str.strip().eq("").sum())
+    if empty_method:
+        findings.append(_error("method_missing", "article_sentiment", f"{empty_method} baris tanpa method"))
+
+
 def _check_domain(domain: Domain, entities: pd.DataFrame, manifest: Manifest, findings: List[Finding]) -> None:
     ids = _distinct(entities, "entity_id")
     # ego_id kosong berarti dataset tanpa pusat (mis. sebaran titik panas),
@@ -319,7 +340,7 @@ def _check_domain(domain: Domain, entities: pd.DataFrame, manifest: Manifest, fi
 def _check_layers(
     manifest: Manifest, present: Dict[str, bool], findings: List[Finding]
 ) -> None:
-    for layer in ("transmission", "sentiment"):
+    for layer in ("transmission", "sentiment", "article_sentiment"):
         status = manifest.layers.get(layer)
         if status is None:
             continue
@@ -466,6 +487,14 @@ def validate_and_read(
             _check_foreign_keys(
                 frames["sentiment"], "sentiment", "entity_id",
                 _distinct(frames["entities"], "entity_id"), "entities", findings,
+            )
+
+    if "article_sentiment" in frames:
+        _check_article_sentiment(frames["article_sentiment"], findings)
+        if "articles" in frames:
+            _check_foreign_keys(
+                frames["article_sentiment"], "article_sentiment", "article_id",
+                _distinct(frames["articles"], "article_id"), "articles", findings,
             )
 
     if "entities" in frames:

@@ -104,4 +104,10 @@ def test_engine_memakai_lapisan_yang_sudah_ditulis(bundle_factory, tmp_path):
 def test_manifest_mencatat_status_lapisan(bundle_factory, tmp_path):
     root = _bundle_dir(bundle_factory, tmp_path)
     manifest = load_bundle(root).manifest
-    assert manifest.layers == {"transmission": "ready", "sentiment": "ready"}
+    # Lapisan yang tidak disediakan tetap dicatat sebagai awaiting_input:
+    # "belum ada" harus terbaca, bukan hilang dari manifest.
+    assert manifest.layers == {
+        "transmission": "ready",
+        "sentiment": "ready",
+        "article_sentiment": "awaiting_input",
+    }

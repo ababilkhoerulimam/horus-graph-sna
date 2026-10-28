@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pyarrow as pa
 
-CONTRACT_VERSION = "1.2.0"
+CONTRACT_VERSION = "1.3.0"
 CONTRACT_MAJOR = 1
 
 ENTITIES = pa.schema(
@@ -114,6 +114,20 @@ SENTIMENT = pa.schema(
     ]
 )
 
+# Sentimen tingkat artikel (v1.3). Opsional dan terpisah dari sentimen per
+# entitas: keduanya menjawab pertanyaan berbeda, dan mencampurnya membuat
+# satu tabel tidak bisa dipakai tanpa yang lain.
+ARTICLE_SENTIMENT = pa.schema(
+    [
+        pa.field("article_id", pa.string(), nullable=False),
+        pa.field("pos", pa.float64(), nullable=False),
+        pa.field("neu", pa.float64(), nullable=False),
+        pa.field("neg", pa.float64(), nullable=False),
+        pa.field("method", pa.string(), nullable=False),
+        pa.field("confidence", pa.float64(), nullable=True),
+    ]
+)
+
 # Nama tabel -> (path relatif, skema, wajib?)
 TABLES = {
     "entities": ("entities.parquet", ENTITIES, True),
@@ -123,6 +137,11 @@ TABLES = {
     "article_topics": ("article_topics.parquet", ARTICLE_TOPICS, True),
     "transmission": ("layers/transmission.parquet", TRANSMISSION, False),
     "sentiment": ("layers/sentiment.parquet", SENTIMENT, False),
+    "article_sentiment": (
+        "layers/article_sentiment.parquet",
+        ARTICLE_SENTIMENT,
+        False,
+    ),
 }
 
 PRIMARY_KEYS = {
@@ -133,6 +152,7 @@ PRIMARY_KEYS = {
     "article_topics": ["article_id", "topic_id"],
     "transmission": ["src", "dst"],
     "sentiment": ["entity_id"],
+    "article_sentiment": ["article_id"],
 }
 
 MANIFEST = "manifest.json"

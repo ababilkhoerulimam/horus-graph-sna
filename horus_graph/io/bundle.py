@@ -39,6 +39,7 @@ class DataBundle:
     article_topics: pd.DataFrame
     transmission: Optional[pd.DataFrame] = None
     sentiment: Optional[pd.DataFrame] = None
+    article_sentiment: Optional[pd.DataFrame] = None
 
     @property
     def has_transmission(self) -> bool:
@@ -47,6 +48,10 @@ class DataBundle:
     @property
     def has_sentiment(self) -> bool:
         return self.sentiment is not None and not self.sentiment.empty
+
+    @property
+    def has_article_sentiment(self) -> bool:
+        return self.article_sentiment is not None and not self.article_sentiment.empty
 
     @property
     def presentation(self) -> Optional[Presentation]:
@@ -58,6 +63,8 @@ class DataBundle:
             return "ready" if self.has_transmission else "awaiting_input"
         if layer == "sentiment":
             return "ready" if self.has_sentiment else "awaiting_input"
+        if layer == "article_sentiment":
+            return "ready" if self.has_article_sentiment else "awaiting_input"
         raise KeyError(layer)
 
     def subset(self, article_ids: Collection[str]) -> "DataBundle":
@@ -75,6 +82,9 @@ class DataBundle:
             articles=_by_article(self.articles, keep),
             mentions=_by_article(self.mentions, keep),
             article_topics=_by_article(self.article_topics, keep),
+            article_sentiment=None
+            if self.article_sentiment is None
+            else _by_article(self.article_sentiment, keep),
         )
 
     def counts(self) -> Dict[str, int]:
@@ -86,6 +96,9 @@ class DataBundle:
             "article_topics": len(self.article_topics),
             "transmission": 0 if self.transmission is None else len(self.transmission),
             "sentiment": 0 if self.sentiment is None else len(self.sentiment),
+            "article_sentiment": 0
+            if self.article_sentiment is None
+            else len(self.article_sentiment),
         }
 
 
@@ -161,4 +174,5 @@ def load_bundle(path: Path | str, strict: bool = True) -> DataBundle:
         article_topics=frames["article_topics"],
         transmission=_present(frames, "transmission"),
         sentiment=_present(frames, "sentiment"),
+        article_sentiment=_present(frames, "article_sentiment"),
     )

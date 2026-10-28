@@ -360,3 +360,55 @@ def test_sindikasi_dua_artikel_tidak_dilaporkan():
 
     assert findings == []
 
+
+
+# --- sentimen tingkat artikel (kontrak 1.3) --------------------------------
+
+
+def _article_sentiment(article_ids=("a1", "a2", "a3")) -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "article_id": list(article_ids),
+            "pos": [70.0, 20.0, 50.0],
+            "neu": [20.0, 30.0, 30.0],
+            "neg": [10.0, 50.0, 20.0],
+            "method": ["lexicon"] * len(article_ids),
+            "confidence": [0.8, 0.6, None],
+        }
+    )
+
+
+def test_tanpa_sentimen_artikel_bundle_tetap_sah(tmp_path):
+    bundle = load_bundle(_write(tmp_path / "bundle"))
+
+    assert bundle.layer_status("article_sentiment") == "awaiting_input"
+    assert bundle.has_article_sentiment is False
+    assert bundle.counts()["article_sentiment"] == 0
+
+
+def test_sentimen_artikel_dibaca_sebagai_lapisan_tersendiri(tmp_path):
+    frames = _frames()
+    frames["article_sentiment"] = _article_sentiment()
+    bundle = load_bundle(_write(tmp_path / "bundle", frames))
+
+    assert bundle.layer_status("article_sentiment") == "ready"
+    assert bundle.has_article_sentiment is True
+    assert bundle.counts()["article_sentiment"] == 3
+    # Lapisan entitas tidak ikut berubah karena tabel artikel ada.
+    assert bundle.layer_status("sentiment") == "awaiting_input"
+
+
+def test_sentimen_artikel_dengan_id_asing_ditolak(tmp_path):
+    frames = _frames()
+    frames["article_sentiment"] = _article_sentiment(("a1", "a2", "a99"))
+
+    assert "foreign_key_violation" in _codes(validate_bundle(_write(tmp_path / "b", frames)))
+
+
+def test_sentimen_artikel_negatif_ditolak(tmp_path):
+    frames = _frames()
+    frame = _article_sentiment()
+    frame.loc[0, "neg"] = -5.0
+    frames["article_sentiment"] = frame
+
+    assert "sentiment_negative_value" in _codes(validate_bundle(_write(tmp_path / "b", frames)))
