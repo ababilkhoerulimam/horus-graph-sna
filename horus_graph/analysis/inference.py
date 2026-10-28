@@ -24,6 +24,7 @@ from __future__ import annotations
 import json
 import os
 import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -70,8 +71,16 @@ def compute(
     bundle: DataBundle,
     network: NetworkBundle,
     params: Optional[InferenceParams] = None,
+    *,
+    snapshot: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Hitung blok inferensi lengkap. Ini yang mahal; panggil di luar handler."""
+    """
+    Hitung blok inferensi lengkap. Ini yang mahal; panggil di luar handler.
+
+    Snapshot ikut distempel ke payload. Tanpa itu, artefak yang tertinggal
+    setelah bundle ditulis ulang di folder yang sama akan disajikan sebagai
+    angka snapshot baru — parameter bisa sama, datanya tidak.
+    """
     config = params or InferenceParams()
     null = degree_preserving_null(
         network, resamples=config.resamples, seed=config.seed
@@ -81,11 +90,14 @@ def compute(
     )
     block = reporting_block(bundle, network, null=null, bootstrap=bootstrap, seed=config.seed)
     inference = dict(block.get("inference") or {})
-    return {
+    payload: Dict[str, Any] = {
         "method_version": config.method_version,
         "params": config.as_dict(),
         "inference": inference,
     }
+    if snapshot is not None:
+        payload["snapshot_id"] = snapshot
+    return payload
 
 
 def read_artifact(bundle_root: Path) -> Optional[Dict[str, Any]]:
@@ -119,15 +131,23 @@ def write_artifact(bundle_root: Path, payload: Dict[str, Any]) -> Path:
     return path
 
 
-def stale(payload: Dict[str, Any], params: InferenceParams) -> bool:
+def stale(
+    payload: Dict[str, Any], params: InferenceParams, snapshot: Optional[str] = None
+) -> bool:
     """
-    Artefak lama dengan parameter lain bukan jawaban untuk pertanyaan ini.
+    Artefak lama bukan jawaban untuk pertanyaan ini.
 
-    Tanpa pemeriksaan ini, panel bisa menampilkan p-value dari 50 resampling
-    sambil menuliskan resolusi 200 resampling.
+    Dua hal yang membuatnya basi: parameter berbeda (p-value 50 resampling
+    dengan resolusi 200 resampling), dan snapshot berbeda (angka dari korpus
+    lain). Artefak tanpa snapshot_id dianggap basi, karena tidak ada cara
+    membuktikan ia milik bundle ini.
     """
     stored = payload.get("params") or {}
-    return any(stored.get(key) != value for key, value in params.as_dict().items())
+    if any(stored.get(key) != value for key, value in params.as_dict().items()):
+        return True
+    if snapshot is not None and payload.get("snapshot_id") != snapshot:
+        return True
+    return False
 
 
 class InferenceJobs:
@@ -143,6 +163,7 @@ class InferenceJobs:
         self._running: Dict[str, threading.Thread] = {}
         self._results: Dict[str, Dict[str, Any]] = {}
         self._errors: Dict[str, str] = {}
+        self._failed_at: Dict[str, float] = {}
 
     def status(self, key: str) -> str:
         with self._lock:
@@ -162,10 +183,16 @@ class InferenceJobs:
         with self._lock:
             return self._errors.get(key)
 
+    def failed_at(self, key: str) -> Optional[float]:
+        """Waktu monotonik kegagalan terakhir, untuk menentukan kapan boleh diulang."""
+        with self._lock:
+            return self._failed_at.get(key)
+
     def forget(self, key: str) -> None:
         with self._lock:
             self._results.pop(key, None)
             self._errors.pop(key, None)
+            self._failed_at.pop(key, None)
 
     def start(self, key: str, work, *, on_done=None) -> bool:
         """
@@ -188,6 +215,7 @@ class InferenceJobs:
         except Exception as exc:  # noqa: BLE001 - pesan diteruskan ke UI
             with self._lock:
                 self._errors[key] = f"{type(exc).__name__}: {exc}"
+                self._failed_at[key] = time.monotonic()
                 self._running.pop(key, None)
             return
         if on_done is not None:

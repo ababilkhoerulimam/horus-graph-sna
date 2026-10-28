@@ -210,3 +210,88 @@ def test_panggilan_kedua_tidak_menghitung_ulang(client) -> None:
 
     assert payload["status"] == "ready"
     assert elapsed < 0.5, f"permintaan kedua memakan {elapsed:.2f}s"
+
+
+# --- artefak terikat snapshot ----------------------------------------------
+
+
+def test_artefak_tanpa_snapshot_dianggap_basi() -> None:
+    """Tanpa snapshot_id tidak ada cara membuktikan artefak ini milik bundle mana."""
+    payload = {"method_version": 1, "params": SMALL.as_dict(), "inference": {}}
+
+    assert artifact.stale(payload, SMALL, "snap-baru") is True
+
+
+def test_artefak_snapshot_lain_dianggap_basi() -> None:
+    payload = {
+        "method_version": 1,
+        "params": SMALL.as_dict(),
+        "inference": {},
+        "snapshot_id": "snap-lama",
+    }
+
+    assert artifact.stale(payload, SMALL, "snap-baru") is True
+
+
+def test_artefak_snapshot_sama_tidak_basi() -> None:
+    payload = {
+        "method_version": 1,
+        "params": SMALL.as_dict(),
+        "inference": {},
+        "snapshot_id": "snap-sama",
+    }
+
+    assert artifact.stale(payload, SMALL, "snap-sama") is False
+
+
+def test_artefak_hasil_perhitungan_membawa_snapshot(client) -> None:
+    client.get("/api/inference")
+    payload = _wait(client)
+
+    assert payload["status"] == "ready"
+    key = payload["snapshot_id"]
+    tersimpan = artifact.read_artifact(client.app.state.bundle_path)
+    if tersimpan is not None:
+        assert tersimpan["snapshot_id"] == key
+
+
+def test_job_berjalan_dijawab_202(client, monkeypatch) -> None:
+    """202 untuk semua "belum ada hasil"; 200 akan terbaca sebagai sudah siap."""
+    from horus_graph.analysis import inference as modul
+
+    monkeypatch.setattr(
+        modul.InferenceJobs,
+        "start",
+        lambda self, key, work, on_done=None: False,
+    )
+
+    response = client.get("/api/inference")
+
+    assert response.status_code == 202
+    assert response.json()["status"] == "computing"
+
+
+def test_kegagalan_bisa_diulang_setelah_jeda(client, monkeypatch) -> None:
+    """Status failed tidak boleh mengunci panel sampai server di-restart."""
+    import time
+
+    from horus_graph.api import routes
+
+    def meledak(*args, **kwargs):
+        raise RuntimeError("gagal dihitung")
+
+    monkeypatch.setattr(routes.inference_artifact, "compute", meledak)
+    client.get("/api/inference")
+
+    gagal = _wait(client)
+    assert gagal["status"] == "failed"
+    assert gagal["retry_after_seconds"] > 0
+
+    # Setelah jeda, percobaan baru diizinkan: waktu kegagalan digeser ke masa lalu.
+    jobs = client.app.state.inference_jobs
+    jobs._failed_at[gagal["snapshot_id"]] = time.monotonic() - routes.INFERENCE_RETRY_SECONDS - 1
+
+    ulang = client.get("/api/inference")
+
+    assert ulang.status_code == 202
+    assert ulang.json()["status"] == "computing"

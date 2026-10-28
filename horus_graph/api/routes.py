@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
@@ -167,7 +168,7 @@ def inference(request: Request, response: Response) -> Dict[str, Any]:
     key = state.bundle.manifest.snapshot_id or snapshot_id(state.bundle.manifest)
 
     stored = inference_artifact.read_artifact(state.root)
-    if stored is not None and not inference_artifact.stale(stored, params):
+    if stored is not None and not inference_artifact.stale(stored, params, key):
         return {
             "status": "ready",
             "source": "artifact",
@@ -188,21 +189,28 @@ def inference(request: Request, response: Response) -> Dict[str, Any]:
 
     failure = jobs.error(key)
     if failure is not None:
-        return {
-            "status": "failed",
-            "snapshot_id": key,
-            "params": params.as_dict(),
-            "detail": failure,
-        }
+        gagal_sejak = jobs.failed_at(key) or 0.0
+        sisa = INFERENCE_RETRY_SECONDS - (time.monotonic() - gagal_sejak)
+        if sisa > 0:
+            return {
+                "status": "failed",
+                "snapshot_id": key,
+                "params": params.as_dict(),
+                "detail": failure,
+                "retry_after_seconds": int(sisa) + 1,
+            }
+        # Kegagalan tidak boleh mengunci panel selamanya: setelah jeda, percobaan
+        # baru diizinkan tanpa menunggu proses server di-restart.
+        jobs.forget(key)
 
-    started = jobs.start(
+    jobs.start(
         key,
-        lambda: inference_artifact.compute(state.bundle, state.network, params),
+        lambda: inference_artifact.compute(state.bundle, state.network, params, snapshot=key),
         on_done=lambda payload: _persist_inference(state.root, payload),
     )
-    # 202 hanya untuk permintaan yang benar-benar memulai perhitungan; yang
-    # sudah berjalan tetap 202 karena jawabannya sama: belum ada hasil.
-    response.status_code = 202 if started else 200
+    # 202 untuk semua jawaban "belum ada hasil", baik yang baru mulai maupun
+    # yang sudah berjalan: klien hanya perlu tahu ia harus memantau.
+    response.status_code = 202
     return {
         "status": "computing",
         "snapshot_id": key,
@@ -210,6 +218,9 @@ def inference(request: Request, response: Response) -> Dict[str, Any]:
         "resamples": params.resamples,
         "bootstrap_resamples": params.bootstrap_resamples,
     }
+
+
+INFERENCE_RETRY_SECONDS = 300.0
 
 
 def _persist_inference(bundle_root: Any, payload: Dict[str, Any]) -> None:

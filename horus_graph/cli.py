@@ -9,6 +9,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import List, Optional
 
+from .contract.snapshot import snapshot_id
 from .contract.validate import validate_bundle
 from .io.bundle import load_bundle
 
@@ -194,7 +195,16 @@ def _cmd_inference(args: argparse.Namespace) -> int:
         seed=args.seed,
         ci=args.ci,
     )
-    payload = inference_artifact.compute(bundle, network, params)
+    # Snapshot ikut distempel supaya artefak dari CLI tidak selalu dianggap
+    # basi oleh endpoint, dan supaya angka lama tidak terbaca sebagai angka
+    # bundle yang sudah ditulis ulang.
+    manifest = bundle.manifest
+    payload = inference_artifact.compute(
+        bundle,
+        network,
+        params,
+        snapshot=manifest.snapshot_id or snapshot_id(manifest),
+    )
 
     if args.write:
         path = inference_artifact.write_artifact(Path(args.bundle), payload)
