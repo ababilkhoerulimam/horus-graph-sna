@@ -440,6 +440,20 @@ memindahkan renderer yang isinya masih akan berubah di V0–V1.
     headless yang mengukur waktu paint dan frame.
 
 - [ ] **V2.2 Pecah frontend + regresi visual** — L
+
+  **Status: sebagian.** CSS dan seluruh skrip sudah keluar dari `index.html`:
+  8.726 → 909 baris (batas 1.500 terpenuhi), dengan `css/app.css` (2.269) dan
+  `js/app.js` (5.546). Sepuluh tes frontend kini membaca gabungan markup, CSS,
+  dan skrip lewat `tests/frontend_source.py` — tanpa itu, memindahkan sebuah
+  aturan ke berkas lain membuat pagar aksesibilitas lolos karena teksnya tidak
+  ditemukan lagi, bukan karena aturannya benar.
+
+  Yang belum: `js/app.js` masih 5.546 baris (batas 800), dan regresi visual
+  (3 mode x 3 lebar) belum dibuat. Memecah `app.js` menyentuh ~5.500 baris yang
+  berbagi global lewat deklarasi top-level; tiap pemecahan harus diverifikasi
+  tangkapan layar per panel, dan verifikasi itu yang belum ada otomatisnya.
+
+
   - Berkas: `index.html` (7.792 baris), `web/static/js/*`
   - Kerjakan: pisahkan menjadi modul ES tanpa bundler (native import) — render,
     state, filter, panel, laporan. Pertahankan satu berkas HTML sebagai shell.

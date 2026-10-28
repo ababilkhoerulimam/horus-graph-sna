@@ -15,10 +15,12 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import frontend_source
 import pytest
 
 STATIC = Path(__file__).resolve().parents[1] / "horus_graph" / "web" / "static"
 INDEX = STATIC / "index.html"
+APP_CSS = STATIC / "css" / "app.css"
 COPILOT_CSS = STATIC / "css" / "copilot.css"
 
 # Batas bawah yang dipakai WCAG untuk teks normal, dan ukuran terkecil yang
@@ -28,7 +30,7 @@ MIN_TEXT_CONTRAST = 4.5
 
 
 def _index() -> str:
-    return INDEX.read_text(encoding="utf-8")
+    return frontend_source.source()
 
 
 def _buttons(markup: str) -> list[tuple[int, str, str]]:
@@ -92,7 +94,7 @@ def test_status_koneksi_diumumkan():
 
 def test_tidak_ada_teks_di_bawah_sebelas_piksel():
     offenders = []
-    for path in (INDEX, COPILOT_CSS):
+    for path in (INDEX, APP_CSS, COPILOT_CSS):
         text = path.read_text(encoding="utf-8")
         for match in re.finditer(r"font-size:\s*(\d+(?:\.\d+)?)px", text):
             size = float(match.group(1))
@@ -133,7 +135,7 @@ def test_teks_sekunder_lolos_kontras(foreground, background):
 def test_tidak_ada_teks_dengan_warna_gagal_kontras():
     """`#64748B` hanya 3,94:1 di atas panel; dulu dipakai untuk 25 label."""
     offenders = []
-    for path in (INDEX, COPILOT_CSS):
+    for path in (INDEX, APP_CSS, COPILOT_CSS):
         text = path.read_text(encoding="utf-8")
         for match in re.finditer(r"color:\s*#64748B", text, re.I):
             line = text[: match.start()].count("\n") + 1

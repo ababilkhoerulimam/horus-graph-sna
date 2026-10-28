@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import frontend_source
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -19,7 +20,7 @@ STATIC = REPO_ROOT / "horus_graph" / "web" / "static"
 
 @pytest.fixture(scope="module")
 def markup() -> str:
-    return (STATIC / "index.html").read_text(encoding="utf-8")
+    return frontend_source.source()
 
 
 @pytest.fixture(scope="module")

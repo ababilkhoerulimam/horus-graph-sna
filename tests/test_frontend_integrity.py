@@ -16,6 +16,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import frontend_source
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -112,7 +113,7 @@ def test_markup_tidak_membawa_hasil_analisis_bawaan(needle):
 
 def test_panel_status_memakai_satu_pembaca_sentimen():
     """Sentimen dibaca lewat nodeSentiment(), bukan dari field datar."""
-    index = (STATIC / "index.html").read_text(encoding="utf-8")
+    index = frontend_source.source()
 
     assert "function nodeSentiment(" in index
     # Field datar ini tidak pernah dikirim serializer; membacanya berarti
@@ -123,7 +124,7 @@ def test_panel_status_memakai_satu_pembaca_sentimen():
 
 def test_bootstrap_menyatakan_status_lapisan():
     """UI bercabang pada status manifest, bukan pada ada-tidaknya field."""
-    index = (STATIC / "index.html").read_text(encoding="utf-8")
+    index = frontend_source.source()
 
     assert "function sentimentLayerStatus(" in index
     assert "dataset.layers" in index
