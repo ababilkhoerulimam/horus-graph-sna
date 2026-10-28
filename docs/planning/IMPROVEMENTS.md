@@ -445,7 +445,7 @@ memindahkan renderer yang isinya masih akan berubah di V0–V1.
 
   `index.html` 8.726 → 909 baris (batas 1.500). CSS di `css/app.css` (2.269),
   skrip di sepuluh berkas `js/app_01.js`..`app_10.js` yang dimuat berurutan;
-  yang terbesar 760 baris (batas 800). Pemecahannya memotong di batas bagian
+  yang terbesar 761 baris (batas 800). Pemecahannya memotong di batas bagian
   yang sudah ada, dan satu fungsi (`loadAnnotations`) dipindah ke depan karena
   deklarasinya dipakai pernyataan level atas di potongan sebelumnya — hoisting
   tidak melintasi batas berkas, dan itu satu-satunya pelanggaran yang ditemukan
