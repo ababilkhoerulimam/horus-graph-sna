@@ -16,15 +16,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List
 
-import networkx as nx
 import numpy as np
 import pandas as pd
 from scipy import sparse
 
-from ..core import association, metrics
+from ..core import metrics
 from ..core.backbone import select_edges
 from ..core.build import NetworkBundle
-from ..core.cooccurrence import Cooccurrence
+from ..core.cooccurrence import Cooccurrence, from_incidence, graph_from_cooccurrence
 from . import stats
 
 
@@ -55,7 +54,9 @@ def bootstrap_network(
 ) -> BootstrapResult:
     """Resample artikel, bangun ulang backbone, lalu kumpulkan metrik simpul."""
     cooc = network.cooccurrence
-    incidence = cooc.incidence
+    # Unit resampling adalah artikel, atau grup sindikasi bila dedup aktif:
+    # menyalin ulang sepuluh portal untuk satu rilis bukan sampel baru.
+    incidence = cooc.counting_matrix
     n_articles = incidence.shape[0]
     if n_articles < 2 or network.graph.number_of_edges() == 0:
         return _empty(resamples, seed)
@@ -74,7 +75,7 @@ def bootstrap_network(
         sample = rng.integers(0, n_articles, size=n_articles)
         sampled = _cooccurrence_from(incidence[sample], cooc)
         selected, _, _ = select_edges(sampled, config)
-        graph = _graph_from(sampled, selected, cooc.entity_ids)
+        graph = graph_from_cooccurrence(sampled, selected)
 
         values = metrics.betweenness(graph)
         betweenness_draws.append(
@@ -124,48 +125,8 @@ def bootstrap_network(
 
 
 def _cooccurrence_from(sample: sparse.csr_matrix, template: Cooccurrence) -> Cooccurrence:
-    """Co-occurrence dari sampel artikel; NPMI dihitung ulang dari total baru."""
-    node_articles = np.asarray(sample.sum(axis=0)).ravel().astype(np.int64)
-    total = max(int(sample.shape[0]), 1)
-
-    pairs = (sample.T @ sample).tocoo()
-    upper = pairs.row < pairs.col
-    pair_u = pairs.row[upper].astype(np.int64)
-    pair_v = pairs.col[upper].astype(np.int64)
-    support = np.rint(pairs.data[upper]).astype(np.int64)
-
-    order = np.lexsort((pair_v, pair_u))
-    pair_u, pair_v, support = pair_u[order], pair_v[order], support[order]
-
-    values = association.npmi_array(
-        support, node_articles[pair_u], node_articles[pair_v], total
-    )
-    return Cooccurrence(
-        entity_ids=template.entity_ids,
-        total_articles=total,
-        pair_u=pair_u,
-        pair_v=pair_v,
-        support=support,
-        npmi=values,
-        node_articles=node_articles,
-        incidence=sample,
-        unknown_mentions=0,
-    )
-
-
-def _graph_from(sampled: Cooccurrence, selected: np.ndarray, entity_ids) -> nx.Graph:
-    graph = nx.Graph()
-    graph.add_nodes_from(entity_ids)
-    for position in selected:
-        u = entity_ids[int(sampled.pair_u[position])]
-        v = entity_ids[int(sampled.pair_v[position])]
-        graph.add_edge(
-            u,
-            v,
-            weight=int(sampled.support[position]),
-            npmi=float(sampled.npmi[position]),
-        )
-    return graph
+    """Co-occurrence dari sampel; NPMI dihitung ulang dari total baru."""
+    return from_incidence(sample, template.entity_ids, total=int(sample.shape[0]))
 
 
 def _labels(network: NetworkBundle, entity_ids) -> np.ndarray:

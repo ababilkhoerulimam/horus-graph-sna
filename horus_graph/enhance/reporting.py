@@ -53,6 +53,13 @@ def reporting_block(
         },
         "population": {
             "articles": len(bundle.articles),
+            # `articles` = artikel di bundle; `syndication_groups` = penyebut NPMI
+            # setelah dedup. Tanpa keduanya, dua laporan dengan denominator
+            # berbeda akan dibandingkan seolah sama.
+            "articles_raw": len(bundle.articles),
+            "syndication_groups": network.total_articles,
+            "articles_collapsed": max(len(bundle.articles) - network.total_articles, 0),
+            "dedupe_applied": network.total_articles != (network.articles_raw or network.total_articles),
             "entities": len(bundle.entities),
             "mentions": len(bundle.mentions),
             "dropped_mentions": network.cooccurrence.unknown_mentions,

@@ -25,8 +25,14 @@ def test_blok_memuat_populasi_dan_parameter(bundle_factory):
     bundle = _bundle(bundle_factory)
     block = reporting_block(bundle, build_network(bundle))
 
+    # Denominator NPMI dan jumlah artikel mentah dilaporkan terpisah: tanpa itu
+    # dua laporan dengan dedup berbeda dibandingkan seolah sama.
     assert block["population"] == {
         "articles": 100,
+        "articles_raw": 100,
+        "syndication_groups": 100,
+        "articles_collapsed": 0,
+        "dedupe_applied": False,
         "entities": 3,
         "mentions": 28,
         "dropped_mentions": 0,

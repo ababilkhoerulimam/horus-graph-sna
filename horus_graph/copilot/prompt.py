@@ -121,7 +121,7 @@ def build_persona(state: AppState) -> str:
         "",
         "## Cakupan data",
         f"- Pusat jaringan: {centre}",
-        f"- Korpus: {network.total_articles} {presentation.label('articles', 'artikel')}",
+        f"- Korpus: {network.corpus_articles} {presentation.label('articles', 'artikel')}",
         f"- Graf: {summary.get('nodes')} simpul, {summary.get('edges')} sisi, "
         f"kepadatan {summary.get('density')}",
         f"- Komunitas: {(summary.get('communities') or {}).get('count')} "

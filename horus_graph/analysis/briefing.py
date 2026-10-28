@@ -42,7 +42,7 @@ def executive_briefing(
             "modularity": summary["communities"]["modularity"],
             "communities": summary["communities"]["count"],
             "community_sizes": list(summary["communities"]["sizes"]),
-            "articles": network.total_articles,
+            "articles": network.corpus_articles,
         },
         "critical_broker": brokers[0] if brokers else None,
         "largest_community": _largest_community(network),

@@ -19,7 +19,7 @@ from ..contract.models import Domain
 from ..io.bundle import DataBundle
 from . import metrics
 from .backbone import BackboneConfig, BackboneReport, select_edges
-from .cooccurrence import Cooccurrence, cooccurrence
+from .cooccurrence import Cooccurrence, cooccurrence, graph_from_cooccurrence
 from .layers import SentimentLayer, TransmissionLayer, sentiment_layer, transmission_layer
 from .motifs import TRIAD_METHOD, TriadCensus, triad_census
 
@@ -43,6 +43,26 @@ class NetworkBundle:
     cooccurrence: Cooccurrence
     consensus: metrics.ConsensusResult
     triads: TriadCensus
+    # Artikel mentah sebelum dedup. `total_articles` adalah penyebut NPMI, yang
+    # bisa lebih kecil bila pipeline ingest mengisi `dedupe_group`.
+    articles_raw: int = 0
+
+    @property
+    def corpus_articles(self) -> int:
+        """Jumlah artikel yang dibaca; bukan penyebut NPMI bila dedup aktif."""
+        return self.articles_raw or self.total_articles
+
+    @property
+    def aliases(self) -> Dict[str, Tuple[str, ...]]:
+        """Alias per entitas untuk pencarian; kosong bila bundle tidak membawa."""
+        if "aliases" not in self.entities.columns:
+            return {}
+        result: Dict[str, Tuple[str, ...]] = {}
+        for entity_id, values in self.entities["aliases"].items():
+            if values is None:
+                continue
+            result[str(entity_id)] = tuple(str(value) for value in values)
+        return result
 
     @property
     def edge_count(self) -> int:
@@ -67,7 +87,11 @@ class NetworkBundle:
         """Asal setiap angka, supaya laporan bisa diaudit tanpa membaca kode."""
         return {
             "population": {
+                # `total_articles` adalah penyebut NPMI (grup bila dedup aktif);
+                # `articles_raw` adalah jumlah artikel di bundle.
                 "total_articles": self.total_articles,
+                "articles_raw": self.articles_raw or self.total_articles,
+                "dedupe_applied": self.total_articles != (self.articles_raw or self.total_articles),
                 "entities": len(self.entity_ids),
                 "cooccurrence_pairs": self.cooccurrence.pair_count,
                 "dropped_mentions": self.cooccurrence.unknown_mentions,
@@ -141,18 +165,7 @@ def build_network(
     cooc = cooccurrence(bundle)
     selected, rescued, report = select_edges(cooc, config)
 
-    graph = nx.Graph()
-    graph.add_nodes_from(cooc.entity_ids)
-    for position, is_rescued in zip(selected, rescued, strict=False):
-        u = cooc.entity_ids[int(cooc.pair_u[position])]
-        v = cooc.entity_ids[int(cooc.pair_v[position])]
-        graph.add_edge(
-            u,
-            v,
-            weight=int(cooc.support[position]),
-            npmi=float(cooc.npmi[position]),
-            rescued=bool(is_rescued),
-        )
+    graph = graph_from_cooccurrence(cooc, selected, rescued)
 
     betweenness_map = metrics.betweenness(graph)
     closeness_map = metrics.closeness(graph)
@@ -189,6 +202,7 @@ def build_network(
         transmission=transmission_layer(bundle),
         sentiment=sentiment_layer(bundle),
         total_articles=cooc.total_articles,
+        articles_raw=cooc.articles_raw,
         communities=communities,
         node_metrics=node_metrics,
         summary=metrics.summary(graph, communities),
@@ -201,7 +215,10 @@ def build_network(
 
 def _entity_frame(bundle: DataBundle) -> pd.DataFrame:
     """Katalog entitas yang dipakai analisis untuk label dan tipe."""
-    frame = bundle.entities[["entity_id", "label", "entity_type"]].copy()
+    columns = ["entity_id", "label", "entity_type"]
+    if "aliases" in bundle.entities.columns:
+        columns.append("aliases")
+    frame = bundle.entities[columns].copy()
     frame["entity_id"] = frame["entity_id"].astype(str)
     return frame.drop_duplicates("entity_id").set_index("entity_id")
 

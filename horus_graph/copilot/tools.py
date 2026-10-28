@@ -105,7 +105,7 @@ def get_network_overview(state: AppState, args: Dict[str, Any]) -> Dict[str, Any
         "isolated": summary.get("isolated"),
         "communities": communities.get("count"),
         "modularity": communities.get("modularity"),
-        "articles": state.network.total_articles,
+        "articles": state.network.corpus_articles,
         "year_span": list(state.temporal.year_span),
         "layers": dict(state.network.layers),
     }

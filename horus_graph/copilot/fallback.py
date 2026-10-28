@@ -87,7 +87,7 @@ def _overview(state: AppState, entities: List[str], query: str) -> tuple[str, No
             density=summary.get("density"),
             communities=communities.get("count"),
             modularity=communities.get("modularity"),
-            articles=state.network.total_articles,
+            articles=state.network.corpus_articles,
             articles_label=_articles_label(state),
             year_start=year_span[0],
             year_end=year_span[1],
