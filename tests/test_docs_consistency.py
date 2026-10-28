@@ -6,9 +6,9 @@ lalu memakai angka yang salah tanpa ada yang tahu. Tes ini membaca angka dari
 dokumen, menghitung ulang dari repo, dan gagal bila keduanya berbeda — jadi
 dokumen yang tertinggal membuat suite merah, bukan pembaca yang salah paham.
 
-Yang dijaga hanya klaim yang stabil (ukuran berkas dan jumlah modul). Jumlah
-tes tidak dijaga karena berubah setiap commit; ia cukup disebut sebagai
-"seluruh suite hijau".
+Yang dijaga hanya klaim yang stabil: ukuran berkas. Jumlah tes dan jumlah
+modul tidak dijaga karena berubah setiap commit; keduanya cukup disebut tanpa
+angka.
 """
 
 from __future__ import annotations
@@ -61,12 +61,6 @@ def test_berkas_skrip_terbesar_disebut_dengan_benar() -> None:
 
     assert f"`{terbesar}` {ukuran[terbesar]} baris" in _dokumen()
     assert ukuran[terbesar] < 800
-
-
-def test_jumlah_modul_mypy_sama_dengan_dokumen() -> None:
-    jumlah = len(list((REPO / "horus_graph").rglob("*.py")))
-
-    assert f"bersih ({jumlah} berkas)" in _dokumen()
 
 
 def test_tidak_ada_rujukan_baris_index_html_yang_mati() -> None:

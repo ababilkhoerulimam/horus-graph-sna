@@ -416,7 +416,7 @@ yang memuat ambang, ketidakpastian, dan batasannya — tanpa menjelaskan apa pun
 secara lisan.
 
 **Fase V1 selesai.** Keempat butir tertutup, 429 tes lulus, `ruff` dan `mypy`
-bersih (77 berkas). Pada bundle golden, satu laporan HTML sekarang memuat:
+bersih. Pada bundle golden, satu laporan HTML sekarang memuat:
 snapshot_id `5e0643344153eeb6`, ambang 3 / 0.2 dengan 8 sisi diselamatkan,
 seed 42, angka kunci (77 simpul, 475 sisi, Q 0.3872, transitivity 0.7352),
 p-value modularitas dengan resolusinya, ARI komunitas 0.9156 (p05–p95
