@@ -59,9 +59,13 @@ class NetworkBundle:
             return {}
         result: Dict[str, Tuple[str, ...]] = {}
         for entity_id, values in self.entities["aliases"].items():
-            if values is None:
+            # Kolom list dari parquet bisa berisi NaN untuk baris kosong; itu
+            # bukan alias, dan iterasi atasnya akan pecah.
+            if not isinstance(values, (list, tuple, set)):
                 continue
-            result[str(entity_id)] = tuple(str(value) for value in values)
+            cleaned = tuple(str(value).strip() for value in values if str(value).strip())
+            if cleaned:
+                result[str(entity_id)] = cleaned
         return result
 
     @property

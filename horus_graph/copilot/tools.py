@@ -21,7 +21,7 @@ from ..analysis import (
     top_brokers,
     trace_path,
 )
-from ..analysis.resolve import resolve_entity
+from ..analysis.resolve import resolve_candidates, resolve_entity, unresolved_share
 from ..api import queries
 from ..api.state import AppState
 from . import specs
@@ -62,6 +62,12 @@ def _entity(state: AppState, name: Any) -> str:
         raise KeyError("Nama entitas kosong.")
     resolved = resolve_entity(state.network, text)
     if resolved is None:
+        # Ambigu bukan sama dengan tidak ada: pengguna perlu tahu kandidatnya,
+        # bukan disuruh menebak ulang dari katalog lengkap.
+        candidates = resolve_candidates(state.network, text)
+        if candidates:
+            options = ", ".join(candidates)
+            raise KeyError(f"'{text}' ambigu: {options}. Sebutkan nama lengkap atau id.")
         raise KeyError(f"Entitas '{text}' tidak ditemukan di katalog.")
     return resolved
 
@@ -531,6 +537,7 @@ def list_entities(state: AppState, args: Dict[str, Any]) -> Dict[str, Any]:
         "status": "ready",
         "order": order,
         "count": int(len(frame)),
+        "name_coverage": unresolved_share(state.network),
         "entities": [
             {
                 "id": str(entity_id),
